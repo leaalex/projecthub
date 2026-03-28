@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
-import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import EmptyState from '../components/ui/UiEmptyState.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
@@ -12,6 +11,14 @@ import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
+import TasksToolbar from '../components/tasks/TasksToolbar.vue'
+import {
+  presentTasks,
+  type AssigneeFilterValue,
+  type SortDir,
+  type TaskGroupBy,
+  type TaskSortKey,
+} from '../composables/useTaskListPresentation'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
 import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
@@ -20,6 +27,7 @@ import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 
 const route = useRoute()
+const router = useRouter()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const toast = useToast()
@@ -28,6 +36,13 @@ const { assignableUsers } = useAdminAssignableUsers()
 
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus | ''>('')
+
+const searchQuery = ref('')
+const clientPriority = ref<TaskPriority | ''>('')
+const assigneeFilter = ref<AssigneeFilterValue>('')
+const sortKey = ref<TaskSortKey>('updated_at')
+const sortDir = ref<SortDir>('desc')
+const groupBy = ref<TaskGroupBy>('none')
 
 const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 
@@ -56,10 +71,7 @@ const priority = ref<TaskPriority>('medium')
 const saving = ref(false)
 const taskView = ref<'list' | 'board'>('list')
 
-const viewModeOptions = [
-  { value: 'list', label: 'List' },
-  { value: 'board', label: 'Board' },
-]
+const allowServerFilterWatch = ref(false)
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
@@ -72,6 +84,28 @@ const inlineComposerProjectId = computed(() => {
 
 const inlineComposerProjects = computed(() =>
   projectStore.projects.map((p) => ({ id: p.id, name: p.name })),
+)
+
+const showAssigneeFilter = computed(() => assignableUsers.value.length > 0)
+
+const presentation = computed(() =>
+  presentTasks(taskStore.tasks, {
+    search: searchQuery.value,
+    priority: clientPriority.value,
+    assignee: assigneeFilter.value,
+    sortKey: sortKey.value,
+    sortDir: sortDir.value,
+    groupBy: groupBy.value,
+  }),
+)
+
+const displayFlat = computed(() => presentation.value.flat)
+const displayGroups = computed(() => presentation.value.groups)
+
+const listEmptyMessage = computed(() =>
+  taskStore.tasks.length > 0 && displayFlat.value.length === 0
+    ? 'No tasks match your search or filters. Adjust the toolbar or reset.'
+    : 'No tasks match these filters. Add a task above or adjust filters.',
 )
 
 function openTaskDetail(taskId: number) {
@@ -87,15 +121,20 @@ onMounted(async () => {
   await projectStore.fetchList().catch(() => {})
   syncFiltersFromRoute()
   await load()
+  allowServerFilterWatch.value = true
 })
 
 watch(
   () => route.query,
-  async () => {
+  () => {
     syncFiltersFromRoute()
-    await load()
   },
 )
+
+watch([filterProject, filterStatus], async () => {
+  if (!allowServerFilterWatch.value) return
+  await load()
+})
 
 watch(showModal, (open) => {
   if (!open) return
@@ -113,6 +152,18 @@ async function load() {
   if (filterProject.value !== '') params.project_id = Number(filterProject.value)
   if (filterStatus.value !== '') params.status = filterStatus.value
   await taskStore.fetchList(params)
+}
+
+function resetToolbar() {
+  searchQuery.value = ''
+  clientPriority.value = ''
+  assigneeFilter.value = ''
+  sortKey.value = 'updated_at'
+  sortDir.value = 'desc'
+  groupBy.value = 'none'
+  filterProject.value = ''
+  filterStatus.value = ''
+  router.replace({ path: route.path, query: {} })
 }
 
 async function createTask() {
@@ -191,72 +242,105 @@ async function onReopen(id: number) {
       </Button>
     </div>
 
-    <UiSegmentedControl
-      v-model="taskView"
+    <TasksToolbar
+      v-model:task-view="taskView"
+      v-model:filter-project="filterProject"
+      v-model:filter-status="filterStatus"
+      v-model:search-query="searchQuery"
+      v-model:client-priority="clientPriority"
+      v-model:assignee-filter="assigneeFilter"
+      v-model:sort-key="sortKey"
+      v-model:sort-dir="sortDir"
+      v-model:group-by="groupBy"
       class="mt-4"
-      aria-label="Tasks view"
-      :options="viewModeOptions"
+      :projects="inlineComposerProjects"
+      :assignable-users="assignableUsers"
+      :show-assignee-filter="showAssigneeFilter"
+      @reset="resetToolbar"
     />
-
-    <div class="mt-4 flex flex-wrap gap-4">
-      <div>
-        <label class="mb-1 block text-xs font-medium text-muted">Project</label>
-        <select
-          v-model="filterProject"
-          class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          @change="load"
-        >
-          <option value="">All</option>
-          <option v-for="p in projectStore.projects" :key="p.id" :value="p.id">
-            {{ p.name }}
-          </option>
-        </select>
-      </div>
-      <div>
-        <label class="mb-1 block text-xs font-medium text-muted">Status</label>
-        <select
-          v-model="filterStatus"
-          class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          @change="load"
-        >
-          <option value="">All</option>
-          <option value="todo">To do</option>
-          <option value="in_progress">In progress</option>
-          <option value="review">Review</option>
-          <option value="done">Done</option>
-        </select>
-      </div>
-    </div>
 
     <div v-if="taskStore.loading" class="mt-6 space-y-3">
       <Skeleton v-for="i in 5" :key="i" variant="card" />
     </div>
-    <template v-else>
-      <TaskList
-        v-if="taskView === 'list'"
-        class="mt-6"
-        :tasks="taskStore.tasks"
-        :can-edit-task="canEditTask"
-        :projects="inlineComposerProjects"
-        :assignable-users="assignableUsers"
-        empty-message="No tasks match these filters. Add one above or adjust filters."
-        @complete="onComplete"
-        @reopen="onReopen"
-        @info="openTaskDetail"
-        @task-updated="load"
-      >
-        <template #header>
-          <TaskInlineComposer
-            variant="plain"
-            :project-id="inlineComposerProjectId"
+    <template v-else-if="taskView === 'list'">
+      <div class="mt-6 space-y-4">
+        <div
+          class="overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+        >
+          <div class="border-b border-border px-3 py-3">
+            <TaskInlineComposer
+              variant="plain"
+              :project-id="inlineComposerProjectId"
+              :projects="inlineComposerProjects"
+              :disabled="!projectStore.projects.length"
+              @created="load"
+            />
+          </div>
+        </div>
+
+        <template v-if="groupBy === 'none'">
+          <TaskList
+            :tasks="displayFlat"
+            :can-edit-task="canEditTask"
             :projects="inlineComposerProjects"
-            :disabled="!projectStore.projects.length"
-            @created="load"
+            :assignable-users="assignableUsers"
+            :empty-message="listEmptyMessage"
+            @complete="onComplete"
+            @reopen="onReopen"
+            @info="openTaskDetail"
+            @task-updated="load"
           />
         </template>
-      </TaskList>
+        <TaskList
+          v-else-if="!displayFlat.length"
+          :tasks="[]"
+          :can-edit-task="canEditTask"
+          :projects="inlineComposerProjects"
+          :assignable-users="assignableUsers"
+          :empty-message="listEmptyMessage"
+          @complete="onComplete"
+          @reopen="onReopen"
+          @info="openTaskDetail"
+          @task-updated="load"
+        />
+        <template v-else>
+          <div
+            v-for="g in displayGroups"
+            :key="g.key"
+            class="space-y-2"
+          >
+            <h2 class="text-sm font-semibold text-foreground">
+              {{ g.label }}
+              <span class="font-normal text-muted">({{ g.tasks.length }})</span>
+            </h2>
+            <TaskList
+              :tasks="g.tasks"
+              :can-edit-task="canEditTask"
+              :projects="inlineComposerProjects"
+              :assignable-users="assignableUsers"
+              empty-message="No tasks in this group."
+              @complete="onComplete"
+              @reopen="onReopen"
+              @info="openTaskDetail"
+              @task-updated="load"
+            />
+          </div>
+        </template>
+      </div>
+    </template>
+    <template v-else>
       <EmptyState
-        v-else-if="!taskStore.tasks.length"
+        v-if="!displayFlat.length && taskStore.tasks.length > 0"
+        class="mt-6"
+        title="No tasks match filters"
+        description="Try clearing search, assignee, or priority filters, or reset the toolbar."
+      >
+        <Button variant="secondary" type="button" @click="resetToolbar">
+          Reset filters
+        </Button>
+      </EmptyState>
+      <EmptyState
+        v-else-if="!displayFlat.length"
         class="mt-6"
         title="No tasks found"
         description="Create a task or adjust filters to see more."
@@ -271,7 +355,7 @@ async function onReopen(id: number) {
       <TaskKanban
         v-else
         class="mt-6"
-        :tasks="taskStore.tasks"
+        :tasks="displayFlat"
         @changed="load"
       />
     </template>

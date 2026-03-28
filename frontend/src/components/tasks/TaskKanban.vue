@@ -32,6 +32,7 @@ const columns: { status: TaskStatus; title: string }[] = [
 const dragOverColumn = ref<TaskStatus | null>(null)
 const removingId = ref<number | null>(null)
 
+/** Column order follows the order of tasks in the parent array (after client sort). */
 function tasksIn(status: TaskStatus) {
   return props.tasks.filter((t) => t.status === status)
 }
