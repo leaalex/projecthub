@@ -238,45 +238,42 @@ async function onReopen(id: number) {
       </div>
     </div>
 
-    <TaskInlineComposer
-      v-if="taskView === 'list'"
-      class="mt-6"
-      :project-id="inlineComposerProjectId"
-      :projects="inlineComposerProjects"
-      :disabled="!projectStore.projects.length"
-      @created="load"
-    />
-
     <div v-if="taskStore.loading" class="mt-8 space-y-3">
       <Skeleton v-for="i in 5" :key="i" variant="card" />
     </div>
     <template v-else>
+      <TaskList
+        v-if="taskView === 'list'"
+        class="mt-8"
+        :tasks="taskStore.tasks"
+        empty-message="No tasks match these filters. Add one above or adjust filters."
+        @complete="onComplete"
+        @reopen="onReopen"
+        @info="openTaskDetail"
+      >
+        <template #header>
+          <TaskInlineComposer
+            variant="plain"
+            :project-id="inlineComposerProjectId"
+            :projects="inlineComposerProjects"
+            :disabled="!projectStore.projects.length"
+            @created="load"
+          />
+        </template>
+      </TaskList>
       <EmptyState
-        v-if="!taskStore.tasks.length"
+        v-else-if="!taskStore.tasks.length"
         class="mt-8"
         title="No tasks found"
-        :description="
-          taskView === 'list'
-            ? 'Use the field above to add a task, or adjust filters.'
-            : 'Create a task or adjust filters to see more.'
-        "
+        description="Create a task or adjust filters to see more."
       >
         <Button
-          v-if="taskView === 'board'"
           :disabled="!projectStore.projects.length"
           @click="showModal = true"
         >
           Create a task
         </Button>
       </EmptyState>
-      <TaskList
-        v-else-if="taskView === 'list'"
-        class="mt-8"
-        :tasks="taskStore.tasks"
-        @complete="onComplete"
-        @reopen="onReopen"
-        @info="openTaskDetail"
-      />
       <TaskKanban
         v-else
         class="mt-8"

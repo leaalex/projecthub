@@ -126,19 +126,22 @@ async function onReopen(taskId: number) {
       <Button variant="secondary" @click="editOpen = true">Edit</Button>
     </div>
 
-    <TaskInlineComposer
-      class="mt-8"
-      :project-id="id"
-      :disabled="!Number.isFinite(id) || id <= 0"
-      @created="onInlineTaskCreated"
-    />
     <TaskList
-      class="mt-4"
+      class="mt-8"
       :tasks="projectStore.tasks"
       @complete="onComplete"
       @reopen="onReopen"
       @info="openTaskDetail"
-    />
+    >
+      <template #header>
+        <TaskInlineComposer
+          variant="plain"
+          :project-id="id"
+          :disabled="!Number.isFinite(id) || id <= 0"
+          @created="onInlineTaskCreated"
+        />
+      </template>
+    </TaskList>
 
     <TaskDetailModal
       v-model="detailOpen"

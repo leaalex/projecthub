@@ -4,13 +4,18 @@ import Button from '../common/Button.vue'
 import { useTaskStore } from '../../stores/task.store'
 import { useToast } from '../../stores/toast.store'
 
-const props = defineProps<{
-  /** When set, tasks are created in this project only (no project select). */
-  projectId?: number
-  /** Required when `projectId` is not set: options for the project dropdown. */
-  projects?: { id: number; name: string }[]
-  disabled?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** When set, tasks are created in this project only (no project select). */
+    projectId?: number
+    /** Required when `projectId` is not set: options for the project dropdown. */
+    projects?: { id: number; name: string }[]
+    disabled?: boolean
+    /** No outer border/shadow — use inside TaskList panel. */
+    variant?: 'card' | 'plain'
+  }>(),
+  { variant: 'card' },
+)
 
 const emit = defineEmits<{
   created: []
@@ -87,7 +92,12 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <div
-    class="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center sm:gap-3"
+    :class="[
+      'flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3',
+      variant === 'card' &&
+        'rounded-lg border border-border bg-surface p-3 shadow-sm',
+      variant === 'plain' && 'py-1',
+    ]"
   >
     <div v-if="needsProjectSelect" class="shrink-0 sm:min-w-[10rem]">
       <label class="sr-only" for="inline-task-project">Project</label>
