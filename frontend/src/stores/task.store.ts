@@ -27,6 +27,11 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  async function fetchOne(id: number) {
+    const { data } = await api.get<{ task: Task }>(`/tasks/${id}`)
+    return data.task
+  }
+
   async function create(payload: {
     title: string
     description?: string
@@ -80,6 +85,7 @@ export const useTaskStore = defineStore('task', () => {
     loading,
     error,
     fetchList,
+    fetchOne,
     create,
     update,
     remove,
