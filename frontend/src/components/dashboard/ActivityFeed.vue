@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Card from '../ui/UiCard.vue'
 import EmptyState from '../ui/UiEmptyState.vue'
 import { timeAgo } from '../../utils/formatters'
 
@@ -13,7 +14,7 @@ function formatAt(at: string) {
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
+  <Card padding="p-4">
     <h3 class="mb-3 text-sm font-semibold text-foreground">Activity</h3>
     <ul v-if="items.length" class="space-y-2 text-sm">
       <li
@@ -31,5 +32,5 @@ function formatAt(at: string) {
         description="Summary items will show here when available."
       />
     </div>
-  </div>
+  </Card>
 </template>

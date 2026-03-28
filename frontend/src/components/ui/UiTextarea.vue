@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-
 defineOptions({ inheritAttrs: false })
 
 defineProps<{
-  modelValue: string | number
+  modelValue: string
   id?: string
-  type?: string
   label?: string
   placeholder?: string
-  autocomplete?: string
+  rows?: number
   required?: boolean
   disabled?: boolean
   error?: string
@@ -19,12 +16,6 @@ defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
-
-const inputRef = ref<HTMLInputElement | null>(null)
-
-defineExpose({
-  focus: () => inputRef.value?.focus(),
-})
 </script>
 
 <template>
@@ -35,19 +26,17 @@ defineExpose({
       class="mb-1 block text-xs font-medium text-foreground"
       >{{ label }}</label
     >
-    <input
-      ref="inputRef"
+    <textarea
       :id="id"
       v-bind="$attrs"
-      :type="type ?? 'text'"
       :value="modelValue"
       :placeholder="placeholder"
-      :autocomplete="autocomplete"
+      :rows="rows ?? 3"
       :required="required"
       :disabled="disabled"
       :autofocus="autofocus"
-      class="h-8 min-h-8 w-full rounded-md border border-border bg-surface px-3 text-xs leading-normal text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-      @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      class="min-h-[4rem] w-full rounded-md border border-border bg-surface px-3 py-2 text-xs leading-snug text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
     <p v-if="error" class="mt-1 text-sm text-destructive">{{ error }}</p>
   </div>

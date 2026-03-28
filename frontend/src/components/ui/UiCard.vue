@@ -1,12 +1,18 @@
 <script setup lang="ts">
-defineProps<{
-  title?: string
-}>()
+withDefaults(
+  defineProps<{
+    title?: string
+    /** Tailwind padding classes, e.g. `p-6` (default) or `p-4 sm:p-5` */
+    padding?: string
+  }>(),
+  { padding: 'p-6' },
+)
 </script>
 
 <template>
   <div
-    class="rounded-lg border border-border bg-surface p-6 shadow-sm"
+    class="rounded-lg border border-border bg-surface shadow-sm"
+    :class="padding"
   >
     <h2
       v-if="title"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Button from '../ui/UiButton.vue'
+import Input from '../ui/UiInput.vue'
+import UiSelect from '../ui/UiSelect.vue'
 import { useTaskStore } from '../../stores/task.store'
 import { useToast } from '../../composables/useToast'
 
@@ -49,6 +51,10 @@ const effectiveProjectId = computed(() => {
   if (props.projectId != null && props.projectId > 0) return props.projectId
   return selectedProjectId.value
 })
+
+const inlineProjectOptions = computed(() =>
+  (props.projects ?? []).map((p) => ({ value: p.id, label: p.name })),
+)
 
 async function submit() {
   const t = title.value.trim()
@@ -100,26 +106,21 @@ function onKeydown(e: KeyboardEvent) {
     ]"
   >
     <div v-if="needsProjectSelect" class="shrink-0 sm:min-w-[10rem]">
-      <label class="sr-only" for="inline-task-project">Project</label>
-      <select
+      <UiSelect
         id="inline-task-project"
-        v-model.number="selectedProjectId"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        v-model="selectedProjectId"
+        :options="inlineProjectOptions"
         :disabled="disabled || saving"
-      >
-        <option v-for="p in projects" :key="p.id" :value="p.id">
-          {{ p.name }}
-        </option>
-      </select>
+      />
     </div>
     <div class="min-w-0 flex-1">
       <label class="sr-only" for="inline-task-title">Task title</label>
-      <input
+      <Input
         id="inline-task-title"
         v-model="title"
         type="text"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         placeholder="New task title…"
+        autocomplete="off"
         :disabled="disabled || saving"
         @keydown="onKeydown"
       />

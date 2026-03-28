@@ -35,13 +35,19 @@ const phone = ref('')
 const email = ref('')
 
 const saving = ref(false)
-const message = ref<string | null>(null)
+const profileFeedback = ref<{
+  text: string
+  kind: 'success' | 'error'
+} | null>(null)
 
 const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const savingPassword = ref(false)
-const passwordMessage = ref<string | null>(null)
+const passwordFeedback = ref<{
+  text: string
+  kind: 'success' | 'error'
+} | null>(null)
 
 function fillFromUser() {
   const u = auth.user
@@ -66,7 +72,7 @@ onMounted(async () => {
 
 async function save() {
   saving.value = true
-  message.value = null
+  profileFeedback.value = null
   try {
     await auth.updateProfile({
       email: email.value,
@@ -77,22 +83,34 @@ async function save() {
       job_title: jobTitle.value,
       phone: phone.value,
     })
-    message.value = 'Данные сохранены.'
+    profileFeedback.value = {
+      text: 'Данные сохранены.',
+      kind: 'success',
+    }
   } catch {
-    message.value = 'Не удалось сохранить (возможно, email уже занят).'
+    profileFeedback.value = {
+      text: 'Не удалось сохранить (возможно, email уже занят).',
+      kind: 'error',
+    }
   } finally {
     saving.value = false
   }
 }
 
 async function savePassword() {
-  passwordMessage.value = null
+  passwordFeedback.value = null
   if (newPassword.value !== confirmPassword.value) {
-    passwordMessage.value = 'Новый пароль и подтверждение не совпадают.'
+    passwordFeedback.value = {
+      text: 'Новый пароль и подтверждение не совпадают.',
+      kind: 'error',
+    }
     return
   }
   if (newPassword.value.length < 8) {
-    passwordMessage.value = 'Новый пароль — не менее 8 символов.'
+    passwordFeedback.value = {
+      text: 'Новый пароль — не менее 8 символов.',
+      kind: 'error',
+    }
     return
   }
   savingPassword.value = true
@@ -101,19 +119,31 @@ async function savePassword() {
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
-    passwordMessage.value = 'Пароль изменён.'
+    passwordFeedback.value = {
+      text: 'Пароль изменён.',
+      kind: 'success',
+    }
   } catch (e) {
     if (axios.isAxiosError(e)) {
       const err = (e.response?.data as { error?: string } | undefined)?.error
       if (e.response?.status === 401) {
-        passwordMessage.value = 'Неверный текущий пароль.'
+        passwordFeedback.value = {
+          text: 'Неверный текущий пароль.',
+          kind: 'error',
+        }
       } else if (err) {
-        passwordMessage.value = err
+        passwordFeedback.value = { text: err, kind: 'error' }
       } else {
-        passwordMessage.value = 'Не удалось сменить пароль.'
+        passwordFeedback.value = {
+          text: 'Не удалось сменить пароль.',
+          kind: 'error',
+        }
       }
     } else {
-      passwordMessage.value = 'Не удалось сменить пароль.'
+      passwordFeedback.value = {
+        text: 'Не удалось сменить пароль.',
+        kind: 'error',
+      }
     }
   } finally {
     savingPassword.value = false
@@ -190,7 +220,17 @@ async function savePassword() {
                 autocomplete="email"
               />
             </div>
-            <p v-if="message" class="text-sm text-muted">{{ message }}</p>
+            <p
+              v-if="profileFeedback"
+              class="text-sm"
+              :class="
+                profileFeedback.kind === 'success'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-destructive'
+              "
+            >
+              {{ profileFeedback.text }}
+            </p>
             <Button type="submit" :disabled="saving">
               {{ saving ? 'Сохранение…' : 'Сохранить' }}
             </Button>
@@ -245,8 +285,16 @@ async function savePassword() {
             type="password"
             autocomplete="new-password"
           />
-          <p v-if="passwordMessage" class="text-sm text-muted">
-            {{ passwordMessage }}
+          <p
+            v-if="passwordFeedback"
+            class="text-sm"
+            :class="
+              passwordFeedback.kind === 'success'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-destructive'
+            "
+          >
+            {{ passwordFeedback.text }}
           </p>
           <Button type="submit" :disabled="savingPassword">
             {{ savingPassword ? 'Сохранение…' : 'Сменить пароль' }}

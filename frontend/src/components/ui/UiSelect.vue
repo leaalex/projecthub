@@ -130,16 +130,23 @@ const selectedValues = computed((): (string | number)[] => {
   return Array.isArray(mv) ? [...mv] : []
 })
 
-const displayTitle = computed(() => {
-  if (!props.multiple) return undefined
+/** Multiple mode: human-readable list of selected option labels (comma-separated). */
+const multipleSelectedLabels = computed(() => {
+  if (!props.multiple) return ''
   const sel = selectedValues.value
-  if (sel.length <= 1) return undefined
+  if (sel.length === 0) return ''
   return sel
     .map(
       (v) =>
         props.options.find((o) => valuesEqual(o.value, v))?.label ?? String(v),
     )
     .join(', ')
+})
+
+const displayTitle = computed(() => {
+  if (!props.multiple) return undefined
+  const text = multipleSelectedLabels.value
+  return text || undefined
 })
 
 /** Единая компактная сетка (см. style.css --ui-control-h) */
@@ -151,13 +158,9 @@ const chevronIconClass = 'h-3.5 w-3.5 shrink-0'
 
 const displayLabel = computed(() => {
   if (props.multiple) {
-    const sel = selectedValues.value
-    if (sel.length === 0) return props.placeholder ?? ''
-    if (sel.length === 1) {
-      const o = props.options.find((x) => valuesEqual(x.value, sel[0]))
-      return o?.label ?? String(sel[0])
-    }
-    return `${sel.length} selected`
+    const text = multipleSelectedLabels.value
+    if (!text) return props.placeholder ?? ''
+    return text
   }
   const s = selectedOption.value
   if (s) return s.label

@@ -7,6 +7,7 @@ import Modal from '../components/ui/UiModal.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
 import ReportSettings from '../components/reports/ReportSettings.vue'
 import ReportViewer from '../components/reports/ReportViewer.vue'
+import Card from '../components/ui/UiCard.vue'
 import Table from '../components/ui/UiTable.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
@@ -187,7 +188,7 @@ async function deleteSaved(r: SavedReport) {
     <div class="mt-6 space-y-6">
       <ReportViewer :report="report" :loading="loading" />
 
-      <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
+      <Card padding="p-4">
         <h2 class="text-lg font-semibold text-foreground">Saved reports</h2>
         <p class="mt-1 text-sm text-muted">
           Files on the server; download anytime.
@@ -242,7 +243,7 @@ async function deleteSaved(r: SavedReport) {
             </td>
           </tr>
         </Table>
-      </div>
+      </Card>
     </div>
 
     <Modal v-model="modalOpen" title="New report" wide>

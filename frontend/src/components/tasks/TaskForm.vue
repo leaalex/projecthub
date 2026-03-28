@@ -4,6 +4,7 @@ import type { TaskPriority, TaskStatus } from '../../types/task'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
 import UiSelect from '../ui/UiSelect.vue'
+import UiTextarea from '../ui/UiTextarea.vue'
 
 const title = defineModel<string>('title', { default: '' })
 const description = defineModel<string>('description', { default: '' })
@@ -53,17 +54,13 @@ const projectOptions = computed(() => [
 <template>
   <form class="space-y-4" @submit.prevent="emit('submit')">
     <Input id="tf-title" v-model="title" label="Title" required autofocus />
-    <div>
-      <label class="mb-1 block text-sm font-medium text-foreground"
-        >Description</label
-      >
-      <textarea
-        id="tf-desc"
-        v-model="description"
-        rows="2"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-    </div>
+    <UiTextarea
+      id="tf-desc"
+      v-model="description"
+      label="Description"
+      :rows="2"
+      placeholder="Optional"
+    />
     <div v-if="!hideProjectSelect">
       <UiSelect
         id="tf-project"

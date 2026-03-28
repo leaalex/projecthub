@@ -122,7 +122,7 @@ const assigneeModel = computed({
 </script>
 
 <template>
-  <UiCard class="!p-4 sm:!p-5">
+  <UiCard padding="p-4 sm:p-5">
     <div class="space-y-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <UiSegmentedControl

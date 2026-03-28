@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
+import UiTextarea from '../ui/UiTextarea.vue'
 
 const name = defineModel<string>('name', { default: '' })
 const description = defineModel<string>('description', { default: '' })
@@ -19,17 +20,12 @@ const emit = defineEmits<{
 <template>
   <form class="space-y-4" @submit.prevent="emit('submit')">
     <Input id="pf-name" v-model="name" label="Name" required autofocus />
-    <div>
-      <label class="mb-1 block text-sm font-medium text-foreground"
-        >Description</label
-      >
-      <textarea
-        id="pf-desc"
-        v-model="description"
-        rows="3"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-    </div>
+    <UiTextarea
+      id="pf-desc"
+      v-model="description"
+      label="Description"
+      :rows="3"
+    />
     <div class="flex justify-end gap-2">
       <Button type="button" variant="ghost" @click="emit('cancel')">
         Cancel

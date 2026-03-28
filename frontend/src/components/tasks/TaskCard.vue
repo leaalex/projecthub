@@ -11,17 +11,10 @@ import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import { timeAgo } from '../../utils/formatters'
 import Badge from '../ui/UiBadge.vue'
+import Button from '../ui/UiButton.vue'
+import UiInput from '../ui/UiInput.vue'
 import UiSelect, { type UiSelectModelValue } from '../ui/UiSelect.vue'
-
-const controlClass =
-  'h-8 min-h-8 w-full rounded-md border border-border bg-surface px-3 text-xs leading-normal text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
-
-/** Inline toolbar: same grid as UiSelect / UiInput */
-const rowControlClass =
-  'h-8 min-h-8 min-w-0 rounded-md border border-border bg-surface px-3 text-xs leading-normal text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
-
-const textareaClass =
-  'min-h-[4rem] w-full rounded-md border border-border bg-surface px-3 py-2 text-xs leading-snug text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
+import UiTextarea from '../ui/UiTextarea.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -60,7 +53,7 @@ const draftProjectId = ref(0)
 const draftDue = ref('')
 const draftAssigneeId = ref<number | ''>('')
 
-const titleInput = ref<HTMLInputElement | null>(null)
+const titleInputRef = ref<{ focus: () => void } | null>(null)
 
 /** Исполнитель в правой колонке (колонка скрыта при развёрнутом редактировании). */
 const assigneeLabel = computed(() => {
@@ -106,7 +99,7 @@ function openExpanded() {
   if (!props.canEdit) return
   syncDraftsFromTask()
   expanded.value = true
-  nextTick(() => titleInput.value?.focus())
+  nextTick(() => titleInputRef.value?.focus())
 }
 
 function onBodyClick() {
@@ -320,24 +313,21 @@ function setDraftAssignee(v: UiSelectModelValue) {
         class="space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
         @click.stop
       >
-        <div class="flex items-center gap-1.5">
-          <input
-            ref="titleInput"
+        <div class="min-w-0 flex-1">
+          <UiInput
+            ref="titleInputRef"
             v-model="draftTitle"
-            type="text"
             placeholder="Title"
-            :class="controlClass"
-            class="min-w-0 flex-1 font-medium"
+            class="font-medium"
             :disabled="busy"
             @keydown="onTitleKeydown"
           />
         </div>
 
-        <textarea
+        <UiTextarea
           v-model="draftDescription"
-          rows="2"
+          :rows="2"
           placeholder="Description (optional)"
-          :class="textareaClass"
           :disabled="busy"
           @keydown="onInlineEscape"
         />
@@ -418,36 +408,33 @@ function setDraftAssignee(v: UiSelectModelValue) {
                 : 'No assignee'
             }}
           </span>
-          <input
-            v-model="draftDue"
-            type="date"
-            aria-label="Due date"
-            :class="rowControlClass"
+          <div
             class="w-auto min-w-[9.25rem] shrink-0 sm:flex-1 sm:min-w-[9.25rem]"
-            :disabled="busy"
-            @keydown="onInlineEscape"
-          />
+          >
+            <UiInput
+              v-model="draftDue"
+              type="date"
+              aria-label="Due date"
+              :disabled="busy"
+              @keydown="onInlineEscape"
+            />
+          </div>
         </div>
         <div
           class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2"
         >
           <div class="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
-              class="inline-flex h-8 min-h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+              variant="secondary"
               :disabled="busy"
               @click="collapseExpanded"
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              class="inline-flex h-8 min-h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              :disabled="busy"
-              @click="saveAndCollapse"
-            >
+            </Button>
+            <Button type="button" :disabled="busy" @click="saveAndCollapse">
               Save
-            </button>
+            </Button>
           </div>
           <button
             type="button"

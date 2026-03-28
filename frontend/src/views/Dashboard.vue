@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import ActivityFeed from '../components/dashboard/ActivityFeed.vue'
 import StatsCard from '../components/dashboard/StatsCard.vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Card from '../components/ui/UiCard.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
 import { api } from '../utils/api'
 import type { WeeklyReport } from '../types/report'
@@ -86,20 +87,22 @@ const activityItems = computed(() => {
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
-      <div v-if="dashboardLoading" class="rounded-lg border border-border bg-surface p-4">
+      <Card v-if="dashboardLoading" class="min-w-0" padding="p-4">
         <Skeleton variant="line" :lines="4" />
-      </div>
+      </Card>
       <ActivityFeed v-else :items="activityItems" />
-      <div
+      <Card
         v-if="dashboardLoading"
-        class="rounded-lg border border-border bg-surface p-4 shadow-sm"
+        class="min-w-0"
+        padding="p-4"
       >
         <Skeleton variant="line" class="mb-3 max-w-[8rem]" />
         <Skeleton variant="line" :lines="4" />
-      </div>
-      <div
+      </Card>
+      <Card
         v-else
-        class="rounded-lg border border-border bg-surface p-4 text-sm text-muted shadow-sm"
+        class="min-w-0 text-sm text-muted"
+        padding="p-4"
       >
         <p class="font-medium text-foreground">Quick links</p>
         <ul class="mt-2 space-y-1">
@@ -119,7 +122,7 @@ const activityItems = computed(() => {
             >
           </li>
         </ul>
-      </div>
+      </Card>
     </div>
   </div>
 </template>
