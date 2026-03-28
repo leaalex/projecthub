@@ -11,8 +11,10 @@ import ProjectForm from '../components/projects/ProjectForm.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
+import { useToast } from '../stores/toast.store'
 
 const { confirm } = useConfirm()
+const toast = useToast()
 
 const route = useRoute()
 const router = useRouter()
@@ -88,6 +90,18 @@ async function onComplete(taskId: number) {
   await taskStore.complete(taskId)
   await projectStore.fetchTasks(id.value)
 }
+
+async function onReopen(taskId: number) {
+  try {
+    await taskStore.update(taskId, { status: 'todo' })
+    await projectStore.fetchTasks(id.value)
+    toast.success('Task marked as not done')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+  }
+}
 </script>
 
 <template>
@@ -112,19 +126,17 @@ async function onComplete(taskId: number) {
       <Button variant="secondary" @click="editOpen = true">Edit</Button>
     </div>
 
-    <div class="mt-8">
-      <h2 class="text-lg font-medium text-foreground">Tasks in this project</h2>
-      <TaskInlineComposer
-        class="mt-3"
-        :project-id="id"
-        :disabled="!Number.isFinite(id) || id <= 0"
-        @created="onInlineTaskCreated"
-      />
-    </div>
+    <TaskInlineComposer
+      class="mt-8"
+      :project-id="id"
+      :disabled="!Number.isFinite(id) || id <= 0"
+      @created="onInlineTaskCreated"
+    />
     <TaskList
       class="mt-4"
       :tasks="projectStore.tasks"
       @complete="onComplete"
+      @reopen="onReopen"
       @info="openTaskDetail"
     />
 

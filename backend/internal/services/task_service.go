@@ -137,39 +137,65 @@ type TaskUpdate struct {
 	DueDate     *string
 }
 
+func assigneeMayReopenDone(t *models.Task, userID uint, in TaskUpdate) bool {
+	if in.Status == nil {
+		return false
+	}
+	if t.Status != models.StatusDone || *in.Status == models.StatusDone {
+		return false
+	}
+	if in.Title != nil || in.Description != nil || in.Priority != nil || in.DueDate != nil {
+		return false
+	}
+	if t.AssigneeID == nil || *t.AssigneeID != userID {
+		return false
+	}
+	return true
+}
+
 func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, error) {
 	t, err := s.Get(id, userID)
 	if err != nil {
 		return nil, err
 	}
-	ok, err := s.isProjectOwner(t.ProjectID, userID)
-	if err != nil || !ok {
-		if err == nil {
-			err = ErrForbidden
-		}
+	owner, err := s.isProjectOwner(t.ProjectID, userID)
+	if err != nil {
 		return nil, err
 	}
-	if in.Title != nil {
-		v := strings.TrimSpace(*in.Title)
-		if v == "" {
-			return nil, ErrInvalidInput
+	if owner {
+		if in.Title != nil {
+			v := strings.TrimSpace(*in.Title)
+			if v == "" {
+				return nil, ErrInvalidInput
+			}
+			t.Title = v
 		}
-		t.Title = v
+		if in.Description != nil {
+			t.Description = *in.Description
+		}
+		if in.Status != nil {
+			t.Status = *in.Status
+		}
+		if in.Priority != nil {
+			t.Priority = *in.Priority
+		}
+		if err := s.DB.Save(t).Error; err != nil {
+			return nil, err
+		}
+		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		return t, nil
 	}
-	if in.Description != nil {
-		t.Description = *in.Description
-	}
-	if in.Status != nil {
+
+	if assigneeMayReopenDone(t, userID, in) {
 		t.Status = *in.Status
+		if err := s.DB.Save(t).Error; err != nil {
+			return nil, err
+		}
+		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		return t, nil
 	}
-	if in.Priority != nil {
-		t.Priority = *in.Priority
-	}
-	if err := s.DB.Save(t).Error; err != nil {
-		return nil, err
-	}
-	s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
-	return t, nil
+
+	return nil, ErrForbidden
 }
 
 func (s *TaskService) Delete(id, userID uint) error {

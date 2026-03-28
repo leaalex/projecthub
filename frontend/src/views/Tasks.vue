@@ -144,6 +144,18 @@ async function onComplete(id: number) {
   await taskStore.complete(id)
   await load()
 }
+
+async function onReopen(id: number) {
+  try {
+    await taskStore.update(id, { status: 'todo' })
+    await load()
+    toast.success('Task marked as not done')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+  }
+}
 </script>
 
 <template>
@@ -262,6 +274,7 @@ async function onComplete(id: number) {
         class="mt-8"
         :tasks="taskStore.tasks"
         @complete="onComplete"
+        @reopen="onReopen"
         @info="openTaskDetail"
       />
       <TaskKanban

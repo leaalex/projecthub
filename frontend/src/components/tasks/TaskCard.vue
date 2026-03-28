@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircleIcon } from '@heroicons/vue/24/solid'
+import { CheckIcon } from '@heroicons/vue/24/solid'
 import { InformationCircleIcon } from '@heroicons/vue/24/outline'
 import type { Task } from '../../types/task'
 import { timeAgo } from '../../utils/formatters'
@@ -13,6 +13,7 @@ defineProps<{
 
 const emit = defineEmits<{
   complete: [id: number]
+  reopen: [id: number]
   info: [id: number]
 }>()
 </script>
@@ -27,11 +28,15 @@ const emit = defineEmits<{
         aria-label="Mark done"
         @click="emit('complete', task.id)"
       />
-      <CheckCircleIcon
+      <button
         v-else
-        class="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
-        aria-hidden="true"
-      />
+        type="button"
+        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-emerald-500"
+        aria-label="Mark as not done"
+        @click="emit('reopen', task.id)"
+      >
+        <CheckIcon class="h-3 w-3 text-white" aria-hidden="true" />
+      </button>
     </div>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
