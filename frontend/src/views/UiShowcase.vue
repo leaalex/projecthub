@@ -10,6 +10,7 @@ import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import UiFilterChip from '../components/ui/UiFilterChip.vue'
 import UiFormSection from '../components/ui/UiFormSection.vue'
 import UiInput from '../components/ui/UiInput.vue'
+import UiMenuButton from '../components/ui/UiMenuButton.vue'
 import UiModal from '../components/ui/UiModal.vue'
 import UiScrollPanel from '../components/ui/UiScrollPanel.vue'
 import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
@@ -39,6 +40,15 @@ const demoSelectEmpty = ref('')
 const demoSelectFilterable = ref('')
 const demoSelectMulti = ref<(string | number)[]>(['latte'])
 const demoSelectFilterableMulti = ref<(string | number)[]>(['ams', 'vie'])
+
+const demoMenuValue = ref<string | number>('latte')
+const demoMenuActionLog = ref('—')
+const menuActionOptions = [
+  { value: 'edit', label: 'Edit' },
+  { value: 'copy', label: 'Duplicate' },
+  { value: 'archive', label: 'Archive' },
+  { value: 'del', label: 'Delete', disabled: true },
+]
 
 const selectFlavorOptions = [
   { value: 'latte', label: 'Latte' },
@@ -110,6 +120,11 @@ async function runConfirmDemo() {
     confirmLabel: 'OK',
   })
   toast.info(ok ? 'Confirmed' : 'Cancelled')
+}
+
+function onDemoMenuSelect(v: string | number) {
+  demoMenuActionLog.value = String(v)
+  toast.info(`Action: ${v}`)
 }
 </script>
 
@@ -347,6 +362,37 @@ async function runConfirmDemo() {
                 demoSelectFilterableMulti.join(', ') || '—'
               }}</code>
             </p>
+          </div>
+        </div>
+      </UiCard>
+
+      <UiCard title="Menu button (UiMenuButton)">
+        <p class="mb-4 text-sm text-muted">
+          Dropdown like
+          <code class="text-foreground">UiSelect</code>, opened by an icon
+          trigger (<code class="text-foreground">aria-label</code> required).
+        </p>
+        <div class="flex flex-wrap items-center gap-6">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium text-muted">With v-model</span>
+            <UiMenuButton
+              v-model="demoMenuValue"
+              ariaLabel="Choose drink"
+              title="Choose drink"
+              :options="selectFlavorOptions"
+            />
+            <code class="text-xs text-foreground">{{ demoMenuValue }}</code>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium text-muted">Actions (@select)</span>
+            <UiMenuButton
+              ariaLabel="Row actions"
+              title="Row actions"
+              :options="menuActionOptions"
+              placement="bottom-start"
+              @select="onDemoMenuSelect"
+            />
+            <code class="text-xs text-foreground">{{ demoMenuActionLog }}</code>
           </div>
         </div>
       </UiCard>
