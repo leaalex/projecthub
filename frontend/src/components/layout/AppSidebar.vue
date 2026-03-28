@@ -36,7 +36,7 @@ watch(
 
   <!-- Desktop rail -->
   <aside
-    class="relative hidden min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out dark:shadow-xl dark:ring-white/10 md:flex"
+    class="relative hidden h-full max-h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out dark:shadow-xl dark:ring-white/10 md:flex"
     :class="ui.sidebarCollapsed ? 'w-16' : 'w-56'"
   >
     <SidebarNav :collapsed="ui.sidebarCollapsed" />

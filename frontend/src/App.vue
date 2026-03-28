@@ -27,7 +27,9 @@ const useAuthLayout = computed(() => route.meta.layout === 'auth')
       </router-view>
     </template>
     <template v-else>
-      <div class="relative flex min-h-dvh md:gap-3 md:p-3 lg:gap-4 lg:p-4">
+      <div
+        class="relative flex h-dvh max-h-dvh min-h-0 overflow-hidden md:gap-3 md:p-3 lg:gap-4 lg:p-4"
+      >
         <button
           type="button"
           class="fixed left-4 top-4 z-30 rounded-md border border-border bg-surface p-2 text-muted shadow-sm transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
@@ -37,8 +39,10 @@ const useAuthLayout = computed(() => route.meta.layout === 'auth')
           <Bars3Icon class="h-6 w-6" aria-hidden="true" />
         </button>
         <AppSidebar />
-        <div class="flex min-h-0 flex-1 flex-col">
-          <main class="flex-1 overflow-auto bg-background p-6 pt-16 md:pt-6">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <main
+            class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-background p-6 pt-16 md:pt-6"
+          >
             <router-view v-slot="{ Component }">
               <Transition name="page" mode="out-in">
                 <component :is="Component" :key="route.fullPath" />

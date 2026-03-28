@@ -9,11 +9,19 @@ const projectId = defineModel<number>('projectId', { default: 0 })
 const status = defineModel<TaskStatus>('status', { default: 'todo' })
 const priority = defineModel<TaskPriority>('priority', { default: 'medium' })
 
-defineProps<{
-  projects: { id: number; name: string }[]
-  loading?: boolean
-  submitLabel?: string
-}>()
+withDefaults(
+  defineProps<{
+    projects?: { id: number; name: string }[]
+    loading?: boolean
+    submitLabel?: string
+    /** Hide project picker (e.g. creating a task from project page) */
+    hideProjectSelect?: boolean
+  }>(),
+  {
+    projects: () => [],
+    hideProjectSelect: false,
+  },
+)
 
 const emit = defineEmits<{
   submit: []
@@ -35,7 +43,7 @@ const emit = defineEmits<{
         class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
       />
     </div>
-    <div>
+    <div v-if="!hideProjectSelect">
       <label class="mb-1 block text-sm font-medium text-foreground"
         >Project</label
       >
