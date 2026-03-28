@@ -7,7 +7,7 @@ type Project struct {
 	Name        string    `gorm:"not null" json:"name"`
 	Description string    `json:"description"`
 	OwnerID     uint      `gorm:"not null;index" json:"owner_id"`
-	Owner       User      `gorm:"foreignKey:OwnerID" json:"-"`
+	Owner       User      `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

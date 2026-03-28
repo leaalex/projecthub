@@ -15,16 +15,30 @@ type UserHandler struct {
 }
 
 type userUpdateBody struct {
-	Name  *string `json:"name"`
-	Email *string `json:"email"`
+	Name        *string `json:"name"`
+	Email       *string `json:"email"`
+	LastName    *string `json:"last_name"`
+	FirstName   *string `json:"first_name"`
+	Patronymic  *string `json:"patronymic"`
+	Department  *string `json:"department"`
+	JobTitle    *string `json:"job_title"`
+	Phone       *string `json:"phone"`
 }
 
 func userPublic(u *models.User) gin.H {
 	return gin.H{
-		"id":    u.ID,
-		"email": u.Email,
-		"name":  u.Name,
-		"role":  u.Role,
+		"id":          u.ID,
+		"email":       u.Email,
+		"name":        models.UserDisplayName(u),
+		"last_name":   u.LastName,
+		"first_name":  u.FirstName,
+		"patronymic":  u.Patronymic,
+		"department":  u.Department,
+		"job_title":   u.JobTitle,
+		"phone":       u.Phone,
+		"role":        u.Role,
+		"created_at":  u.CreatedAt,
+		"updated_at":  u.UpdatedAt,
 	}
 }
 
@@ -94,7 +108,17 @@ func (h *UserHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	u, err := h.Svc.Update(uint(id), callerID, role, body.Name, body.Email)
+	patch := services.UserProfilePatch{
+		Name:        body.Name,
+		Email:       body.Email,
+		LastName:    body.LastName,
+		FirstName:   body.FirstName,
+		Patronymic:  body.Patronymic,
+		Department:  body.Department,
+		JobTitle:    body.JobTitle,
+		Phone:       body.Phone,
+	}
+	u, err := h.Svc.Update(uint(id), callerID, role, patch)
 	if err != nil {
 		if err == services.ErrForbidden {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})

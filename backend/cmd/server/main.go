@@ -62,6 +62,7 @@ func main() {
 	protected := api.Group("")
 	protected.Use(middleware.JWTAuth(cfg.JWTSecret))
 	protected.GET("/me", authHandler.Me)
+	protected.POST("/me/password", authHandler.ChangePassword)
 
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)

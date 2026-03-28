@@ -4,6 +4,7 @@ import {
   MoonIcon,
   SunIcon,
 } from '@heroicons/vue/24/outline'
+import axios from 'axios'
 import { onMounted, ref } from 'vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
@@ -24,14 +25,43 @@ const themeOptions: {
   { mode: 'dark', label: 'Dark', icon: MoonIcon },
   { mode: 'system', label: 'System', icon: ComputerDesktopIcon },
 ]
-const name = ref('')
+
+const lastName = ref('')
+const firstName = ref('')
+const patronymic = ref('')
+const department = ref('')
+const jobTitle = ref('')
+const phone = ref('')
 const email = ref('')
+
 const saving = ref(false)
 const message = ref<string | null>(null)
 
-onMounted(() => {
-  name.value = auth.user?.name ?? ''
-  email.value = auth.user?.email ?? ''
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const savingPassword = ref(false)
+const passwordMessage = ref<string | null>(null)
+
+function fillFromUser() {
+  const u = auth.user
+  if (!u) return
+  lastName.value = u.last_name ?? ''
+  firstName.value = u.first_name ?? ''
+  patronymic.value = u.patronymic ?? ''
+  department.value = u.department ?? ''
+  jobTitle.value = u.job_title ?? ''
+  phone.value = u.phone ?? ''
+  email.value = u.email ?? ''
+}
+
+onMounted(async () => {
+  try {
+    await auth.fetchMe()
+  } catch {
+    /* keep cached user */
+  }
+  fillFromUser()
 })
 
 async function save() {
@@ -39,14 +69,54 @@ async function save() {
   message.value = null
   try {
     await auth.updateProfile({
-      name: name.value,
       email: email.value,
+      last_name: lastName.value,
+      first_name: firstName.value,
+      patronymic: patronymic.value,
+      department: department.value,
+      job_title: jobTitle.value,
+      phone: phone.value,
     })
-    message.value = 'Profile saved.'
+    message.value = 'Данные сохранены.'
   } catch {
-    message.value = 'Could not save profile (email may be taken).'
+    message.value = 'Не удалось сохранить (возможно, email уже занят).'
   } finally {
     saving.value = false
+  }
+}
+
+async function savePassword() {
+  passwordMessage.value = null
+  if (newPassword.value !== confirmPassword.value) {
+    passwordMessage.value = 'Новый пароль и подтверждение не совпадают.'
+    return
+  }
+  if (newPassword.value.length < 8) {
+    passwordMessage.value = 'Новый пароль — не менее 8 символов.'
+    return
+  }
+  savingPassword.value = true
+  try {
+    await auth.changePassword(currentPassword.value, newPassword.value)
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    passwordMessage.value = 'Пароль изменён.'
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      const err = (e.response?.data as { error?: string } | undefined)?.error
+      if (e.response?.status === 401) {
+        passwordMessage.value = 'Неверный текущий пароль.'
+      } else if (err) {
+        passwordMessage.value = err
+      } else {
+        passwordMessage.value = 'Не удалось сменить пароль.'
+      }
+    } else {
+      passwordMessage.value = 'Не удалось сменить пароль.'
+    }
+  } finally {
+    savingPassword.value = false
   }
 }
 </script>
@@ -60,49 +130,129 @@ async function save() {
         { label: 'Profile' },
       ]"
     />
-    <h1 class="text-2xl font-semibold text-foreground">Profile</h1>
-    <p class="mt-1 text-sm text-muted">Update your account</p>
+    <h1 class="text-2xl font-semibold text-foreground">Профиль</h1>
+    <p class="mt-1 text-sm text-muted">
+      Личные данные и безопасность
+    </p>
 
-    <Card class="mt-6 max-w-md" title="Details">
-      <form class="space-y-4" @submit.prevent="save">
-        <Input id="pf-name" v-model="name" label="Name" />
-        <Input
-          id="pf-email"
-          v-model="email"
-          label="Email"
-          type="email"
-          required
-          autocomplete="email"
-        />
-        <p v-if="message" class="text-sm text-muted">{{ message }}</p>
-        <Button type="submit" :disabled="saving">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </Button>
-      </form>
-    </Card>
+    <div
+      class="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start"
+    >
+      <div class="flex min-w-0 flex-col gap-6">
+        <Card class="min-w-0" title="Персональные данные">
+          <form class="space-y-4" @submit.prevent="save">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <Input
+                id="pf-last-name"
+                v-model="lastName"
+                label="Фамилия"
+                autocomplete="family-name"
+              />
+              <Input
+                id="pf-first-name"
+                v-model="firstName"
+                label="Имя"
+                autocomplete="given-name"
+              />
+            </div>
+            <Input
+              id="pf-patronymic"
+              v-model="patronymic"
+              label="Отчество"
+              autocomplete="additional-name"
+            />
+            <Input
+              id="pf-department"
+              v-model="department"
+              label="Название подразделения"
+              autocomplete="organization"
+            />
+            <Input
+              id="pf-job"
+              v-model="jobTitle"
+              label="Должность"
+              autocomplete="organization-title"
+            />
+            <div class="grid gap-4 sm:grid-cols-2">
+              <Input
+                id="pf-phone"
+                v-model="phone"
+                label="Телефон"
+                type="tel"
+                autocomplete="tel"
+              />
+              <Input
+                id="pf-email"
+                v-model="email"
+                label="Email"
+                type="email"
+                required
+                autocomplete="email"
+              />
+            </div>
+            <p v-if="message" class="text-sm text-muted">{{ message }}</p>
+            <Button type="submit" :disabled="saving">
+              {{ saving ? 'Сохранение…' : 'Сохранить' }}
+            </Button>
+          </form>
+        </Card>
 
-    <Card class="mt-6 max-w-md" title="Appearance">
-      <p class="mb-3 text-sm text-muted">
-        Color theme for this device
-      </p>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="opt in themeOptions"
-          :key="opt.mode"
-          type="button"
-          class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
-          :class="
-            ui.theme === opt.mode
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-border bg-surface-muted/50 text-muted hover:bg-surface-muted hover:text-foreground'
-          "
-          :aria-pressed="ui.theme === opt.mode"
-          @click="ui.setTheme(opt.mode)"
-        >
-          <component :is="opt.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
-          {{ opt.label }}
-        </button>
+        <Card class="min-w-0" title="Appearance">
+          <p class="mb-3 text-sm text-muted">
+            Color theme for this device
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="opt in themeOptions"
+              :key="opt.mode"
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+              :class="
+                ui.theme === opt.mode
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-surface-muted/50 text-muted hover:bg-surface-muted hover:text-foreground'
+              "
+              :aria-pressed="ui.theme === opt.mode"
+              @click="ui.setTheme(opt.mode)"
+            >
+              <component :is="opt.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
+              {{ opt.label }}
+            </button>
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <Card class="min-w-0" title="Смена пароля">
+        <form class="space-y-4" @submit.prevent="savePassword">
+          <Input
+            id="pf-cur-pw"
+            v-model="currentPassword"
+            label="Текущий пароль"
+            type="password"
+            autocomplete="current-password"
+          />
+          <Input
+            id="pf-new-pw"
+            v-model="newPassword"
+            label="Новый пароль"
+            type="password"
+            autocomplete="new-password"
+          />
+          <Input
+            id="pf-confirm-pw"
+            v-model="confirmPassword"
+            label="Подтверждение нового пароля"
+            type="password"
+            autocomplete="new-password"
+          />
+          <p v-if="passwordMessage" class="text-sm text-muted">
+            {{ passwordMessage }}
+          </p>
+          <Button type="submit" :disabled="savingPassword">
+            {{ savingPassword ? 'Сохранение…' : 'Сменить пароль' }}
+          </Button>
+        </form>
+      </Card>
+    </div>
   </div>
 </template>

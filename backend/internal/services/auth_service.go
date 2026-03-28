@@ -44,9 +44,10 @@ func (s *AuthService) Register(email, password, name string) (*models.User, stri
 	u := models.User{
 		Email:        email,
 		PasswordHash: hash,
-		Name:         name,
+		FirstName:    name,
 		Role:         models.RoleMember,
 	}
+	models.SyncNameFromFIO(&u)
 	if err := s.DB.Create(&u).Error; err != nil {
 		return nil, "", err
 	}
@@ -89,4 +90,26 @@ func (s *AuthService) UserByID(id uint) (*models.User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+const minNewPasswordLen = 8
+
+func (s *AuthService) ChangePassword(userID uint, currentPassword, newPassword string) error {
+	newPassword = strings.TrimSpace(newPassword)
+	if len(newPassword) < minNewPasswordLen {
+		return ErrInvalidInput
+	}
+	var u models.User
+	if err := s.DB.First(&u, userID).Error; err != nil {
+		return err
+	}
+	if err := utils.CheckPassword(u.PasswordHash, currentPassword); err != nil {
+		return ErrInvalidCreds
+	}
+	hash, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	u.PasswordHash = hash
+	return s.DB.Save(&u).Error
 }

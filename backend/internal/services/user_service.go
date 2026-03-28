@@ -16,6 +16,18 @@ type UserService struct {
 	DB *gorm.DB
 }
 
+// UserProfilePatch is a partial update for PUT /users/:id.
+type UserProfilePatch struct {
+	Name        *string
+	Email       *string
+	LastName    *string
+	FirstName   *string
+	Patronymic  *string
+	Department  *string
+	JobTitle    *string
+	Phone       *string
+}
+
 func (s *UserService) List() ([]models.User, error) {
 	var users []models.User
 	err := s.DB.Order("id asc").Find(&users).Error
@@ -40,7 +52,7 @@ func (s *UserService) CanAccessUser(callerID uint, callerRole models.Role, targe
 	return callerRole == models.RoleAdmin
 }
 
-func (s *UserService) Update(id, callerID uint, callerRole models.Role, name, email *string) (*models.User, error) {
+func (s *UserService) Update(id, callerID uint, callerRole models.Role, patch UserProfilePatch) (*models.User, error) {
 	if !s.CanAccessUser(callerID, callerRole, id) {
 		return nil, ErrForbidden
 	}
@@ -48,8 +60,8 @@ func (s *UserService) Update(id, callerID uint, callerRole models.Role, name, em
 	if err != nil {
 		return nil, err
 	}
-	if email != nil {
-		e := strings.TrimSpace(strings.ToLower(*email))
+	if patch.Email != nil {
+		e := strings.TrimSpace(strings.ToLower(*patch.Email))
 		if e == "" {
 			return nil, ErrInvalidInput
 		}
@@ -63,9 +75,28 @@ func (s *UserService) Update(id, callerID uint, callerRole models.Role, name, em
 		}
 		u.Email = e
 	}
-	if name != nil {
-		u.Name = strings.TrimSpace(*name)
+	if patch.Name != nil {
+		u.Name = strings.TrimSpace(*patch.Name)
 	}
+	if patch.LastName != nil {
+		u.LastName = strings.TrimSpace(*patch.LastName)
+	}
+	if patch.FirstName != nil {
+		u.FirstName = strings.TrimSpace(*patch.FirstName)
+	}
+	if patch.Patronymic != nil {
+		u.Patronymic = strings.TrimSpace(*patch.Patronymic)
+	}
+	if patch.Department != nil {
+		u.Department = strings.TrimSpace(*patch.Department)
+	}
+	if patch.JobTitle != nil {
+		u.JobTitle = strings.TrimSpace(*patch.JobTitle)
+	}
+	if patch.Phone != nil {
+		u.Phone = strings.TrimSpace(*patch.Phone)
+	}
+	models.SyncNameFromFIO(u)
 	if err := s.DB.Save(u).Error; err != nil {
 		return nil, err
 	}

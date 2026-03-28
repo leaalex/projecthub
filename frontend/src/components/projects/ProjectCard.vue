@@ -22,6 +22,15 @@ const emit = defineEmits<{
         {{ project.description || 'No description' }}
       </p>
       <p class="mt-2 text-xs text-muted">
+        <span class="text-foreground/80">Owner</span>
+        <span aria-hidden="true"> · </span>
+        <span class="text-foreground">{{
+          project.owner
+            ? project.owner.name || project.owner.email
+            : `User #${project.owner_id}`
+        }}</span>
+      </p>
+      <p class="mt-1 text-xs text-muted">
         Updated {{ timeAgo(project.updated_at) }}
       </p>
     </div>

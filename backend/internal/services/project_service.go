@@ -18,7 +18,7 @@ type ProjectService struct {
 
 func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
 	var list []models.Project
-	err := s.DB.Where("owner_id = ?", ownerID).Order("updated_at desc").Find(&list).Error
+	err := s.DB.Preload("Owner").Where("owner_id = ?", ownerID).Order("updated_at desc").Find(&list).Error
 	return list, err
 }
 
@@ -35,12 +35,15 @@ func (s *ProjectService) Create(ownerID uint, name, description string) (*models
 	if err := s.DB.Create(&p).Error; err != nil {
 		return nil, err
 	}
+	if err := s.DB.Preload("Owner").First(&p, p.ID).Error; err != nil {
+		return nil, err
+	}
 	return &p, nil
 }
 
 func (s *ProjectService) Get(id, ownerID uint) (*models.Project, error) {
 	var p models.Project
-	if err := s.DB.First(&p, id).Error; err != nil {
+	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProjectNotFound
 		}
@@ -64,6 +67,9 @@ func (s *ProjectService) Update(id, ownerID uint, name, description string) (*mo
 	p.Name = name
 	p.Description = description
 	if err := s.DB.Save(p).Error; err != nil {
+		return nil, err
+	}
+	if err := s.DB.Preload("Owner").First(p, p.ID).Error; err != nil {
 		return nil, err
 	}
 	return p, nil

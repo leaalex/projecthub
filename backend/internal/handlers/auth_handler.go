@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"task-manager/backend/internal/middleware"
-	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +44,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, gin.H{
 		"token": token,
-		"user":  userResponse(u),
+		"user":  userPublic(u),
 	})
 }
 
@@ -67,7 +66,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
-		"user":  userResponse(u),
+		"user":  userPublic(u),
 	})
 }
 
@@ -87,14 +86,40 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": userResponse(u)})
+	c.JSON(http.StatusOK, gin.H{"user": userPublic(u)})
 }
 
-func userResponse(u *models.User) gin.H {
-	return gin.H{
-		"id":    u.ID,
-		"email": u.Email,
-		"name":  u.Name,
-		"role":  u.Role,
+type changePasswordBody struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required"`
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	uid, ok := c.Get(middleware.ContextUserIDKey)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
 	}
+	userID, ok := uid.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var body changePasswordBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if err := h.Auth.ChangePassword(userID, body.CurrentPassword, body.NewPassword); err != nil {
+		switch err {
+		case services.ErrInvalidCreds:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
+		case services.ErrInvalidInput:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "new password must be at least 8 characters"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not change password"})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

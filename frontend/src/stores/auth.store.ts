@@ -4,6 +4,17 @@ import { AUTH_TOKEN_KEY } from '../constants'
 import type { User } from '../types/user'
 import { api } from '../utils/api'
 
+export type UserProfilePayload = {
+  email?: string
+  name?: string
+  last_name?: string
+  first_name?: string
+  patronymic?: string
+  department?: string
+  job_title?: string
+  phone?: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(AUTH_TOKEN_KEY))
   const user = ref<User | null>(null)
@@ -60,13 +71,17 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
-  async function updateProfile(patch: { name?: string; email?: string }) {
+  async function updateProfile(patch: UserProfilePayload) {
     if (!user.value) return
     const { data } = await api.put<{ user: User }>(
       `/users/${user.value.id}`,
       patch,
     )
     user.value = data.user
+  }
+
+  async function changePassword(current_password: string, new_password: string) {
+    await api.post('/me/password', { current_password, new_password })
   }
 
   return {
@@ -79,5 +94,6 @@ export const useAuthStore = defineStore('auth', () => {
     restoreSession,
     logout,
     updateProfile,
+    changePassword,
   }
 })
