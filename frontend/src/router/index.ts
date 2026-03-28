@@ -67,6 +67,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/ui-kit',
+      name: 'ui-kit',
+      component: () => import('../views/UiShowcase.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('../views/Admin/Users.vue'),

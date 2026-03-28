@@ -6,6 +6,7 @@ import {
   ClipboardDocumentCheckIcon,
   FolderIcon,
   HomeIcon,
+  SwatchIcon,
   UsersIcon,
 } from '@heroicons/vue/24/outline'
 import type { Component } from 'vue'
@@ -33,6 +34,7 @@ const iconMap: Record<string, Component> = {
   folder: FolderIcon,
   check: ClipboardDocumentCheckIcon,
   chart: ChartBarIcon,
+  swatch: SwatchIcon,
   users: UsersIcon,
 }
 
@@ -42,6 +44,7 @@ const links = computed(() => {
     { to: '/projects', label: 'Projects', icon: 'folder' },
     { to: '/tasks', label: 'Tasks', icon: 'check' },
     { to: '/reports', label: 'Reports', icon: 'chart' },
+    { to: '/ui-kit', label: 'UI kit', icon: 'swatch' },
   ]
   if (auth.user?.role === 'admin') {
     base.push({ to: '/admin/users', label: 'Users', icon: 'users' })

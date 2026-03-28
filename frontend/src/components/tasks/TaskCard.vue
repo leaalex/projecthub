@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { CheckIcon } from '@heroicons/vue/24/solid'
 import { InformationCircleIcon } from '@heroicons/vue/24/outline'
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { useTaskStore } from '../../stores/task.store'
 import { useToast } from '../../composables/useToast'
 import { timeAgo } from '../../utils/formatters'
 import Avatar from '../ui/UiAvatar.vue'
 import Badge from '../ui/UiBadge.vue'
+import UiSelect from '../ui/UiSelect.vue'
 
 const controlClass =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
+
+/** Compact controls for the inline edit toolbar row */
+const rowControlClass =
+  'min-h-8 min-w-0 rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
 
 const props = withDefaults(
   defineProps<{
@@ -38,8 +43,6 @@ const toast = useToast()
 
 const expanded = ref(false)
 const busy = ref(false)
-/** Serialize PUT/assign calls so rapid blur+change don’t drop updates. */
-let saveChain = Promise.resolve()
 
 const draftTitle = ref('')
 const draftDescription = ref('')
@@ -50,7 +53,6 @@ const draftDue = ref('')
 const draftAssigneeId = ref<number | ''>('')
 
 const titleInput = ref<HTMLInputElement | null>(null)
-const skipBlurCommit = ref(false)
 
 function dueFromTask(iso: string | null): string {
   if (!iso) return ''
@@ -88,6 +90,7 @@ function onBodyClick() {
   openExpanded()
 }
 
+/** Закрыть без сохранения. */
 function collapseExpanded() {
   expanded.value = false
   syncDraftsFromTask()
@@ -99,116 +102,109 @@ function onInlineEscape(e: KeyboardEvent) {
   collapseExpanded()
 }
 
-function runSave(fn: () => Promise<void>) {
-  saveChain = saveChain.then(async () => {
-    busy.value = true
-    try {
-      await fn()
-      emit('updated')
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string } } }
-      const msg = err.response?.data?.error
-      toast.error(typeof msg === 'string' ? msg : 'Could not update task')
-      syncDraftsFromTask()
-    } finally {
-      busy.value = false
-    }
-  })
-}
-
-function guardedBlur(commit: () => void | Promise<void>) {
-  if (skipBlurCommit.value) {
-    skipBlurCommit.value = false
-    return
-  }
-  void Promise.resolve(commit())
-}
-
-function commitTitle() {
-  const trimmed = draftTitle.value.trim()
-  if (!trimmed) {
+/** Сохранить изменения одной кнопкой Done. */
+async function saveAndCollapse() {
+  const t = props.task
+  const title = draftTitle.value.trim()
+  if (!title) {
     toast.error('Enter a task title')
-    draftTitle.value = props.task.title
     return
   }
-  if (trimmed === props.task.title) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { title: trimmed })
-  })
-}
 
-function onTitleBlur() {
-  guardedBlur(() => commitTitle())
+  const desc = draftDescription.value.trim()
+  const descPrev = (t.description ?? '').trim()
+  const pid = Number(draftProjectId.value)
+  const due = draftDue.value.trim()
+  const duePrev = dueFromTask(t.due_date)
+  const rawAssignee = draftAssigneeId.value
+  const nextAssignee = rawAssignee === '' ? 0 : Number(rawAssignee)
+  const prevAssignee = t.assignee_id ?? 0
+
+  const patch: Partial<{
+    title: string
+    description: string
+    status: TaskStatus
+    priority: TaskPriority
+    project_id: number
+    due_date: string
+  }> = {}
+
+  if (title !== t.title) patch.title = title
+  if (desc !== descPrev) patch.description = desc
+  if (draftStatus.value !== t.status) patch.status = draftStatus.value
+  if (draftPriority.value !== t.priority) patch.priority = draftPriority.value
+  if (pid && pid !== t.project_id) patch.project_id = pid
+  if (due !== duePrev) patch.due_date = due
+
+  const assigneeChanged = nextAssignee !== prevAssignee
+  const hasPatch = Object.keys(patch).length > 0
+
+  if (!hasPatch && !assigneeChanged) {
+    expanded.value = false
+    syncDraftsFromTask()
+    return
+  }
+
+  busy.value = true
+  try {
+    if (hasPatch) {
+      await taskStore.update(t.id, patch)
+    }
+    if (assigneeChanged) {
+      await taskStore.assign(t.id, nextAssignee)
+    }
+    emit('updated')
+    expanded.value = false
+    syncDraftsFromTask()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+    syncDraftsFromTask()
+  } finally {
+    busy.value = false
+  }
 }
 
 function onTitleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
-    titleInput.value?.blur()
   }
   onInlineEscape(e)
 }
 
-function commitDescription() {
-  const next = draftDescription.value.trim()
-  const prev = (props.task.description ?? '').trim()
-  if (next === prev) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { description: next })
-  })
-}
-
-function onDescBlur() {
-  guardedBlur(() => commitDescription())
-}
-
-function commitStatus() {
-  if (draftStatus.value === props.task.status) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { status: draftStatus.value })
-  })
-}
-
-function commitPriority() {
-  if (draftPriority.value === props.task.priority) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { priority: draftPriority.value })
-  })
-}
-
-function commitProject() {
-  const pid = Number(draftProjectId.value)
-  if (!pid || pid === props.task.project_id) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { project_id: pid })
-  })
-}
-
-function commitDue() {
-  const next = draftDue.value.trim()
-  const prev = dueFromTask(props.task.due_date)
-  if (next === prev) return
-  runSave(async () => {
-    await taskStore.update(props.task.id, { due_date: next })
-  })
-}
-
-function onDueBlur() {
-  guardedBlur(() => commitDue())
-}
-
-function commitAssignee() {
-  const raw = draftAssigneeId.value
-  const nextId = raw === '' ? 0 : Number(raw)
-  const prev = props.task.assignee_id ?? 0
-  if (nextId === prev) return
-  runSave(async () => {
-    await taskStore.assign(props.task.id, nextId)
-  })
-}
-
 const showProjectPicker = () => props.projects.length > 0
 const showAssigneePicker = () => props.assignableUsers.length > 0
+
+const STATUS_OPTIONS = [
+  { value: 'todo' as const, label: 'To do' },
+  { value: 'in_progress' as const, label: 'In progress' },
+  { value: 'review' as const, label: 'Review' },
+  { value: 'done' as const, label: 'Done' },
+]
+
+const PRIORITY_OPTIONS = [
+  { value: 'low' as const, label: 'Low' },
+  { value: 'medium' as const, label: 'Medium' },
+  { value: 'high' as const, label: 'High' },
+  { value: 'critical' as const, label: 'Critical' },
+]
+
+const projectSelectOptions = computed(() =>
+  props.projects.map((p) => ({ value: p.id, label: p.name })),
+)
+
+const assigneeSelectOptions = computed(() => [
+  { value: '', label: 'Unassigned' },
+  ...props.assignableUsers.map((u) => ({
+    value: u.id,
+    label: u.name || u.email,
+  })),
+])
+
+function setDraftAssignee(v: string | number) {
+  draftAssigneeId.value = v === '' ? '' : Number(v)
+}
 </script>
 
 <template>
@@ -276,155 +272,150 @@ const showAssigneePicker = () => props.assignableUsers.length > 0
             <span class="shrink-0">·</span>
             <span class="shrink-0">Due {{ dueFromTask(task.due_date) }}</span>
           </template>
-          <template v-if="task.assignee">
-            <span class="shrink-0">·</span>
-            <span class="inline-flex min-w-0 max-w-full items-center gap-1">
+          <span class="shrink-0">·</span>
+          <span class="inline-flex min-w-0 max-w-full items-center gap-1">
+            <template v-if="task.assignee">
               <Avatar
                 size="sm"
                 :email="task.assignee.email"
                 :name="task.assignee.name"
               />
-              <span class="truncate">{{ task.assignee.email }}</span>
-            </span>
-          </template>
+              <span class="truncate">{{
+                task.assignee.name || task.assignee.email
+              }}</span>
+            </template>
+            <template v-else>
+              <span class="text-muted">Unassigned</span>
+            </template>
+          </span>
         </div>
       </template>
 
       <div
         v-else
-        class="space-y-3 rounded-md border border-border bg-surface-muted/30 p-3"
+        class="space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
         @click.stop
       >
-        <div class="flex items-start gap-2">
+        <div class="flex items-center gap-1.5">
           <input
             ref="titleInput"
             v-model="draftTitle"
             type="text"
+            placeholder="Title"
             :class="controlClass"
-            class="min-w-0 flex-1 !py-1.5 text-sm font-medium"
+            class="min-w-0 flex-1 py-1.5 text-sm font-medium"
             :disabled="busy"
-            @blur="onTitleBlur"
             @keydown="onTitleKeydown"
           />
           <button
             type="button"
-            class="shrink-0 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
-            @click="collapseExpanded"
+            class="shrink-0 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+            :disabled="busy"
+            @click="saveAndCollapse"
           >
             Done
           </button>
         </div>
 
-        <div>
-          <label class="mb-1 block text-xs font-medium text-muted"
-            >Description</label
-          >
-          <textarea
-            v-model="draftDescription"
-            rows="2"
-            :class="controlClass"
-            :disabled="busy"
-            @blur="onDescBlur"
-            @keydown="onInlineEscape"
-          />
-        </div>
+        <textarea
+          v-model="draftDescription"
+          rows="2"
+          placeholder="Description (optional)"
+          :class="controlClass"
+          class="py-1.5 text-sm leading-snug"
+          :disabled="busy"
+          @keydown="onInlineEscape"
+        />
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="mb-1 block text-xs font-medium text-muted"
-              >Status</label
-            >
-            <select
-              v-model="draftStatus"
-              :class="controlClass"
+        <div
+          class="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div
+            class="min-w-[6.25rem] shrink-0 sm:min-w-0 sm:flex-1"
+          >
+            <UiSelect
+              :model-value="draftStatus"
+              size="sm"
+              :block="false"
+              class="w-full min-w-0"
+              placeholder="Status"
+              :options="STATUS_OPTIONS"
               :disabled="busy"
-              @change="commitStatus"
-              @keydown="onInlineEscape"
-            >
-              <option value="todo">To do</option>
-              <option value="in_progress">In progress</option>
-              <option value="review">Review</option>
-              <option value="done">Done</option>
-            </select>
+              @update:model-value="(v) => (draftStatus = v as TaskStatus)"
+              @escape="collapseExpanded"
+            />
           </div>
-          <div>
-            <label class="mb-1 block text-xs font-medium text-muted"
-              >Priority</label
-            >
-            <select
-              v-model="draftPriority"
-              :class="controlClass"
+          <div
+            class="min-w-[5.5rem] shrink-0 sm:min-w-0 sm:flex-1"
+          >
+            <UiSelect
+              :model-value="draftPriority"
+              size="sm"
+              :block="false"
+              class="w-full min-w-0"
+              placeholder="Priority"
+              :options="PRIORITY_OPTIONS"
               :disabled="busy"
-              @change="commitPriority"
-              @keydown="onInlineEscape"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
+              @update:model-value="(v) => (draftPriority = v as TaskPriority)"
+              @escape="collapseExpanded"
+            />
           </div>
-        </div>
-
-        <div v-if="showProjectPicker()">
-          <label class="mb-1 block text-xs font-medium text-muted"
-            >Project</label
+          <div
+            v-if="showProjectPicker()"
+            class="min-w-[5rem] max-w-[9rem] shrink-0 sm:max-w-none sm:flex-1 sm:min-w-0"
           >
-          <select
-            v-model.number="draftProjectId"
-            :class="controlClass"
-            :disabled="busy"
-            @change="commitProject"
-            @keydown="onInlineEscape"
+            <UiSelect
+              :model-value="draftProjectId"
+              size="sm"
+              :block="false"
+              class="w-full min-w-0"
+              placeholder="Project"
+              :options="projectSelectOptions"
+              :disabled="busy"
+              @update:model-value="(v) => (draftProjectId = Number(v))"
+              @escape="collapseExpanded"
+            />
+          </div>
+          <div
+            v-if="showAssigneePicker()"
+            class="min-w-[6rem] max-w-[10rem] shrink-0 sm:max-w-none sm:flex-1 sm:min-w-0"
           >
-            <option v-for="p in projects" :key="p.id" :value="p.id">
-              {{ p.name }}
-            </option>
-          </select>
-        </div>
-
-        <div>
-          <label class="mb-1 block text-xs font-medium text-muted"
-            >Due date</label
+            <UiSelect
+              :model-value="draftAssigneeId === '' ? '' : draftAssigneeId"
+              size="sm"
+              :block="false"
+              class="w-full min-w-0"
+              placeholder="Assignee"
+              :options="assigneeSelectOptions"
+              :disabled="busy"
+              @update:model-value="setDraftAssignee"
+              @escape="collapseExpanded"
+            />
+          </div>
+          <span
+            v-else
+            class="inline-flex min-h-8 min-w-[6rem] max-w-[10rem] shrink-0 items-center truncate rounded-md border border-dashed border-border/70 bg-surface/50 px-2 text-xs text-muted"
+            :title="
+              task.assignee
+                ? task.assignee.name || task.assignee.email
+                : 'Unassigned'
+            "
           >
+            {{
+              task.assignee
+                ? task.assignee.name || task.assignee.email
+                : 'No assignee'
+            }}
+          </span>
           <input
             v-model="draftDue"
             type="date"
-            :class="controlClass"
+            aria-label="Due date"
+            :class="rowControlClass"
+            class="w-auto min-w-[9.25rem] shrink-0 sm:flex-1 sm:min-w-[9.25rem]"
             :disabled="busy"
-            @blur="onDueBlur"
             @keydown="onInlineEscape"
           />
-        </div>
-
-        <div v-if="showAssigneePicker()">
-          <label class="mb-1 block text-xs font-medium text-muted"
-            >Assignee</label
-          >
-          <select
-            v-model="draftAssigneeId"
-            :class="controlClass"
-            :disabled="busy"
-            @change="commitAssignee"
-            @keydown="onInlineEscape"
-          >
-            <option value="">Unassigned</option>
-            <option
-              v-for="u in assignableUsers"
-              :key="u.id"
-              :value="u.id"
-            >
-              {{ u.name || u.email }}
-            </option>
-          </select>
-        </div>
-        <div v-else class="text-xs text-muted">
-          <span class="font-medium text-foreground/80">Assignee</span>
-          <span class="ml-1">{{
-            task.assignee
-              ? task.assignee.name || task.assignee.email
-              : 'Unassigned'
-          }}</span>
         </div>
       </div>
     </div>

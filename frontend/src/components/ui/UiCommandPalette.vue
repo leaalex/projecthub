@@ -64,6 +64,13 @@ const navItems = computed<Item[]>(() => {
       subtitle: 'Your profile',
       run: () => void router.push('/profile'),
     },
+    {
+      id: 'nav-ui-kit',
+      kind: 'nav',
+      label: 'UI kit',
+      subtitle: 'Component gallery',
+      run: () => void router.push('/ui-kit'),
+    },
   ]
   if (auth.user?.role === 'admin') {
     base.push({

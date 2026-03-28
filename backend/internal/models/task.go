@@ -29,7 +29,7 @@ type Task struct {
 	ProjectID   uint         `gorm:"not null;index" json:"project_id"`
 	Project     Project      `gorm:"foreignKey:ProjectID" json:"-"`
 	AssigneeID  *uint        `gorm:"index" json:"assignee_id"`
-	Assignee    *User        `gorm:"foreignKey:AssigneeID" json:"-"`
+	Assignee    *User        `gorm:"foreignKey:AssigneeID" json:"assignee,omitempty"`
 	DueDate     *time.Time   `json:"due_date"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
