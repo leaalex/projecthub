@@ -59,6 +59,22 @@ const draftAssigneeId = ref<number | ''>('')
 
 const titleInput = ref<HTMLInputElement | null>(null)
 
+/** Исполнитель в правой колонке (колонка скрыта при развёрнутом редактировании). */
+const assigneeLabel = computed(() => {
+  if (props.task.assignee) {
+    return props.task.assignee.name || props.task.assignee.email
+  }
+  return 'Unassigned'
+})
+
+const assigneeTitle = computed(() => {
+  const a = props.task.assignee
+  if (!a?.email) return undefined
+  return a.name ? `${a.name} (${a.email})` : a.email
+})
+
+const isAssigneePlaceholder = computed(() => assigneeLabel.value === 'Unassigned')
+
 function dueFromTask(iso: string | null): string {
   if (!iso) return ''
   return iso.slice(0, 10)
@@ -238,7 +254,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
 
 <template>
   <div class="flex items-stretch gap-2.5 py-2">
-    <div class="flex shrink-0 flex-col justify-start pt-0.5">
+    <div class="flex shrink-0 flex-col self-start pt-0.5">
       <button
         v-if="task.status !== 'done'"
         type="button"
@@ -257,15 +273,12 @@ function setDraftAssignee(v: UiSelectModelValue) {
       </button>
     </div>
 
-    <template v-if="!expanded">
-      <div
-        class="min-w-0 flex-1"
-        :class="
-          canEdit &&
-          'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'
-        "
-        @click="onBodyClick"
-      >
+    <div
+      class="min-w-0 flex-1"
+      :class="canEdit && !expanded && 'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'"
+      @click="onBodyClick"
+    >
+      <template v-if="!expanded">
         <div class="flex items-center gap-2">
           <h3
             class="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
@@ -296,49 +309,14 @@ function setDraftAssignee(v: UiSelectModelValue) {
             <span class="shrink-0">·</span>
             <span class="shrink-0">Due {{ dueFromTask(task.due_date) }}</span>
           </template>
-          <span class="shrink-0">·</span>
-          <span class="inline-flex min-w-0 max-w-full items-center">
-            <template v-if="task.assignee">
-              <span class="truncate">{{
-                task.assignee.name || task.assignee.email
-              }}</span>
-            </template>
-            <template v-else>
-              <span class="text-muted">Unassigned</span>
-            </template>
-          </span>
         </div>
-      </div>
+      </template>
+
       <div
-        class="flex w-12 shrink-0 flex-col gap-1.5 self-stretch"
+        v-else
+        class="space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
         @click.stop
       >
-        <button
-          type="button"
-          class="flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-border/60 bg-surface-muted/50 text-muted transition-colors hover:border-border hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Task details"
-          @click.stop="emit('info', task.id)"
-        >
-          <InformationCircleIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
-        </button>
-        <button
-          v-if="canEdit"
-          type="button"
-          class="flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-border/60 bg-surface-muted/50 text-muted transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Delete task"
-          :disabled="deleting"
-          @click.stop="requestDelete"
-        >
-          <TrashIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
-        </button>
-      </div>
-    </template>
-
-    <div
-      v-else
-      class="min-w-0 flex-1 space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
-      @click.stop
-    >
         <div class="flex items-center gap-1.5">
           <input
             ref="titleInput"
@@ -482,6 +460,47 @@ function setDraftAssignee(v: UiSelectModelValue) {
             Delete task
           </button>
         </div>
+      </div>
+    </div>
+
+    <div
+      v-if="!expanded"
+      class="flex shrink-0 flex-row items-stretch self-stretch"
+    >
+      <div
+        class="flex w-40 shrink-0 flex-col justify-center overflow-hidden border-l border-border/50 px-2"
+        :title="assigneeTitle"
+      >
+        <span
+          class="min-w-0 truncate text-xs leading-tight"
+          :class="isAssigneePlaceholder ? 'text-muted' : 'text-foreground'"
+        >
+          {{ assigneeLabel }}
+        </span>
+      </div>
+      <div
+        class="flex shrink-0 flex-row items-center justify-center gap-0.5 self-stretch border-l border-border/50 pl-2"
+        @click.stop
+      >
+        <button
+          type="button"
+          class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Task details"
+          @click="emit('info', task.id)"
+        >
+          <InformationCircleIcon class="h-5 w-5" aria-hidden="true" />
+        </button>
+        <button
+          v-if="canEdit"
+          type="button"
+          class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          aria-label="Delete task"
+          :disabled="deleting"
+          @click="requestDelete"
+        >
+          <TrashIcon class="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
