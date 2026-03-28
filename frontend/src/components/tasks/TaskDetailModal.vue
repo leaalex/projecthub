@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import Modal from '../ui/UiModal.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import TaskForm from './TaskForm.vue'
-import { useAuthStore } from '../../stores/auth.store'
-import { useProjectStore } from '../../stores/project.store'
 import { useTaskStore } from '../../stores/task.store'
+import { useCanEditTask } from '../../composables/useCanEditTask'
 import { useToast } from '../../composables/useToast'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { formatDate, formatTaskStatus } from '../../utils/formatters'
@@ -20,8 +19,6 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-const auth = useAuthStore()
-const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const toast = useToast()
 
@@ -36,18 +33,7 @@ const formProjectId = ref(0)
 const formStatus = ref<TaskStatus>('todo')
 const formPriority = ref<TaskPriority>('medium')
 
-const canEdit = computed(() => {
-  const t = task.value
-  const u = auth.user
-  if (!t || !u) return false
-  if (projectStore.projects.some((p) => p.id === t.project_id)) return true
-  if (
-    projectStore.current?.id === t.project_id &&
-    projectStore.current.owner_id === u.id
-  )
-    return true
-  return false
-})
+const canEdit = useCanEditTask(() => task.value)
 
 watch(
   () => [props.modelValue, props.taskId] as const,

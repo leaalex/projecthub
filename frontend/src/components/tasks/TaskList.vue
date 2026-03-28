@@ -7,14 +7,21 @@ withDefaults(
     tasks: Task[]
     /** Shown when `tasks` is empty (list mode panel). */
     emptyMessage?: string
+    /** Per-task edit permission (e.g. project owner), same rules as task detail modal. */
+    canEditTask?: (task: Task) => boolean
+    /** Owned projects for inline “move task” (optional). */
+    projects?: { id: number; name: string }[]
+    /** Users shown in assignee dropdown (e.g. admin-loaded); empty = read-only assignee. */
+    assignableUsers?: { id: number; email: string; name: string }[]
   }>(),
-  { emptyMessage: '' },
+  { emptyMessage: '', projects: () => [], assignableUsers: () => [] },
 )
 
 const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
   info: [id: number]
+  taskUpdated: []
 }>()
 </script>
 
@@ -34,9 +41,13 @@ const emit = defineEmits<{
         :key="t.id"
         class="px-3"
         :task="t"
+        :can-edit="canEditTask?.(t) ?? false"
+        :projects="projects"
+        :assignable-users="assignableUsers"
         @complete="emit('complete', $event)"
         @reopen="emit('reopen', $event)"
         @info="emit('info', $event)"
+        @updated="emit('taskUpdated')"
       />
       <p
         v-if="tasks.length === 0"

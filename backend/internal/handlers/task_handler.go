@@ -23,14 +23,17 @@ type taskCreateBody struct {
 }
 
 type taskUpdateBody struct {
-	Title       *string             `json:"title"`
-	Description *string             `json:"description"`
-	Status      *models.TaskStatus  `json:"status"`
+	Title       *string              `json:"title"`
+	Description *string              `json:"description"`
+	Status      *models.TaskStatus   `json:"status"`
 	Priority    *models.TaskPriority `json:"priority"`
+	ProjectID   *uint                `json:"project_id"`
+	DueDate     *string              `json:"due_date"` // ISO date (YYYY-MM-DD) or empty string to clear
 }
 
 type assignBody struct {
-	AssigneeID uint `json:"assignee_id" binding:"required"`
+	// 0 means unassign (clear assignee). Non-zero assigns that user.
+	AssigneeID uint `json:"assignee_id"`
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -143,6 +146,8 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		Description: body.Description,
 		Status:      body.Status,
 		Priority:    body.Priority,
+		ProjectID:   body.ProjectID,
+		DueDate:     body.DueDate,
 	})
 	if err != nil {
 		if err == services.ErrTaskNotFound {

@@ -12,10 +12,18 @@ import ProjectForm from '../components/projects/ProjectForm.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
+import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
+import { useTaskEditPermission } from '../composables/useCanEditTask'
 import { useToast } from '../composables/useToast'
 
 const { confirm } = useConfirm()
 const toast = useToast()
+const { canEditTask } = useTaskEditPermission()
+const { assignableUsers } = useAdminAssignableUsers()
+
+const projectOptions = computed(() =>
+  projectStore.projects.map((p) => ({ id: p.id, name: p.name })),
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +44,7 @@ const pageLoading = ref(true)
 async function load() {
   pageLoading.value = true
   try {
+    await projectStore.fetchList().catch(() => {})
     await projectStore.fetchOne(id.value)
     await projectStore.fetchTasks(id.value)
     name.value = projectStore.current?.name ?? ''
@@ -157,9 +166,13 @@ async function onReopen(taskId: number) {
     <TaskList
       class="mt-6"
       :tasks="projectStore.tasks"
+      :can-edit-task="canEditTask"
+      :projects="projectOptions"
+      :assignable-users="assignableUsers"
       @complete="onComplete"
       @reopen="onReopen"
       @info="openTaskDetail"
+      @task-updated="onInlineTaskCreated"
     >
       <template #header>
         <TaskInlineComposer

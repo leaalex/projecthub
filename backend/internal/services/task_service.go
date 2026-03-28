@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"task-manager/backend/internal/models"
 
@@ -134,6 +135,7 @@ type TaskUpdate struct {
 	Description *string
 	Status      *models.TaskStatus
 	Priority    *models.TaskPriority
+	ProjectID   *uint
 	DueDate     *string
 }
 
@@ -144,7 +146,7 @@ func assigneeMayReopenDone(t *models.Task, userID uint, in TaskUpdate) bool {
 	if t.Status != models.StatusDone || *in.Status == models.StatusDone {
 		return false
 	}
-	if in.Title != nil || in.Description != nil || in.Priority != nil || in.DueDate != nil {
+	if in.Title != nil || in.Description != nil || in.Priority != nil || in.DueDate != nil || in.ProjectID != nil {
 		return false
 	}
 	if t.AssigneeID == nil || *t.AssigneeID != userID {
@@ -178,6 +180,34 @@ func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, erro
 		}
 		if in.Priority != nil {
 			t.Priority = *in.Priority
+		}
+		if in.ProjectID != nil {
+			newPID := *in.ProjectID
+			if newPID == 0 {
+				return nil, ErrInvalidInput
+			}
+			if newPID != t.ProjectID {
+				ok, err := s.isProjectOwner(newPID, userID)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					return nil, ErrForbidden
+				}
+				t.ProjectID = newPID
+			}
+		}
+		if in.DueDate != nil {
+			raw := strings.TrimSpace(*in.DueDate)
+			if raw == "" {
+				t.DueDate = nil
+			} else {
+				d, err := time.Parse("2006-01-02", raw)
+				if err != nil {
+					return nil, ErrInvalidInput
+				}
+				t.DueDate = &d
+			}
 		}
 		if err := s.DB.Save(t).Error; err != nil {
 			return nil, err
@@ -224,6 +254,14 @@ func (s *TaskService) Assign(taskID, ownerUserID, assigneeID uint) (*models.Task
 			err = ErrForbidden
 		}
 		return nil, err
+	}
+	if assigneeID == 0 {
+		t.AssigneeID = nil
+		if err := s.DB.Save(t).Error; err != nil {
+			return nil, err
+		}
+		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		return t, nil
 	}
 	var u models.User
 	if err := s.DB.First(&u, assigneeID).Error; err != nil {

@@ -13,6 +13,8 @@ import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
+import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
+import { useTaskEditPermission } from '../composables/useCanEditTask'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 
@@ -20,6 +22,8 @@ const route = useRoute()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const toast = useToast()
+const { canEditTask } = useTaskEditPermission()
+const { assignableUsers } = useAdminAssignableUsers()
 
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus | ''>('')
@@ -246,10 +250,14 @@ async function onReopen(id: number) {
         v-if="taskView === 'list'"
         class="mt-6"
         :tasks="taskStore.tasks"
+        :can-edit-task="canEditTask"
+        :projects="inlineComposerProjects"
+        :assignable-users="assignableUsers"
         empty-message="No tasks match these filters. Add one above or adjust filters."
         @complete="onComplete"
         @reopen="onReopen"
         @info="openTaskDetail"
+        @task-updated="load"
       >
         <template #header>
           <TaskInlineComposer

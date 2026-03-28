@@ -51,6 +51,9 @@ export const useTaskStore = defineStore('task', () => {
       description: string
       status: TaskStatus
       priority: TaskPriority
+      project_id: number
+      /** ISO date YYYY-MM-DD; send empty string to clear */
+      due_date: string
     }>,
   ) {
     const { data } = await api.put<{ task: Task }>(`/tasks/${id}`, payload)
