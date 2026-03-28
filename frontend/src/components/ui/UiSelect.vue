@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDownIcon } from '@heroicons/vue/20/solid'
+import { CheckIcon, ChevronDownIcon } from '@heroicons/vue/20/solid'
 import {
   computed,
   nextTick,
@@ -20,10 +20,14 @@ export type UiSelectOption<T extends string | number = string | number> = {
   disabled?: boolean
 }
 
+export type UiSelectModelValue = string | number | (string | number)[]
+
 const props = withDefaults(
   defineProps<{
-    /** Use `''` for optional / “empty” selection when options include it */
-    modelValue: string | number
+    /**
+     * Single: `string | number`. Multiple (`multiple`): `(string | number)[]`.
+     */
+    modelValue: UiSelectModelValue
     options: UiSelectOption<string | number>[]
     id?: string
     label?: string
@@ -38,17 +42,23 @@ const props = withDefaults(
      * so parent `overflow: hidden` does not clip it (e.g. task list, modals).
      */
     teleport?: boolean
+    /** Filter options by label while the panel is open */
+    filterable?: boolean
+    /** Multiple selection; `modelValue` must be an array */
+    multiple?: boolean
   }>(),
   {
     placeholder: 'Select…',
     block: true,
     size: 'md',
     teleport: true,
+    filterable: false,
+    multiple: false,
   },
 )
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
+  'update:modelValue': [value: UiSelectModelValue]
   /** Fired when Escape is pressed while the list is closed (e.g. parent may collapse a card) */
   escape: []
 }>()
@@ -59,7 +69,10 @@ const baseId = computed(() => props.id ?? `ui-select-${uid}`)
 const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const buttonRef = ref<HTMLButtonElement | null>(null)
-const listRef = ref<HTMLElement | null>(null)
+const panelRef = ref<HTMLElement | null>(null)
+const optionsListRef = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchQuery = ref('')
 const activeIndex = ref(0)
 
 const floatingStyle = ref<Record<string, string>>({})
@@ -85,15 +98,51 @@ function onScrollOrResize() {
   if (open.value && props.teleport) updateFloatingPosition()
 }
 
-const enabledIndices = computed(() =>
-  props.options
-    .map((o, i) => (o.disabled ? -1 : i))
-    .filter((i) => i >= 0),
+type FilterRow = {
+  opt: UiSelectOption<string | number>
+  sourceIndex: number
+}
+
+const filteredOptions = computed((): FilterRow[] => {
+  const q = props.filterable ? searchQuery.value.trim().toLowerCase() : ''
+  return props.options
+    .map((opt, sourceIndex) => ({ opt, sourceIndex }))
+    .filter(({ opt }) => {
+      if (!q) return true
+      return opt.label.toLowerCase().includes(q)
+    })
+})
+
+const enabledFilteredIndices = computed(() =>
+  filteredOptions.value
+    .map((row, fi) => (row.opt.disabled ? -1 : fi))
+    .filter((fi) => fi >= 0),
 )
 
-const selectedOption = computed(() =>
-  props.options.find((o) => valuesEqual(o.value, props.modelValue)),
-)
+const selectedOption = computed(() => {
+  if (props.multiple) return undefined
+  const mv = props.modelValue
+  if (Array.isArray(mv)) return undefined
+  return props.options.find((o) => valuesEqual(o.value, mv))
+})
+
+const selectedValues = computed((): (string | number)[] => {
+  if (!props.multiple) return []
+  const mv = props.modelValue
+  return Array.isArray(mv) ? [...mv] : []
+})
+
+const displayTitle = computed(() => {
+  if (!props.multiple) return undefined
+  const sel = selectedValues.value
+  if (sel.length <= 1) return undefined
+  return sel
+    .map(
+      (v) =>
+        props.options.find((o) => valuesEqual(o.value, v))?.label ?? String(v),
+    )
+    .join(', ')
+})
 
 const btnSizeClass = computed(() =>
   props.size === 'sm'
@@ -107,34 +156,82 @@ const optSizeClass = computed(() =>
     : 'px-3 py-2 text-sm',
 )
 
+const searchSizeClass = computed(() =>
+  props.size === 'sm'
+    ? 'px-2 py-1.5 text-xs'
+    : 'px-3 py-2 text-sm',
+)
+
 const chevronClass = computed(() =>
   props.size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4',
 )
 
 const displayLabel = computed(() => {
+  if (props.multiple) {
+    const sel = selectedValues.value
+    if (sel.length === 0) return props.placeholder ?? ''
+    if (sel.length === 1) {
+      const o = props.options.find((x) => valuesEqual(x.value, sel[0]))
+      return o?.label ?? String(sel[0])
+    }
+    return `${sel.length} selected`
+  }
   const s = selectedOption.value
   if (s) return s.label
   if (props.placeholder) return props.placeholder
   return ''
 })
 
-const showPlaceholderStyle = computed(
-  () => !selectedOption.value && props.placeholder !== undefined,
-)
+const showPlaceholderStyle = computed(() => {
+  if (props.multiple) {
+    return selectedValues.value.length === 0 && props.placeholder !== undefined
+  }
+  return !selectedOption.value && props.placeholder !== undefined
+})
+
+const activeDescendantId = computed(() => {
+  if (!open.value) return undefined
+  const row = filteredOptions.value[activeIndex.value]
+  if (!row) return undefined
+  return `${baseId.value}-opt-${row.sourceIndex}`
+})
 
 function valuesEqual(a: string | number, b: string | number): boolean {
   return a === b
 }
 
-function selectIndex(i: number) {
-  const opt = props.options[i]
-  if (!opt || opt.disabled) return
-  emit('update:modelValue', opt.value)
+function isSelectedValue(v: string | number): boolean {
+  if (props.multiple) {
+    return selectedValues.value.some((x) => valuesEqual(x, v))
+  }
+  const mv = props.modelValue
+  if (Array.isArray(mv)) return false
+  return valuesEqual(mv, v)
+}
+
+function toggleValue(v: string | number) {
+  const cur = selectedValues.value
+  const i = cur.findIndex((x) => valuesEqual(x, v))
+  const next = [...cur]
+  if (i >= 0) next.splice(i, 1)
+  else next.push(v)
+  emit('update:modelValue', next)
+}
+
+function selectFilteredIndex(fi: number) {
+  const row = filteredOptions.value[fi]
+  if (!row || row.opt.disabled) return
+  if (props.multiple) {
+    toggleValue(row.opt.value)
+    return
+  }
+  emit('update:modelValue', row.opt.value)
   open.value = false
+  nextTick(() => buttonRef.value?.focus())
 }
 
 function moveActive(delta: number) {
-  const enabled = enabledIndices.value
+  const enabled = enabledFilteredIndices.value
   if (!enabled.length) return
   let idx = enabled.indexOf(activeIndex.value)
   if (idx < 0) idx = 0
@@ -145,9 +242,9 @@ function moveActive(delta: number) {
 
 function scrollActiveIntoView() {
   nextTick(() => {
-    const list = listRef.value
+    const list = optionsListRef.value
     if (!list) return
-    const el = list.querySelector(`[data-index="${activeIndex.value}"]`)
+    const el = list.querySelector(`[data-fi="${activeIndex.value}"]`)
     el?.scrollIntoView({ block: 'nearest' })
   })
 }
@@ -156,7 +253,7 @@ function onDocPointerDown(e: PointerEvent) {
   if (!open.value) return
   const t = e.target as Node
   if (rootRef.value?.contains(t)) return
-  if (listRef.value?.contains(t)) return
+  if (panelRef.value?.contains(t)) return
   open.value = false
 }
 
@@ -166,31 +263,53 @@ function toggle() {
 }
 
 function syncActiveToSelection() {
-  const i = props.options.findIndex((o) =>
-    valuesEqual(o.value, props.modelValue),
-  )
-  const opt = i >= 0 ? props.options[i] : undefined
-  if (opt && !opt.disabled) {
-    activeIndex.value = i
-    return
+  if (!props.multiple) {
+    const mv = props.modelValue
+    if (Array.isArray(mv)) {
+      activeIndex.value = enabledFilteredIndices.value[0] ?? 0
+      return
+    }
+    const fi = filteredOptions.value.findIndex((row) =>
+      valuesEqual(row.opt.value, mv),
+    )
+    const row = fi >= 0 ? filteredOptions.value[fi] : undefined
+    if (row && !row.opt.disabled) {
+      activeIndex.value = fi
+      return
+    }
   }
-  activeIndex.value = enabledIndices.value[0] ?? 0
+  activeIndex.value = enabledFilteredIndices.value[0] ?? 0
 }
 
 watch(open, (v) => {
-  if (v) {
-    syncActiveToSelection()
-    nextTick(() => {
-      if (props.teleport) updateFloatingPosition()
-      scrollActiveIntoView()
-    })
+  if (!v) {
+    searchQuery.value = ''
+    return
   }
+  syncActiveToSelection()
+  nextTick(() => {
+    if (props.teleport) updateFloatingPosition()
+    if (props.filterable) {
+      searchInputRef.value?.focus()
+    } else {
+      scrollActiveIntoView()
+    }
+  })
 })
 
 watch(
-  () => props.modelValue,
+  () => [props.modelValue, props.multiple] as const,
   () => {
     if (!open.value) syncActiveToSelection()
+  },
+)
+
+watch(
+  () => [searchQuery.value, props.filterable, open.value] as const,
+  () => {
+    if (!open.value || !props.filterable) return
+    syncActiveToSelection()
+    scrollActiveIntoView()
   },
 )
 
@@ -207,6 +326,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', onScrollOrResize)
 })
 
+function focusOptionsList() {
+  optionsListRef.value?.focus()
+}
+
 function onButtonKeydown(e: KeyboardEvent) {
   if (props.disabled) return
   if (e.key === 'Escape') {
@@ -221,7 +344,7 @@ function onButtonKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     if (open.value) {
-      selectIndex(activeIndex.value)
+      selectFilteredIndex(activeIndex.value)
     } else {
       open.value = true
     }
@@ -233,6 +356,10 @@ function onButtonKeydown(e: KeyboardEvent) {
       open.value = true
       return
     }
+    if (props.filterable) {
+      searchInputRef.value?.focus()
+      return
+    }
     moveActive(1)
   }
   if (e.key === 'ArrowUp') {
@@ -242,6 +369,25 @@ function onButtonKeydown(e: KeyboardEvent) {
       return
     }
     moveActive(-1)
+  }
+}
+
+function onSearchKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    open.value = false
+    buttonRef.value?.focus()
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    focusOptionsList()
+    const first = enabledFilteredIndices.value[0]
+    if (first !== undefined) {
+      activeIndex.value = first
+      scrollActiveIntoView()
+    }
+    return
   }
 }
 
@@ -262,31 +408,33 @@ function onListKeydown(e: KeyboardEvent) {
   }
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
-    selectIndex(activeIndex.value)
-    buttonRef.value?.focus()
+    selectFilteredIndex(activeIndex.value)
+    if (!props.multiple) {
+      return
+    }
   }
   if (e.key === 'Home') {
     e.preventDefault()
-    const first = enabledIndices.value[0]
+    const first = enabledFilteredIndices.value[0]
     if (first !== undefined) activeIndex.value = first
   }
   if (e.key === 'End') {
     e.preventDefault()
-    const en = enabledIndices.value
+    const en = enabledFilteredIndices.value
     const last = en[en.length - 1]
     if (last !== undefined) activeIndex.value = last
   }
 }
 
-function optionClasses(i: number, opt: UiSelectOption<string | number>) {
-  const selected = valuesEqual(opt.value, props.modelValue)
-  const active = i === activeIndex.value
+function optionClasses(fi: number, row: FilterRow) {
+  const selected = isSelectedValue(row.opt.value)
+  const active = fi === activeIndex.value
   return [
-    'flex w-full cursor-pointer select-none text-left text-foreground',
+    'flex w-full cursor-pointer select-none items-center gap-2 text-left text-foreground',
     optSizeClass.value,
-    opt.disabled && 'cursor-not-allowed opacity-50',
-    !opt.disabled && active && 'bg-surface-muted',
-    !opt.disabled && !active && 'hover:bg-surface-muted/80',
+    row.opt.disabled && 'cursor-not-allowed opacity-50',
+    !row.opt.disabled && active && 'bg-surface-muted',
+    !row.opt.disabled && !active && 'hover:bg-surface-muted/80',
     selected && 'font-medium',
   ]
 }
@@ -312,10 +460,9 @@ function optionClasses(i: number, opt: UiSelectOption<string | number>) {
       :aria-expanded="open"
       aria-haspopup="listbox"
       :aria-controls="open ? `${baseId}-listbox` : undefined"
-      :aria-activedescendant="
-        open ? `${baseId}-opt-${activeIndex}` : undefined
-      "
+      :aria-activedescendant="activeDescendantId"
       :disabled="disabled"
+      :title="displayTitle"
       :class="[
         'flex w-full items-center justify-between gap-2 rounded-md border border-border bg-surface text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
         btnSizeClass,
@@ -343,34 +490,72 @@ function optionClasses(i: number, opt: UiSelectOption<string | number>) {
       >
         <div
           v-if="open"
-          :id="`${baseId}-listbox`"
-          ref="listRef"
-          role="listbox"
-          tabindex="-1"
+          ref="panelRef"
           :class="[
-            'overflow-auto rounded-md border border-border bg-surface py-1 shadow-lg ring-1 ring-black/5 dark:ring-white/10',
+            'flex flex-col overflow-hidden rounded-md border border-border bg-surface shadow-lg ring-1 ring-black/5 dark:ring-white/10',
             teleport
               ? 'fixed'
-              : 'absolute left-0 right-0 z-50 mt-1 max-h-60 min-w-full',
+              : 'absolute left-0 right-0 z-50 mt-1 min-w-full max-h-60',
           ]"
           :style="teleport ? floatingStyle : undefined"
-          @keydown="onListKeydown"
         >
-          <button
-            v-for="(opt, i) in options"
-            :id="`${baseId}-opt-${i}`"
-            :key="`${opt.value}-${i}`"
-            type="button"
-            role="option"
-            :data-index="i"
-            :aria-selected="valuesEqual(opt.value, modelValue)"
-            :disabled="opt.disabled"
-            :class="optionClasses(i, opt)"
-            @click.stop="selectIndex(i)"
-            @mouseenter="!opt.disabled && (activeIndex = i)"
+          <input
+            v-if="filterable"
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="search"
+            autocomplete="off"
+            aria-label="Filter options"
+            :class="[
+              'w-full shrink-0 border-b border-border bg-surface text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+              searchSizeClass,
+            ]"
+            placeholder="Search…"
+            @keydown="onSearchKeydown"
+            @keydown.enter.prevent
+          />
+          <div
+            :id="`${baseId}-listbox`"
+            ref="optionsListRef"
+            role="listbox"
+            tabindex="-1"
+            :aria-multiselectable="multiple ? true : undefined"
+            class="min-h-0 flex-1 overflow-auto py-1"
+            @keydown="onListKeydown"
           >
-            {{ opt.label }}
-          </button>
+            <button
+              v-for="(row, fi) in filteredOptions"
+              :id="`${baseId}-opt-${row.sourceIndex}`"
+              :key="`${row.opt.value}-${row.sourceIndex}`"
+              type="button"
+              role="option"
+              :data-fi="fi"
+              :aria-selected="isSelectedValue(row.opt.value)"
+              :disabled="row.opt.disabled"
+              :class="optionClasses(fi, row)"
+              @click.stop="selectFilteredIndex(fi)"
+              @mouseenter="!row.opt.disabled && (activeIndex = fi)"
+            >
+              <template v-if="multiple">
+                <span
+                  class="flex h-4 w-4 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <CheckIcon
+                    v-if="isSelectedValue(row.opt.value)"
+                    class="h-3.5 w-3.5 text-primary"
+                  />
+                </span>
+              </template>
+              <span class="min-w-0 flex-1">{{ row.opt.label }}</span>
+            </button>
+            <p
+              v-if="filteredOptions.length === 0"
+              class="px-3 py-2 text-sm text-muted"
+            >
+              No matches
+            </p>
+          </div>
         </div>
       </Transition>
     </Teleport>

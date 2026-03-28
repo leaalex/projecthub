@@ -11,7 +11,7 @@ import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import { timeAgo } from '../../utils/formatters'
 import Badge from '../ui/UiBadge.vue'
-import UiSelect from '../ui/UiSelect.vue'
+import UiSelect, { type UiSelectModelValue } from '../ui/UiSelect.vue'
 
 const controlClass =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
@@ -230,14 +230,15 @@ const assigneeSelectOptions = computed(() => [
   })),
 ])
 
-function setDraftAssignee(v: string | number) {
+function setDraftAssignee(v: UiSelectModelValue) {
+  if (Array.isArray(v)) return
   draftAssigneeId.value = v === '' ? '' : Number(v)
 }
 </script>
 
 <template>
-  <div class="flex gap-2.5 py-2">
-    <div class="flex shrink-0 flex-col pt-0.5">
+  <div class="flex items-stretch gap-2.5 py-2">
+    <div class="flex shrink-0 flex-col justify-start pt-0.5">
       <button
         v-if="task.status !== 'done'"
         type="button"
@@ -256,12 +257,15 @@ function setDraftAssignee(v: string | number) {
       </button>
     </div>
 
-    <div
-      class="min-w-0 flex-1"
-      :class="canEdit && !expanded && 'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'"
-      @click="onBodyClick"
-    >
-      <template v-if="!expanded">
+    <template v-if="!expanded">
+      <div
+        class="min-w-0 flex-1"
+        :class="
+          canEdit &&
+          'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'
+        "
+        @click="onBodyClick"
+      >
         <div class="flex items-center gap-2">
           <h3
             class="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
@@ -273,24 +277,6 @@ function setDraftAssignee(v: string | number) {
             <Badge kind="status" :value="task.status" />
             <Badge kind="priority" :value="task.priority" />
           </div>
-          <button
-            type="button"
-            class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
-            aria-label="Task details"
-            @click.stop="emit('info', task.id)"
-          >
-            <InformationCircleIcon class="h-4 w-4" />
-          </button>
-          <button
-            v-if="canEdit"
-            type="button"
-            class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-            aria-label="Delete task"
-            :disabled="deleting"
-            @click.stop="requestDelete"
-          >
-            <TrashIcon class="h-4 w-4" />
-          </button>
         </div>
         <p
           v-if="task.description"
@@ -322,13 +308,37 @@ function setDraftAssignee(v: string | number) {
             </template>
           </span>
         </div>
-      </template>
-
+      </div>
       <div
-        v-else
-        class="space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
+        class="flex w-12 shrink-0 flex-col gap-1.5 self-stretch"
         @click.stop
       >
+        <button
+          type="button"
+          class="flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-border/60 bg-surface-muted/50 text-muted transition-colors hover:border-border hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Task details"
+          @click.stop="emit('info', task.id)"
+        >
+          <InformationCircleIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
+        </button>
+        <button
+          v-if="canEdit"
+          type="button"
+          class="flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-border/60 bg-surface-muted/50 text-muted transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Delete task"
+          :disabled="deleting"
+          @click.stop="requestDelete"
+        >
+          <TrashIcon class="h-6 w-6 shrink-0" aria-hidden="true" />
+        </button>
+      </div>
+    </template>
+
+    <div
+      v-else
+      class="min-w-0 flex-1 space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
+      @click.stop
+    >
         <div class="flex items-center gap-1.5">
           <input
             ref="titleInput"
@@ -340,14 +350,6 @@ function setDraftAssignee(v: string | number) {
             :disabled="busy"
             @keydown="onTitleKeydown"
           />
-          <button
-            type="button"
-            class="shrink-0 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
-            :disabled="busy"
-            @click="saveAndCollapse"
-          >
-            Done
-          </button>
         </div>
 
         <textarea
@@ -450,7 +452,27 @@ function setDraftAssignee(v: string | number) {
             @keydown="onInlineEscape"
           />
         </div>
-        <div class="flex justify-end border-t border-border pt-2">
+        <div
+          class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+              :disabled="busy"
+              @click="collapseExpanded"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              :disabled="busy"
+              @click="saveAndCollapse"
+            >
+              Save
+            </button>
+          </div>
           <button
             type="button"
             class="text-xs font-medium text-destructive hover:underline disabled:opacity-50"
@@ -460,7 +482,6 @@ function setDraftAssignee(v: string | number) {
             Delete task
           </button>
         </div>
-      </div>
     </div>
   </div>
 </template>

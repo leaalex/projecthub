@@ -36,6 +36,9 @@ const demoSelectPlain = ref('mocha')
 const demoSelectDisabledOpt = ref('a')
 const demoSelectSm = ref('latte')
 const demoSelectEmpty = ref('')
+const demoSelectFilterable = ref('')
+const demoSelectMulti = ref<(string | number)[]>(['latte'])
+const demoSelectFilterableMulti = ref<(string | number)[]>(['ams', 'vie'])
 
 const selectFlavorOptions = [
   { value: 'latte', label: 'Latte' },
@@ -47,6 +50,32 @@ const selectWithDisabledOption = [
   { value: 'a', label: 'Option A' },
   { value: 'b', label: 'Option B', disabled: true },
   { value: 'c', label: 'Option C' },
+]
+
+/** Long list for filterable demos */
+const selectCityOptions = [
+  { value: 'ams', label: 'Amsterdam' },
+  { value: 'ath', label: 'Athens' },
+  { value: 'bcn', label: 'Barcelona' },
+  { value: 'ber', label: 'Berlin' },
+  { value: 'bru', label: 'Brussels' },
+  { value: 'bud', label: 'Budapest' },
+  { value: 'cph', label: 'Copenhagen' },
+  { value: 'dub', label: 'Dublin' },
+  { value: 'edi', label: 'Edinburgh' },
+  { value: 'hel', label: 'Helsinki' },
+  { value: 'lis', label: 'Lisbon' },
+  { value: 'lon', label: 'London' },
+  { value: 'mad', label: 'Madrid' },
+  { value: 'muc', label: 'Munich' },
+  { value: 'osl', label: 'Oslo' },
+  { value: 'par', label: 'Paris' },
+  { value: 'pra', label: 'Prague' },
+  { value: 'rom', label: 'Rome' },
+  { value: 'sto', label: 'Stockholm' },
+  { value: 'vie', label: 'Vienna' },
+  { value: 'war', label: 'Warsaw' },
+  { value: 'zag', label: 'Zagreb' },
 ]
 
 const modalOpen = ref(false)
@@ -279,6 +308,47 @@ async function runConfirmDemo() {
             error="Pick a value"
             :options="selectFlavorOptions"
           />
+          <UiSelect
+            id="ui-sel-5"
+            v-model="demoSelectFilterable"
+            label="Filterable (search)"
+            placeholder="Pick a city…"
+            filterable
+            :options="selectCityOptions"
+          />
+          <div class="space-y-2">
+            <UiSelect
+              id="ui-sel-6"
+              v-model="demoSelectMulti"
+              label="Multiple"
+              placeholder="Pick drinks…"
+              multiple
+              :options="selectFlavorOptions"
+            />
+            <p class="text-xs text-muted">
+              Selected:
+              <code class="text-foreground">{{
+                demoSelectMulti.join(', ') || '—'
+              }}</code>
+            </p>
+          </div>
+          <div class="space-y-2">
+            <UiSelect
+              id="ui-sel-7"
+              v-model="demoSelectFilterableMulti"
+              label="Filterable + multiple"
+              placeholder="Pick cities…"
+              filterable
+              multiple
+              :options="selectCityOptions"
+            />
+            <p class="text-xs text-muted">
+              Selected:
+              <code class="text-foreground">{{
+                demoSelectFilterableMulti.join(', ') || '—'
+              }}</code>
+            </p>
+          </div>
         </div>
       </UiCard>
 
