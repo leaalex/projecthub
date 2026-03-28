@@ -1,5 +1,5 @@
 # CGO required for github.com/mattn/go-sqlite3
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.24-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev \
   && rm -rf /var/lib/apt/lists/*

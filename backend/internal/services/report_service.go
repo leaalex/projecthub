@@ -1,12 +1,26 @@
 package services
 
 import (
+	"strings"
 	"time"
 
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
 )
+
+// GenerateRequest configures custom task report export (JSON body).
+type GenerateRequest struct {
+	Format      string   `json:"format"`
+	DateFrom    *string  `json:"date_from"`
+	DateTo      *string  `json:"date_to"`
+	ProjectIDs  []uint   `json:"project_ids"`
+	UserIDs     []uint   `json:"user_ids"`
+	Statuses    []string `json:"statuses"`
+	Priorities  []string `json:"priorities"`
+	Fields      []string `json:"fields"`
+	GroupBy     string   `json:"group_by"`
+}
 
 type ReportService struct {
 	DB *gorm.DB
@@ -78,7 +92,7 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 	}
 
 	var pc int64
-	s.DB.Model(&models.Project{}).Where("owner_id = ?", userID).Count(&pc)
+	_ = s.DB.Model(&models.Project{}).Where("owner_id = ?", userID).Count(&pc).Error
 
 	return &WeeklyReport{
 		WeekStart:       start.Format(time.RFC3339),
@@ -88,4 +102,96 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 		CompletedInWeek: completed,
 		ProjectsCount:   pc,
 	}, nil
+}
+
+func parseReportDateStart(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, ErrInvalidInput
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return time.Time{}, ErrInvalidInput
+	}
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), nil
+}
+
+// Generate builds a task report file for the caller; admin may scope by user_ids.
+func (s *ReportService) Generate(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
+	format := strings.ToLower(strings.TrimSpace(req.Format))
+	if format != "csv" && format != "xlsx" && format != "pdf" {
+		return nil, "", "", ErrInvalidInput
+	}
+
+	groupBy := strings.TrimSpace(strings.ToLower(req.GroupBy))
+	switch groupBy {
+	case "", "project", "status", "priority", "assignee":
+	default:
+		return nil, "", "", ErrInvalidInput
+	}
+
+	if role != models.RoleAdmin && len(req.UserIDs) > 0 {
+		return nil, "", "", ErrForbidden
+	}
+
+	q := s.DB.Model(&models.Task{}).Preload("Project").Preload("Assignee")
+	taskSvc := &TaskService{DB: s.DB}
+
+	if role == models.RoleAdmin && len(req.UserIDs) > 0 {
+		q = q.Joins("LEFT JOIN projects AS rep_proj ON rep_proj.id = tasks.project_id").
+			Where("(tasks.assignee_id IN ?) OR (rep_proj.owner_id IN ?)", req.UserIDs, req.UserIDs)
+	} else if role != models.RoleAdmin {
+		owned, err := taskSvc.ownedProjectIDs(callerID)
+		if err != nil {
+			return nil, "", "", err
+		}
+		if len(owned) > 0 {
+			q = q.Where("tasks.project_id IN ? OR tasks.assignee_id = ?", owned, callerID)
+		} else {
+			q = q.Where("tasks.assignee_id = ?", callerID)
+		}
+	}
+
+	if len(req.ProjectIDs) > 0 {
+		q = q.Where("tasks.project_id IN ?", req.ProjectIDs)
+	}
+
+	if len(req.Statuses) > 0 {
+		st := make([]models.TaskStatus, 0, len(req.Statuses))
+		for _, x := range req.Statuses {
+			st = append(st, models.TaskStatus(strings.TrimSpace(x)))
+		}
+		q = q.Where("tasks.status IN ?", st)
+	}
+
+	if len(req.Priorities) > 0 {
+		pr := make([]models.TaskPriority, 0, len(req.Priorities))
+		for _, x := range req.Priorities {
+			pr = append(pr, models.TaskPriority(strings.TrimSpace(x)))
+		}
+		q = q.Where("tasks.priority IN ?", pr)
+	}
+
+	if req.DateFrom != nil && strings.TrimSpace(*req.DateFrom) != "" {
+		from, err := parseReportDateStart(*req.DateFrom)
+		if err != nil {
+			return nil, "", "", err
+		}
+		q = q.Where("tasks.created_at >= ?", from)
+	}
+	if req.DateTo != nil && strings.TrimSpace(*req.DateTo) != "" {
+		to, err := parseReportDateStart(*req.DateTo)
+		if err != nil {
+			return nil, "", "", err
+		}
+		endExclusive := to.AddDate(0, 0, 1)
+		q = q.Where("tasks.created_at < ?", endExclusive)
+	}
+
+	var tasks []models.Task
+	if err := q.Order("tasks.id asc").Find(&tasks).Error; err != nil {
+		return nil, "", "", err
+	}
+
+	return BuildReportFile(format, tasks, req.Fields, groupBy)
 }

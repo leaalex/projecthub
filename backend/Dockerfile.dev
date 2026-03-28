@@ -1,5 +1,5 @@
 # Dev image: CGO + SQLite + Air (перезапуск при изменении .go).
-FROM golang:1.22-bookworm
+FROM golang:1.24-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev wget \
   && rm -rf /var/lib/apt/lists/*

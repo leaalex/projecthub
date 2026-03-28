@@ -89,8 +89,6 @@ func main() {
 	reports := protected.Group("/reports")
 	reports.GET("/weekly", reportHandler.Weekly)
 	reports.POST("/generate", reportHandler.Generate)
-	reports.GET("/:id/pdf", reportHandler.PDF)
-	reports.GET("/:id/excel", reportHandler.Excel)
 
 	addr := ":" + cfg.Port
 	log.Printf("listening on %s", addr)

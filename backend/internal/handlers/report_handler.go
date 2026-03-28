@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
-	"strconv"
+	"path/filepath"
+	"strings"
 
 	"task-manager/backend/internal/services"
 
@@ -27,39 +29,44 @@ func (h *ReportHandler) Weekly(c *gin.Context) {
 	c.JSON(http.StatusOK, rep)
 }
 
-type generateBody struct {
-	Title string `json:"title"`
-}
-
 func (h *ReportHandler) Generate(c *gin.Context) {
-	_, ok := ctxUserID(c)
+	callerID, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	var body generateBody
-	_ = c.ShouldBindJSON(&body)
-	c.JSON(http.StatusAccepted, gin.H{
-		"id":      1,
-		"status":  "queued",
-		"message": "Report generation is not implemented; use weekly JSON endpoint.",
-	})
-}
+	role, _ := ctxRole(c)
 
-func (h *ReportHandler) PDF(c *gin.Context) {
-	_, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+	var req services.GenerateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "PDF export not implemented"})
-}
 
-func (h *ReportHandler) Excel(c *gin.Context) {
-	_, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	data, filename, contentType, err := h.Svc.Generate(callerID, role, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+		if err == services.ErrForbidden {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if err == services.ErrInvalidInput {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Excel export not implemented"})
+
+	safe := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			return r
+		}
+		return '_'
+	}, filepath.Base(filename))
+	if safe == "" || safe == "." {
+		safe = "report.bin"
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safe))
+	c.Data(http.StatusOK, contentType, data)
 }

@@ -21,8 +21,8 @@ function build() {
         {
           label: 'Tasks',
           data: props.values,
-          backgroundColor: 'rgba(109, 40, 217, 0.6)',
-          borderColor: 'rgba(109, 40, 217, 1)',
+          backgroundColor: 'rgba(14, 116, 144, 0.65)',
+          borderColor: 'rgba(14, 116, 144, 1)',
           borderWidth: 1,
         },
       ],
