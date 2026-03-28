@@ -1,0 +1,23 @@
+# Dev image: CGO + SQLite + Air (перезапуск при изменении .go).
+FROM golang:1.22-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev wget \
+  && rm -rf /var/lib/apt/lists/*
+
+# Air (hot reload)
+ENV CGO_ENABLED=1
+RUN go install github.com/air-verse/air@v1.52.3
+ENV PATH="/go/bin:${PATH}"
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=1 go build -o /dev/null ./cmd/server
+
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]

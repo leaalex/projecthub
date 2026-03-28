@@ -1,0 +1,54 @@
+# Development: hot reload — backend Air (go), frontend Vite dev server.
+# Запуск: docker compose -f docker-compose.dev.yml up --build
+# UI: http://localhost:${FRONTEND_PORT:-5173}  · API напрямую: http://localhost:8080
+#
+# `node_modules` вынесен в именованный том: иначе bind-mount ./frontend подменяет
+# зависимости с хоста (darwin) и Vite/Rolldown в Alpine ищут linux-musl биндинги.
+# После смены package-lock контейнер сам выполнит `npm ci` при старте (см. docker-entrypoint.dev.sh).
+# Принудительно: `docker compose -f docker-compose.dev.yml run --rm frontend npm ci`
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8080"
+      GIN_MODE: debug
+      DATABASE_PATH: /app/storage/app.db
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-5173}
+    volumes:
+      - ./backend:/app
+      - backend_storage_dev:/app/storage
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+volumes:
+  backend_storage_dev:
+  frontend_node_modules:

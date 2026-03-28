@@ -1,0 +1,5 @@
+# Требуется Docker Compose v2.20+ (поддержка `include`).
+# По умолчанию подключается production-стек из docker-compose.prod.yml.
+
+include:
+  - docker-compose.prod.yml

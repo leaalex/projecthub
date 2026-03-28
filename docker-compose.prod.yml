@@ -1,0 +1,40 @@
+# Production: оптимизированные образы (Go binary + nginx со статикой).
+# Запуск: docker compose -f docker-compose.prod.yml up --build -d
+# или: docker compose up --build -d (см. docker-compose.yml с include).
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8080"
+      GIN_MODE: release
+      DATABASE_PATH: /app/storage/app.db
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-8080}
+    volumes:
+      - backend_storage:/app/storage
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_storage:
