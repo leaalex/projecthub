@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import Avatar from '../../components/common/Avatar.vue'
-import Button from '../../components/common/Button.vue'
-import EmptyState from '../../components/common/EmptyState.vue'
-import Skeleton from '../../components/common/Skeleton.vue'
-import Table from '../../components/common/Table.vue'
+import Avatar from '../../components/ui/UiAvatar.vue'
+import Breadcrumb from '../../components/ui/UiBreadcrumb.vue'
+import Button from '../../components/ui/UiButton.vue'
+import EmptyState from '../../components/ui/UiEmptyState.vue'
+import Skeleton from '../../components/ui/UiSkeleton.vue'
+import Table from '../../components/ui/UiTable.vue'
 import type { User } from '../../types/user'
 import { useConfirm } from '../../composables/useConfirm'
-import { useToast } from '../../stores/toast.store'
+import { useToast } from '../../composables/useToast'
 import { api } from '../../utils/api'
 
 const { confirm } = useConfirm()
@@ -53,11 +54,18 @@ async function remove(u: User) {
 
 <template>
   <div>
+    <Breadcrumb
+      class="mb-4"
+      :items="[
+        { label: 'Home', to: '/dashboard' },
+        { label: 'Users' },
+      ]"
+    />
     <h1 class="text-2xl font-semibold text-foreground">Users</h1>
     <p class="mt-1 text-sm text-muted">Administrator list</p>
 
     <p v-if="error" class="mt-4 text-sm text-destructive">{{ error }}</p>
-    <div v-if="loading" class="mt-6 space-y-3">
+    <div v-if="loading" class="mt-8 space-y-3">
       <div
         v-for="i in 5"
         :key="i"
@@ -81,7 +89,7 @@ async function remove(u: User) {
       description="No user accounts are visible in this environment."
     />
 
-    <div v-else class="mt-6 space-y-3 md:hidden">
+    <div v-else class="mt-8 space-y-3 md:hidden">
       <div
         v-for="u in users"
         :key="u.id"
@@ -104,7 +112,7 @@ async function remove(u: User) {
 
     <Table
       v-if="!loading && users.length"
-      class="mt-6 hidden md:block"
+      class="mt-8 hidden md:block"
       :headers="['', 'ID', 'Email', 'Name', 'Role', 'Actions']"
     >
       <tr v-for="u in users" :key="u.id" class="hover:bg-surface-muted">

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useTaskStore } from '../../stores/task.store'
-import { useToast } from '../../stores/toast.store'
+import { useToast } from '../../composables/useToast'
 import type { Task, TaskStatus } from '../../types/task'
 import { formatTaskStatus } from '../../utils/formatters'
-import Button from '../common/Button.vue'
+import Button from '../ui/UiButton.vue'
 
 const props = defineProps<{
   tasks: Task[]

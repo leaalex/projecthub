@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Project } from '../../types/project'
 import { timeAgo } from '../../utils/formatters'
-import Button from '../common/Button.vue'
+import Button from '../ui/UiButton.vue'
 
 defineProps<{
   project: Project

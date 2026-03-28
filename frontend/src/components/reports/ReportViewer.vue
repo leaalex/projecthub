@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import Skeleton from '../common/Skeleton.vue'
+import Skeleton from '../ui/UiSkeleton.vue'
 import type { WeeklyReport } from '../../types/report'
 import { formatDateShort } from '../../utils/formatters'
 import WeeklyChart from './Charts/WeeklyChart.vue'

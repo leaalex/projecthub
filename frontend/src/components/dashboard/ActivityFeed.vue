@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import EmptyState from '../common/EmptyState.vue'
+import EmptyState from '../ui/UiEmptyState.vue'
 import { timeAgo } from '../../utils/formatters'
 
 defineProps<{

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Breadcrumb from '../components/common/Breadcrumb.vue'
-import Button from '../components/common/Button.vue'
-import Modal from '../components/common/Modal.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Button from '../components/ui/UiButton.vue'
+import Modal from '../components/ui/UiModal.vue'
+import Skeleton from '../components/ui/UiSkeleton.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
@@ -11,7 +12,7 @@ import ProjectForm from '../components/projects/ProjectForm.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
-import { useToast } from '../stores/toast.store'
+import { useToast } from '../composables/useToast'
 
 const { confirm } = useConfirm()
 const toast = useToast()
@@ -30,8 +31,10 @@ const detailTaskId = ref<number | null>(null)
 const name = ref('')
 const description = ref('')
 const saving = ref(false)
+const pageLoading = ref(true)
 
 async function load() {
+  pageLoading.value = true
   try {
     await projectStore.fetchOne(id.value)
     await projectStore.fetchTasks(id.value)
@@ -39,6 +42,9 @@ async function load() {
     description.value = projectStore.current?.description ?? ''
   } catch {
     router.replace('/projects')
+    return
+  } finally {
+    pageLoading.value = false
   }
 }
 
@@ -105,7 +111,29 @@ async function onReopen(taskId: number) {
 </script>
 
 <template>
-  <div v-if="projectStore.current">
+  <div v-if="pageLoading" class="space-y-4">
+    <Skeleton variant="line" class="h-4 max-w-md" />
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0 flex-1 space-y-3">
+        <Skeleton variant="line" class="h-8 max-w-xs" />
+        <Skeleton variant="line" :lines="2" />
+      </div>
+      <Skeleton variant="line" class="h-10 w-24 shrink-0" />
+    </div>
+    <div
+      class="mt-6 overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+    >
+      <div class="border-b border-border px-3 py-3">
+        <Skeleton variant="line" class="max-w-lg" />
+      </div>
+      <div class="divide-y divide-border px-3 py-2">
+        <div v-for="i in 4" :key="i" class="py-3">
+          <Skeleton variant="line" />
+        </div>
+      </div>
+    </div>
+  </div>
+  <div v-else-if="projectStore.current">
     <Breadcrumb
       class="mb-4"
       :items="[
@@ -114,7 +142,7 @@ async function onReopen(taskId: number) {
         { label: projectStore.current.name },
       ]"
     />
-    <div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold text-foreground">
           {{ projectStore.current.name }}
@@ -127,7 +155,7 @@ async function onReopen(taskId: number) {
     </div>
 
     <TaskList
-      class="mt-8"
+      class="mt-6"
       :tasks="projectStore.tasks"
       @complete="onComplete"
       @reopen="onReopen"

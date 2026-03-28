@@ -13,7 +13,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUiStore } from '../../stores/ui.store'
-import Avatar from '../common/Avatar.vue'
+import Avatar from '../ui/UiAvatar.vue'
 
 defineProps<{
   collapsed: boolean

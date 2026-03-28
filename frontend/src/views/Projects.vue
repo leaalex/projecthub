@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import Button from '../components/common/Button.vue'
-import Breadcrumb from '../components/common/Breadcrumb.vue'
-import EmptyState from '../components/common/EmptyState.vue'
-import Skeleton from '../components/common/Skeleton.vue'
-import Modal from '../components/common/Modal.vue'
+import Button from '../components/ui/UiButton.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import EmptyState from '../components/ui/UiEmptyState.vue'
+import Skeleton from '../components/ui/UiSkeleton.vue'
+import Modal from '../components/ui/UiModal.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectList from '../components/projects/ProjectList.vue'
 import { useProjectStore } from '../stores/project.store'
@@ -61,13 +61,13 @@ function openProject(id: number) {
 
     <div
       v-if="store.loading"
-      class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       <Skeleton v-for="i in 6" :key="i" variant="card" />
     </div>
     <EmptyState
       v-else-if="!store.projects.length"
-      class="mt-8"
+      class="mt-6"
       title="No projects yet"
       description="Create your first project to start organizing tasks."
     >
@@ -75,7 +75,7 @@ function openProject(id: number) {
     </EmptyState>
     <ProjectList
       v-else
-      class="mt-8"
+      class="mt-6"
       :projects="store.projects"
       @open="openProject"
     />

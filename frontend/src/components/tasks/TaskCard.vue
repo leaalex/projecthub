@@ -3,12 +3,11 @@ import { CheckIcon } from '@heroicons/vue/24/solid'
 import { InformationCircleIcon } from '@heroicons/vue/24/outline'
 import type { Task } from '../../types/task'
 import { timeAgo } from '../../utils/formatters'
-import Avatar from '../common/Avatar.vue'
-import Badge from '../common/Badge.vue'
+import Avatar from '../ui/UiAvatar.vue'
+import Badge from '../ui/UiBadge.vue'
 
 defineProps<{
   task: Task
-  canAssign?: boolean
 }>()
 
 const emit = defineEmits<{

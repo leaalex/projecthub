@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import Button from '../common/Button.vue'
+import Button from '../ui/UiButton.vue'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
 import { api } from '../../utils/api'

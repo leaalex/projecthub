@@ -5,9 +5,10 @@ import {
   SunIcon,
 } from '@heroicons/vue/24/outline'
 import { onMounted, ref } from 'vue'
-import Button from '../components/common/Button.vue'
-import Card from '../components/common/Card.vue'
-import Input from '../components/common/Input.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Button from '../components/ui/UiButton.vue'
+import Card from '../components/ui/UiCard.vue'
+import Input from '../components/ui/UiInput.vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useUiStore, type ThemeMode } from '../stores/ui.store'
 
@@ -52,6 +53,13 @@ async function save() {
 
 <template>
   <div>
+    <Breadcrumb
+      class="mb-4"
+      :items="[
+        { label: 'Home', to: '/dashboard' },
+        { label: 'Profile' },
+      ]"
+    />
     <h1 class="text-2xl font-semibold text-foreground">Profile</h1>
     <p class="mt-1 text-sm text-muted">Update your account</p>
 

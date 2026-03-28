@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import Button from '../common/Button.vue'
+import Button from '../ui/UiButton.vue'
 import { useTaskStore } from '../../stores/task.store'
-import { useToast } from '../../stores/toast.store'
+import { useToast } from '../../composables/useToast'
 
 const props = withDefaults(
   defineProps<{
@@ -104,7 +104,7 @@ function onKeydown(e: KeyboardEvent) {
       <select
         id="inline-task-project"
         v-model.number="selectedProjectId"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         :disabled="disabled || saving"
       >
         <option v-for="p in projects" :key="p.id" :value="p.id">
@@ -118,7 +118,7 @@ function onKeydown(e: KeyboardEvent) {
         id="inline-task-title"
         v-model="title"
         type="text"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         placeholder="New task title…"
         :disabled="disabled || saving"
         @keydown="onKeydown"

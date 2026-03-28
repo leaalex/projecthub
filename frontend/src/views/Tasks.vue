@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import Breadcrumb from '../components/common/Breadcrumb.vue'
-import Button from '../components/common/Button.vue'
-import EmptyState from '../components/common/EmptyState.vue'
-import Skeleton from '../components/common/Skeleton.vue'
-import Modal from '../components/common/Modal.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Button from '../components/ui/UiButton.vue'
+import EmptyState from '../components/ui/UiEmptyState.vue'
+import Skeleton from '../components/ui/UiSkeleton.vue'
+import Modal from '../components/ui/UiModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
@@ -13,7 +13,7 @@ import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
-import { useToast } from '../stores/toast.store'
+import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 
 const route = useRoute()
@@ -208,12 +208,12 @@ async function onReopen(id: number) {
       </button>
     </div>
 
-    <div class="mt-6 flex flex-wrap gap-4">
+    <div class="mt-4 flex flex-wrap gap-4">
       <div>
         <label class="mb-1 block text-xs font-medium text-muted">Project</label>
         <select
           v-model="filterProject"
-          class="rounded-md border border-border bg-surface px-3 py-2 text-sm"
+          class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           @change="load"
         >
           <option value="">All</option>
@@ -226,7 +226,7 @@ async function onReopen(id: number) {
         <label class="mb-1 block text-xs font-medium text-muted">Status</label>
         <select
           v-model="filterStatus"
-          class="rounded-md border border-border bg-surface px-3 py-2 text-sm"
+          class="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           @change="load"
         >
           <option value="">All</option>
@@ -238,13 +238,13 @@ async function onReopen(id: number) {
       </div>
     </div>
 
-    <div v-if="taskStore.loading" class="mt-8 space-y-3">
+    <div v-if="taskStore.loading" class="mt-6 space-y-3">
       <Skeleton v-for="i in 5" :key="i" variant="card" />
     </div>
     <template v-else>
       <TaskList
         v-if="taskView === 'list'"
-        class="mt-8"
+        class="mt-6"
         :tasks="taskStore.tasks"
         empty-message="No tasks match these filters. Add one above or adjust filters."
         @complete="onComplete"
@@ -263,7 +263,7 @@ async function onReopen(id: number) {
       </TaskList>
       <EmptyState
         v-else-if="!taskStore.tasks.length"
-        class="mt-8"
+        class="mt-6"
         title="No tasks found"
         description="Create a task or adjust filters to see more."
       >
@@ -276,7 +276,7 @@ async function onReopen(id: number) {
       </EmptyState>
       <TaskKanban
         v-else
-        class="mt-8"
+        class="mt-6"
         :tasks="taskStore.tasks"
         @changed="load"
       />

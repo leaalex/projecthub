@@ -24,20 +24,27 @@ const initials = computed(() => {
   return '?'
 })
 
-/** Simple string hash → hue 0–360 */
-function hueFromString(s: string): number {
+function hashString(s: string): number {
   let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return h
 }
 
-const style = computed(() => {
+/** Fixed palette (Tailwind); works in light/dark. */
+const PALETTE = [
+  'bg-sky-600 text-white dark:bg-sky-700',
+  'bg-teal-600 text-white dark:bg-teal-700',
+  'bg-indigo-600 text-white dark:bg-indigo-700',
+  'bg-violet-600 text-white dark:bg-violet-700',
+  'bg-cyan-600 text-white dark:bg-cyan-700',
+  'bg-blue-600 text-white dark:bg-blue-700',
+  'bg-emerald-600 text-white dark:bg-emerald-700',
+  'bg-fuchsia-600 text-white dark:bg-fuchsia-800',
+] as const
+
+const paletteClass = computed(() => {
   const key = props.email || props.name || 'x'
-  const h = hueFromString(key)
-  return {
-    backgroundColor: `hsl(${h} 45% 40%)`,
-    color: '#fff',
-  }
+  return PALETTE[hashString(key) % PALETTE.length]
 })
 
 const sizeClass = computed(() => {
@@ -55,8 +62,7 @@ const sizeClass = computed(() => {
 <template>
   <span
     class="inline-flex shrink-0 items-center justify-center rounded-full font-semibold"
-    :class="sizeClass"
-    :style="style"
+    :class="[sizeClass, paletteClass]"
     :title="email || name || undefined"
     aria-hidden="true"
   >

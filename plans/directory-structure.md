@@ -91,12 +91,7 @@ frontend/
 │   │   │   └── main.css
 │   │   └── images/
 │   ├── components/       # Reusable Vue components
-│   │   ├── common/       # Common UI components
-│   │   │   ├── Button.vue
-│   │   │   ├── Input.vue
-│   │   │   ├── Modal.vue
-│   │   │   ├── Table.vue
-│   │   │   └── Card.vue
+│   │   ├── ui/           # Shared UI primitives (UiButton, UiModal, …)
 │   │   ├── layout/       # Layout components
 │   │   │   ├── Header.vue
 │   │   │   ├── Sidebar.vue

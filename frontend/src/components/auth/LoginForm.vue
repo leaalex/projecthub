@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import Button from '../common/Button.vue'
-import Input from '../common/Input.vue'
+import Button from '../ui/UiButton.vue'
+import Input from '../ui/UiInput.vue'
 
 const email = defineModel<string>('email', { default: '' })
 const password = defineModel<string>('password', { default: '' })

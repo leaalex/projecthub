@@ -115,25 +115,3 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
     </Transition>
   </Teleport>
 </template>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-enter-active .modal-panel,
-.modal-leave-active .modal-panel {
-  transition:
-    transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 0.2s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-.modal-enter-from .modal-panel,
-.modal-leave-to .modal-panel {
-  opacity: 0;
-  transform: translateX(1rem);
-}
-</style>

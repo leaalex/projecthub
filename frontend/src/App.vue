@@ -3,9 +3,9 @@ import { Bars3Icon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
-import CommandPalette from './components/common/CommandPalette.vue'
-import ConfirmDialog from './components/common/ConfirmDialog.vue'
-import Toast from './components/common/Toast.vue'
+import CommandPalette from './components/ui/UiCommandPalette.vue'
+import ConfirmDialog from './components/ui/UiConfirmDialog.vue'
+import Toast from './components/ui/UiToast.vue'
 import { useUiStore } from './stores/ui.store'
 
 const route = useRoute()

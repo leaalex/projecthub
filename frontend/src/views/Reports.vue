@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import Breadcrumb from '../components/common/Breadcrumb.vue'
-import Button from '../components/common/Button.vue'
-import Modal from '../components/common/Modal.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Button from '../components/ui/UiButton.vue'
+import EmptyState from '../components/ui/UiEmptyState.vue'
+import Modal from '../components/ui/UiModal.vue'
+import Skeleton from '../components/ui/UiSkeleton.vue'
 import ReportSettings from '../components/reports/ReportSettings.vue'
 import ReportViewer from '../components/reports/ReportViewer.vue'
-import Table from '../components/common/Table.vue'
+import Table from '../components/ui/UiTable.vue'
 import { api } from '../utils/api'
 import { formatDateShort } from '../utils/formatters'
 import type { ReportConfig, SavedReport, WeeklyReport } from '../types/report'
@@ -137,10 +139,15 @@ async function downloadSaved(r: SavedReport) {
         { label: 'Reports' },
       ]"
     />
-    <h1 class="text-2xl font-semibold text-foreground">Reports</h1>
-    <p class="mt-1 text-sm text-muted">
-      Weekly overview and saved exports
-    </p>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold text-foreground">Reports</h1>
+        <p class="mt-1 text-sm text-muted">
+          Weekly overview and saved exports
+        </p>
+      </div>
+      <Button type="button" @click="modalOpen = true">New report</Button>
+    </div>
 
     <p
       v-if="msg"
@@ -153,32 +160,20 @@ async function downloadSaved(r: SavedReport) {
       <ReportViewer :report="report" :loading="loading" />
 
       <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold text-foreground">
-              Saved reports
-            </h2>
-            <p class="mt-1 text-sm text-muted">
-              Files on the server; download anytime.
-            </p>
-          </div>
-          <Button type="button" @click="modalOpen = true">
-            New report
-          </Button>
-        </div>
+        <h2 class="text-lg font-semibold text-foreground">Saved reports</h2>
+        <p class="mt-1 text-sm text-muted">
+          Files on the server; download anytime.
+        </p>
 
-        <p
-          v-if="loadingExports"
-          class="mt-4 text-sm text-muted"
-        >
-          Loading…
-        </p>
-        <p
+        <div v-if="loadingExports" class="mt-4 space-y-3">
+          <Skeleton v-for="i in 3" :key="i" variant="line" />
+        </div>
+        <EmptyState
           v-else-if="!savedReports.length"
-          class="mt-4 text-sm text-muted"
-        >
-          No saved reports yet.
-        </p>
+          class="mt-4"
+          title="No saved reports yet"
+          description="Generate a report with New report to save a file on the server."
+        />
         <Table
           v-else
           class="mt-4"

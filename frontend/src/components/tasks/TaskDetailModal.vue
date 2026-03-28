@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import Modal from '../common/Modal.vue'
-import Skeleton from '../common/Skeleton.vue'
+import Modal from '../ui/UiModal.vue'
+import Skeleton from '../ui/UiSkeleton.vue'
 import TaskForm from './TaskForm.vue'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
 import { useTaskStore } from '../../stores/task.store'
-import { useToast } from '../../stores/toast.store'
+import { useToast } from '../../composables/useToast'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { formatDate, formatTaskStatus } from '../../utils/formatters'
 

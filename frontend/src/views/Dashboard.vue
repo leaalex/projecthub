@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import ActivityFeed from '../components/dashboard/ActivityFeed.vue'
 import StatsCard from '../components/dashboard/StatsCard.vue'
-import Skeleton from '../components/common/Skeleton.vue'
+import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import Skeleton from '../components/ui/UiSkeleton.vue'
 import { api } from '../utils/api'
 import type { WeeklyReport } from '../types/report'
 import { useProjectStore } from '../stores/project.store'
@@ -45,6 +46,13 @@ const activityItems = computed(() => {
 
 <template>
   <div>
+    <Breadcrumb
+      class="mb-4"
+      :items="[
+        { label: 'Home', to: '/dashboard' },
+        { label: 'Dashboard' },
+      ]"
+    />
     <h1 class="text-2xl font-semibold text-foreground">Dashboard</h1>
     <p class="mt-1 text-sm text-muted">Overview of your workspace</p>
 
@@ -83,6 +91,14 @@ const activityItems = computed(() => {
       </div>
       <ActivityFeed v-else :items="activityItems" />
       <div
+        v-if="dashboardLoading"
+        class="rounded-lg border border-border bg-surface p-4 shadow-sm"
+      >
+        <Skeleton variant="line" class="mb-3 max-w-[8rem]" />
+        <Skeleton variant="line" :lines="4" />
+      </div>
+      <div
+        v-else
         class="rounded-lg border border-border bg-surface p-4 text-sm text-muted shadow-sm"
       >
         <p class="font-medium text-foreground">Quick links</p>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TaskPriority, TaskStatus } from '../../types/task'
-import Button from '../common/Button.vue'
-import Input from '../common/Input.vue'
+import Button from '../ui/UiButton.vue'
+import Input from '../ui/UiInput.vue'
 
 const title = defineModel<string>('title', { default: '' })
 const description = defineModel<string>('description', { default: '' })
@@ -40,7 +40,7 @@ const emit = defineEmits<{
         id="tf-desc"
         v-model="description"
         rows="2"
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </div>
     <div v-if="!hideProjectSelect">
@@ -50,7 +50,7 @@ const emit = defineEmits<{
       <select
         v-model.number="projectId"
         required
-        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+        class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <option :value="0" disabled>Select project</option>
         <option v-for="p in projects" :key="p.id" :value="p.id">
@@ -60,10 +60,12 @@ const emit = defineEmits<{
     </div>
     <div class="grid grid-cols-2 gap-4">
       <div>
-        <label class="mb-1 block text-sm font-medium">Status</label>
+        <label class="mb-1 block text-sm font-medium text-foreground"
+          >Status</label
+        >
         <select
           v-model="status"
-          class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+          class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="todo">To do</option>
           <option value="in_progress">In progress</option>
@@ -72,10 +74,12 @@ const emit = defineEmits<{
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium">Priority</label>
+        <label class="mb-1 block text-sm font-medium text-foreground"
+          >Priority</label
+        >
         <select
           v-model="priority"
-          class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+          class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="low">Low</option>
           <option value="medium">Medium</option>
