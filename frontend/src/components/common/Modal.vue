@@ -72,33 +72,38 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex justify-end p-3 sm:p-4 md:p-5"
         role="dialog"
         aria-modal="true"
       >
         <div
-          class="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+          class="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+          aria-hidden="true"
           @click="close"
         />
         <div
           ref="panelRef"
-          class="relative z-10 max-h-[90vh] w-full max-w-lg overflow-auto rounded-lg border border-border bg-surface p-6 shadow-lg"
+          class="modal-panel relative z-10 flex h-full max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ring-1 ring-foreground/5"
           @keydown="onPanelKeydown"
         >
-          <div class="mb-4 flex items-start justify-between gap-4">
+          <div
+            class="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6"
+          >
             <h2 v-if="title" class="text-lg font-semibold text-foreground">
               {{ title }}
             </h2>
             <button
               type="button"
-              class="rounded p-1 text-muted hover:bg-surface-muted hover:text-foreground"
+              class="ml-auto shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
               aria-label="Close"
               @click="close"
             >
               <XMarkIcon class="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <slot />
+          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+            <slot />
+          </div>
         </div>
       </div>
     </Transition>
@@ -110,19 +115,19 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
 .modal-leave-active {
   transition: opacity 0.2s ease;
 }
-.modal-enter-active .relative,
-.modal-leave-active .relative {
+.modal-enter-active .modal-panel,
+.modal-leave-active .modal-panel {
   transition:
-    transform 0.2s ease,
+    transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
     opacity 0.2s ease;
 }
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
 }
-.modal-enter-from .relative,
-.modal-leave-to .relative {
+.modal-enter-from .modal-panel,
+.modal-leave-to .modal-panel {
   opacity: 0;
-  transform: scale(0.96);
+  transform: translateX(1rem);
 }
 </style>

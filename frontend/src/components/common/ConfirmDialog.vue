@@ -29,16 +29,17 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
     <Transition name="modal">
       <div
         v-if="open && options"
-        class="fixed inset-0 z-[90] flex items-center justify-center p-4"
+        class="fixed inset-0 z-[90] flex items-center justify-end p-3 sm:p-4 md:p-5"
         role="dialog"
         aria-modal="true"
       >
         <div
-          class="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+          class="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
+          aria-hidden="true"
           @click="store.answer(false)"
         />
         <div
-          class="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-lg"
+          class="modal-panel relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl ring-1 ring-foreground/5"
         >
           <h2 class="text-lg font-semibold text-foreground">{{ options.title }}</h2>
           <p class="mt-2 text-sm text-muted">{{ options.message }}</p>
@@ -64,19 +65,19 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
 .modal-leave-active {
   transition: opacity 0.2s ease;
 }
-.modal-enter-active .relative,
-.modal-leave-active .relative {
+.modal-enter-active .modal-panel,
+.modal-leave-active .modal-panel {
   transition:
-    transform 0.2s ease,
+    transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
     opacity 0.2s ease;
 }
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
 }
-.modal-enter-from .relative,
-.modal-leave-to .relative {
+.modal-enter-from .modal-panel,
+.modal-leave-to .modal-panel {
   opacity: 0;
-  transform: scale(0.96);
+  transform: translateX(1rem);
 }
 </style>

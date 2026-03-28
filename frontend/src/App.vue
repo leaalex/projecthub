@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { Bars3Icon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import AppHeader from './components/layout/AppHeader.vue'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import CommandPalette from './components/common/CommandPalette.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import Toast from './components/common/Toast.vue'
+import { useUiStore } from './stores/ui.store'
 
 const route = useRoute()
+const ui = useUiStore()
 
 const useAuthLayout = computed(() => route.meta.layout === 'auth')
 </script>
@@ -25,11 +27,18 @@ const useAuthLayout = computed(() => route.meta.layout === 'auth')
       </router-view>
     </template>
     <template v-else>
-      <div class="flex min-h-screen">
+      <div class="relative flex min-h-dvh md:gap-3 md:p-3 lg:gap-4 lg:p-4">
+        <button
+          type="button"
+          class="fixed left-4 top-4 z-30 rounded-md border border-border bg-surface p-2 text-muted shadow-sm transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
+          aria-label="Open menu"
+          @click="ui.toggleMobileMenu()"
+        >
+          <Bars3Icon class="h-6 w-6" aria-hidden="true" />
+        </button>
         <AppSidebar />
-        <div class="flex min-h-screen flex-1 flex-col">
-          <AppHeader />
-          <main class="flex-1 overflow-auto bg-background p-6">
+        <div class="flex min-h-0 flex-1 flex-col">
+          <main class="flex-1 overflow-auto bg-background p-6 pt-16 md:pt-6">
             <router-view v-slot="{ Component }">
               <Transition name="page" mode="out-in">
                 <component :is="Component" :key="route.fullPath" />

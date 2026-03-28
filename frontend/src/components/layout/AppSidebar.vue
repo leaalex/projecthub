@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ChevronDoubleLeftIcon } from '@heroicons/vue/24/outline'
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUiStore } from '../../stores/ui.store'
@@ -28,7 +27,7 @@ watch(
     <Transition name="slide">
       <aside
         v-if="ui.mobileMenuOpen"
-        class="fixed inset-y-0 left-0 z-50 flex w-[min(16rem,88vw)] flex-col border-r border-border bg-surface shadow-xl md:hidden"
+        class="fixed bottom-3 left-3 top-3 z-50 flex w-[min(16rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl md:hidden"
       >
         <SidebarNav :collapsed="false" @navigate="ui.closeMobileMenu()" />
       </aside>
@@ -37,26 +36,10 @@ watch(
 
   <!-- Desktop rail -->
   <aside
-    class="relative hidden shrink-0 flex-col border-r border-border bg-surface shadow-sm transition-[width] duration-200 ease-out md:flex"
+    class="relative hidden min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out dark:shadow-xl dark:ring-white/10 md:flex"
     :class="ui.sidebarCollapsed ? 'w-16' : 'w-56'"
   >
     <SidebarNav :collapsed="ui.sidebarCollapsed" />
-    <div class="mt-auto border-t border-border p-2">
-      <button
-        type="button"
-        class="flex w-full items-center justify-center rounded-md p-2 text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
-        :title="ui.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        :aria-expanded="!ui.sidebarCollapsed"
-        aria-label="Toggle sidebar width"
-        @click="ui.toggleSidebarCollapsed()"
-      >
-        <ChevronDoubleLeftIcon
-          class="h-5 w-5 transition-transform"
-          :class="ui.sidebarCollapsed ? 'rotate-180' : ''"
-          aria-hidden="true"
-        />
-      </button>
-    </div>
   </aside>
 </template>
 
