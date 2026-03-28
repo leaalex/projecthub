@@ -18,6 +18,16 @@ export type ReportGroupBy =
   | 'priority'
   | 'assignee'
 
+/** Saved export row from GET /reports/exports */
+export interface SavedReport {
+  id: number
+  user_id: number
+  display_name: string
+  format: ReportFormat
+  size_bytes: number
+  created_at: string
+}
+
 /** Payload for POST /api/reports/generate */
 export interface ReportConfig {
   format: ReportFormat

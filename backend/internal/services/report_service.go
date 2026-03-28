@@ -1,6 +1,14 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,8 +30,12 @@ type GenerateRequest struct {
 	GroupBy     string   `json:"group_by"`
 }
 
+// ErrSavedReportNotFound is returned when a saved export id does not exist.
+var ErrSavedReportNotFound = errors.New("saved report not found")
+
 type ReportService struct {
-	DB *gorm.DB
+	DB         *gorm.DB
+	ReportsDir string
 }
 
 type WeeklyReport struct {
@@ -116,8 +128,8 @@ func parseReportDateStart(s string) (time.Time, error) {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), nil
 }
 
-// Generate builds a task report file for the caller; admin may scope by user_ids.
-func (s *ReportService) Generate(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
+// generateReportBytes builds report file bytes (query + export).
+func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
 	format := strings.ToLower(strings.TrimSpace(req.Format))
 	if format != "csv" && format != "xlsx" && format != "pdf" {
 		return nil, "", "", ErrInvalidInput
@@ -194,4 +206,117 @@ func (s *ReportService) Generate(callerID uint, role models.Role, req GenerateRe
 	}
 
 	return BuildReportFile(format, tasks, req.Fields, groupBy)
+}
+
+func randomStorageKey(ext string) (string, error) {
+	var b [16]byte
+	if _, err := io.ReadFull(rand.Reader, b[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b[:]) + ext, nil
+}
+
+func reportFormatExt(format string) string {
+	switch format {
+	case "csv":
+		return ".csv"
+	case "xlsx":
+		return ".xlsx"
+	case "pdf":
+		return ".pdf"
+	default:
+		return ".bin"
+	}
+}
+
+// ReportMIME returns Content-Type for a saved report format.
+func ReportMIME(format string) string {
+	switch strings.ToLower(format) {
+	case "csv":
+		return "text/csv; charset=utf-8"
+	case "xlsx":
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case "pdf":
+		return "application/pdf"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// GenerateAndSave writes the report to ReportsDir and persists metadata.
+func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req GenerateRequest) (*models.SavedReport, error) {
+	if s.ReportsDir == "" {
+		return nil, fmt.Errorf("reports directory not configured")
+	}
+	if err := os.MkdirAll(s.ReportsDir, 0o755); err != nil {
+		return nil, err
+	}
+
+	data, displayName, _, err := s.generateReportBytes(callerID, role, req)
+	if err != nil {
+		return nil, err
+	}
+
+	format := strings.ToLower(strings.TrimSpace(req.Format))
+	ext := reportFormatExt(format)
+	storageKey, err := randomStorageKey(ext)
+	if err != nil {
+		return nil, err
+	}
+
+	fullPath := filepath.Join(s.ReportsDir, storageKey)
+	if err := os.WriteFile(fullPath, data, 0o644); err != nil {
+		return nil, err
+	}
+
+	filtersJSON, _ := json.Marshal(req)
+
+	rec := models.SavedReport{
+		UserID:      callerID,
+		StorageKey:  storageKey,
+		DisplayName: filepath.Base(displayName),
+		Format:      format,
+		SizeBytes:   int64(len(data)),
+		FiltersJSON: string(filtersJSON),
+	}
+	if err := s.DB.Create(&rec).Error; err != nil {
+		_ = os.Remove(fullPath)
+		return nil, err
+	}
+	return &rec, nil
+}
+
+// ListSaved returns saved exports for the caller; admins see all.
+func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.SavedReport, error) {
+	var list []models.SavedReport
+	q := s.DB.Model(&models.SavedReport{}).Order("created_at desc")
+	if role != models.RoleAdmin {
+		q = q.Where("user_id = ?", callerID)
+	}
+	if err := q.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// SavedReportFilePath returns the on-disk path after ACL check; verifies file exists.
+func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role) (*models.SavedReport, string, error) {
+	var r models.SavedReport
+	if err := s.DB.First(&r, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", ErrSavedReportNotFound
+		}
+		return nil, "", err
+	}
+	if role != models.RoleAdmin && r.UserID != callerID {
+		return nil, "", ErrForbidden
+	}
+	full := filepath.Join(s.ReportsDir, r.StorageKey)
+	if _, err := os.Stat(full); err != nil {
+		if os.IsNotExist(err) {
+			return nil, "", ErrSavedReportNotFound
+		}
+		return nil, "", err
+	}
+	return &r, full, nil
 }

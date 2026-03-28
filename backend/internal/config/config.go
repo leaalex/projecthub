@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ type Config struct {
 	Port           string
 	GinMode        string
 	DatabasePath   string
+	ReportsDir     string
 	JWTSecret      string
 	JWTExpiryHrs   int
 	CORSOrigin     string
@@ -42,6 +44,11 @@ func Load() (*Config, error) {
 		dbPath = "./storage/app.db"
 	}
 
+	reportsDir := strings.TrimSpace(os.Getenv("REPORTS_DIR"))
+	if reportsDir == "" {
+		reportsDir = filepath.Join(filepath.Dir(dbPath), "reports")
+	}
+
 	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	if secret == "" {
 		secret = "dev-secret-change-in-production"
@@ -65,6 +72,7 @@ func Load() (*Config, error) {
 		Port:          port,
 		GinMode:       ginMode,
 		DatabasePath:  dbPath,
+		ReportsDir:    reportsDir,
 		JWTSecret:     secret,
 		JWTExpiryHrs:  expiry,
 		CORSOrigin:    cors,

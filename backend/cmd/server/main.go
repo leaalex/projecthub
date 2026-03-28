@@ -38,7 +38,7 @@ func main() {
 	projectSvc := &services.ProjectService{DB: db}
 	taskSvc := &services.TaskService{DB: db}
 	userSvc := &services.UserService{DB: db}
-	reportSvc := &services.ReportService{DB: db}
+	reportSvc := &services.ReportService{DB: db, ReportsDir: cfg.ReportsDir}
 
 	authHandler := &handlers.AuthHandler{Auth: authSvc}
 	projectHandler := &handlers.ProjectHandler{Svc: projectSvc}
@@ -88,6 +88,8 @@ func main() {
 
 	reports := protected.Group("/reports")
 	reports.GET("/weekly", reportHandler.Weekly)
+	reports.GET("/exports", reportHandler.ListExports)
+	reports.GET("/exports/:id/download", reportHandler.DownloadExport)
 	reports.POST("/generate", reportHandler.Generate)
 
 	addr := ":" + cfg.Port

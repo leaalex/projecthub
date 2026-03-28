@@ -119,10 +119,10 @@ const canSubmit = computed(
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
-    <h3 class="text-sm font-semibold text-foreground">Custom report</h3>
-    <p class="mt-1 text-sm text-muted">
-      Choose format, filters, columns, and grouping. Export downloads immediately.
+  <div>
+    <p class="text-sm text-muted">
+      Choose format, filters, columns, and grouping. The file is saved on the server
+      and listed under Saved reports on this page.
     </p>
 
     <div class="mt-4 space-y-4">
@@ -394,7 +394,7 @@ const canSubmit = computed(
         :loading="generating"
         @click="submit"
       >
-        {{ generating ? 'Generating…' : 'Generate & download' }}
+        {{ generating ? 'Saving…' : 'Generate report' }}
       </Button>
     </div>
   </div>
