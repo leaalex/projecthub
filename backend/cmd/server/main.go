@@ -90,6 +90,7 @@ func main() {
 	reports.GET("/weekly", reportHandler.Weekly)
 	reports.GET("/exports", reportHandler.ListExports)
 	reports.GET("/exports/:id/download", reportHandler.DownloadExport)
+	reports.DELETE("/exports/:id", reportHandler.DeleteExport)
 	reports.POST("/generate", reportHandler.Generate)
 
 	addr := ":" + cfg.Port

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"task-manager/backend/internal/models"
+	"task-manager/backend/internal/services/pdffonts"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/xuri/excelize/v2"
@@ -38,6 +39,12 @@ var allowedReportFields = map[string]bool{
 	ReportFieldCreatedAt:   true,
 	ReportFieldUpdatedAt:   true,
 }
+
+// PDFLayoutTable draws a column grid; PDFLayoutList draws one block per task (label: value lines).
+const (
+	PDFLayoutTable = "table"
+	PDFLayoutList  = "list"
+)
 
 var defaultReportFields = []string{
 	ReportFieldTitle,
@@ -273,6 +280,36 @@ func buildXLSX(tasks []models.Task, fields []string, groupBy string) ([]byte, er
 	return buf.Bytes(), nil
 }
 
+// buildTXT writes a UTF-8 plain-text report (human-readable blocks per task).
+func buildTXT(tasks []models.Task, fields []string, groupBy string) ([]byte, error) {
+	fields = NormalizeReportFields(fields)
+	var b strings.Builder
+	b.WriteString("Tasks report\n")
+	b.WriteString(fmt.Sprintf("Generated: %s\n\n", time.Now().UTC().Format(time.RFC3339)))
+
+	prevGroup := ""
+	hasGroup := groupBy != ""
+	for i := range tasks {
+		t := &tasks[i]
+		if hasGroup {
+			g := groupLabel(t, groupBy)
+			if i == 0 || g != prevGroup {
+				b.WriteString(fmt.Sprintf("=== Group (%s): %s ===\n\n", groupBy, g))
+				prevGroup = g
+			}
+		}
+		b.WriteString(fmt.Sprintf("--- Task #%d ---\n", t.ID))
+		for _, f := range fields {
+			b.WriteString(fieldHeader(f))
+			b.WriteString(": ")
+			b.WriteString(taskCell(t, f))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	return []byte(b.String()), nil
+}
+
 func pdfSafe(s string) string {
 	s = strings.ReplaceAll(s, "\r", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
@@ -282,21 +319,45 @@ func pdfSafe(s string) string {
 	return s
 }
 
-func buildPDF(tasks []models.Task, fields []string, groupBy string) ([]byte, error) {
+func pdfNeedNewPage(pdf *fpdf.Fpdf, nextBlockH float64) bool {
+	const bottomY = 185.0
+	return pdf.GetY()+nextBlockH > bottomY
+}
+
+func buildPDF(tasks []models.Task, fields []string, groupBy, layout string) ([]byte, error) {
 	fields = NormalizeReportFields(fields)
 	pdf := fpdf.New("L", "mm", "A4", "")
-	pdf.SetTitle("Tasks report", false)
+	pdffonts.RegisterUTF8Fonts(pdf)
+	pdf.SetTitle("Tasks report", true)
+
+	layout = strings.ToLower(strings.TrimSpace(layout))
+	if layout != PDFLayoutList {
+		layout = PDFLayoutTable
+	}
+
+	if layout == PDFLayoutList {
+		buildPDFList(pdf, tasks, fields, groupBy)
+	} else {
+		buildPDFTable(pdf, tasks, fields, groupBy)
+	}
+
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
+	return buf.Bytes(), err
+}
+
+func buildPDFTable(pdf *fpdf.Fpdf, tasks []models.Task, fields []string, groupBy string) {
+	ff := pdffonts.Family
 	pdf.AddPage()
-	pdf.SetFont("Helvetica", "B", 10)
+	pdf.SetFont(ff, "B", 10)
 	pdf.Cell(0, 8, "Tasks report")
 	pdf.Ln(10)
-	pdf.SetFont("Helvetica", "", 8)
+	pdf.SetFont(ff, "", 8)
 
 	colCount := len(fields)
 	if colCount == 0 {
 		colCount = 1
 	}
-	// Landscape A4 ~ 277mm usable width
 	pageW, _ := pdf.GetPageSize()
 	marginL, _, marginR, _ := pdf.GetMargins()
 	usable := pageW - marginL - marginR
@@ -307,9 +368,9 @@ func buildPDF(tasks []models.Task, fields []string, groupBy string) ([]byte, err
 
 	writeRow := func(cells []string, bold bool) {
 		if bold {
-			pdf.SetFont("Helvetica", "B", 8)
+			pdf.SetFont(ff, "B", 8)
 		} else {
-			pdf.SetFont("Helvetica", "", 7)
+			pdf.SetFont(ff, "", 7)
 		}
 		x0, y0 := pdf.GetXY()
 		maxH := 6.0
@@ -348,7 +409,7 @@ func buildPDF(tasks []models.Task, fields []string, groupBy string) ([]byte, err
 			g := groupLabel(t, groupBy)
 			if i == 0 || g != prevGroup {
 				pdf.Ln(2)
-				pdf.SetFont("Helvetica", "B", 9)
+				pdf.SetFont(ff, "B", 9)
 				pdf.Cell(0, 6, pdfSafe(fmt.Sprintf("Group (%s): %s", groupBy, g)))
 				pdf.Ln(8)
 				prevGroup = g
@@ -360,14 +421,58 @@ func buildPDF(tasks []models.Task, fields []string, groupBy string) ([]byte, err
 			writeRow(headerRow(fields), true)
 		}
 	}
+}
 
-	var buf bytes.Buffer
-	err := pdf.Output(&buf)
-	return buf.Bytes(), err
+func buildPDFList(pdf *fpdf.Fpdf, tasks []models.Task, fields []string, groupBy string) {
+	ff := pdffonts.Family
+	pageW, _ := pdf.GetPageSize()
+	marginL, _, marginR, _ := pdf.GetMargins()
+	usable := pageW - marginL - marginR
+	const lineH = 5.0
+	const taskHeaderH = 6.0
+
+	pdf.AddPage()
+	pdf.SetFont(ff, "B", 11)
+	pdf.MultiCell(usable, 7, "Tasks report", "", "L", false)
+	pdf.Ln(3)
+
+	prevGroup := ""
+	hasGroup := groupBy != ""
+	for i := range tasks {
+		t := &tasks[i]
+		if hasGroup {
+			g := groupLabel(t, groupBy)
+			if i == 0 || g != prevGroup {
+				blockH := 10.0
+				if pdfNeedNewPage(pdf, blockH) {
+					pdf.AddPage()
+				}
+				pdf.SetFont(ff, "B", 9)
+				pdf.MultiCell(usable, 6, pdfSafe(fmt.Sprintf("Group (%s): %s", groupBy, g)), "", "L", false)
+				pdf.Ln(2)
+				prevGroup = g
+			}
+		}
+
+		estH := taskHeaderH + float64(len(fields))*lineH + 6
+		if pdfNeedNewPage(pdf, estH) {
+			pdf.AddPage()
+		}
+
+		pdf.SetFont(ff, "B", 9)
+		pdf.MultiCell(usable, taskHeaderH, pdfSafe(fmt.Sprintf("Task #%d", t.ID)), "", "L", false)
+		pdf.SetFont(ff, "", 8)
+		for _, f := range fields {
+			line := fieldHeader(f) + ": " + pdfSafe(taskCell(t, f))
+			pdf.MultiCell(usable, lineH, line, "", "L", false)
+		}
+		pdf.Ln(4)
+	}
 }
 
 // BuildReportFile builds export bytes from preloaded tasks.
-func BuildReportFile(format string, tasks []models.Task, fields []string, groupBy string) ([]byte, string, string, error) {
+// pdfLayout is PDFLayoutTable or PDFLayoutList; ignored for csv/xlsx.
+func BuildReportFile(format string, tasks []models.Task, fields []string, groupBy, pdfLayout string) ([]byte, string, string, error) {
 	format = strings.ToLower(strings.TrimSpace(format))
 	fields = NormalizeReportFields(fields)
 	SortTasksByGroup(tasks, groupBy)
@@ -384,8 +489,11 @@ func BuildReportFile(format string, tasks []models.Task, fields []string, groupB
 		mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 		return b, name, mime, err
 	case "pdf":
-		b, err := buildPDF(tasks, fields, groupBy)
+		b, err := buildPDF(tasks, fields, groupBy, pdfLayout)
 		return b, fmt.Sprintf("tasks-report-%s.pdf", ts), "application/pdf", err
+	case "txt":
+		b, err := buildTXT(tasks, fields, groupBy)
+		return b, fmt.Sprintf("tasks-report-%s.txt", ts), "text/plain; charset=utf-8", err
 	default:
 		return nil, "", "", ErrInvalidInput
 	}

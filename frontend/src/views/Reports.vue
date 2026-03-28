@@ -8,6 +8,8 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import ReportSettings from '../components/reports/ReportSettings.vue'
 import ReportViewer from '../components/reports/ReportViewer.vue'
 import Table from '../components/ui/UiTable.vue'
+import { useConfirm } from '../composables/useConfirm'
+import { useToast } from '../composables/useToast'
 import { api } from '../utils/api'
 import { formatDateShort } from '../utils/formatters'
 import type { ReportConfig, SavedReport, WeeklyReport } from '../types/report'
@@ -17,9 +19,13 @@ const loading = ref(true)
 const generating = ref(false)
 const msg = ref<string | null>(null)
 
+const { confirm } = useConfirm()
+const toast = useToast()
+
 const modalOpen = ref(false)
 const savedReports = ref<SavedReport[]>([])
 const loadingExports = ref(false)
+const deletingId = ref<number | null>(null)
 
 async function loadWeekly() {
   loading.value = true
@@ -128,6 +134,28 @@ async function downloadSaved(r: SavedReport) {
     }
   }
 }
+
+async function deleteSaved(r: SavedReport) {
+  const ok = await confirm({
+    title: 'Delete report',
+    message: `Remove “${r.display_name}” from the server? This cannot be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  msg.value = null
+  deletingId.value = r.id
+  try {
+    await api.delete(`/reports/exports/${r.id}`)
+    await loadExports()
+    toast.success('Report deleted')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    msg.value = err.response?.data?.error ?? 'Could not delete report.'
+  } finally {
+    deletingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -177,7 +205,7 @@ async function downloadSaved(r: SavedReport) {
         <Table
           v-else
           class="mt-4"
-          :headers="['Name', 'Format', 'Size', 'Created', '']"
+          :headers="['Name', 'Format', 'Size', 'Created', 'Actions']"
         >
           <tr
             v-for="r in savedReports"
@@ -192,14 +220,25 @@ async function downloadSaved(r: SavedReport) {
             <td class="px-4 py-3 text-muted">
               {{ formatDateShort(r.created_at) }}
             </td>
-            <td class="px-4 py-3">
-              <Button
-                type="button"
-                variant="secondary"
-                @click="downloadSaved(r)"
-              >
-                Download
-              </Button>
+            <td class="px-4 py-3 text-right">
+              <div class="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  @click="downloadSaved(r)"
+                >
+                  Download
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  :loading="deletingId === r.id"
+                  :disabled="deletingId !== null && deletingId !== r.id"
+                  @click="deleteSaved(r)"
+                >
+                  Delete
+                </Button>
+              </div>
             </td>
           </tr>
         </Table>

@@ -12,7 +12,12 @@ import UiTextAction from '../ui/UiTextAction.vue'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
 import { api } from '../../utils/api'
-import type { ReportConfig, ReportFormat, ReportGroupBy } from '../../types/report'
+import type {
+  ReportConfig,
+  ReportFormat,
+  ReportGroupBy,
+  ReportPdfLayout,
+} from '../../types/report'
 import type { TaskPriority, TaskStatus } from '../../types/task'
 import type { User } from '../../types/user'
 
@@ -41,7 +46,15 @@ const FORMAT_OPTIONS = [
   { value: 'csv', label: 'CSV' },
   { value: 'xlsx', label: 'XLSX' },
   { value: 'pdf', label: 'PDF' },
+  { value: 'txt', label: 'TXT' },
 ] as const
+
+const PDF_LAYOUT_OPTIONS = [
+  { value: 'table' as const, label: 'Table' },
+  { value: 'list' as const, label: 'List' },
+]
+
+const pdfLayout = ref<ReportPdfLayout>('table')
 
 const statusOptions: TaskStatus[] = [
   'todo',
@@ -123,6 +136,7 @@ function submit() {
     priorities: [...selectedPriorities.value],
     fields: [...selectedFields.value],
     group_by: groupBy.value,
+    ...(format.value === 'pdf' ? { pdf_layout: pdfLayout.value } : {}),
   }
   emit('generate', cfg)
 }
@@ -150,6 +164,18 @@ function statusLabel(s: TaskStatus) {
           aria-label="Report format"
           :options="[...FORMAT_OPTIONS]"
         />
+      </UiFormSection>
+
+      <UiFormSection v-if="format === 'pdf'" title="PDF layout">
+        <UiSegmentedControl
+          v-model="pdfLayout"
+          aria-label="PDF layout"
+          :options="PDF_LAYOUT_OPTIONS"
+        />
+        <p class="mt-2 text-xs text-muted">
+          Table: columns like a spreadsheet. List: each task as labeled lines.
+          PDF uses embedded Unicode fonts (UTF-8, including Cyrillic).
+        </p>
       </UiFormSection>
 
       <div class="grid gap-4 sm:grid-cols-2">

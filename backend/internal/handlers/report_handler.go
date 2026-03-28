@@ -89,6 +89,36 @@ func (h *ReportHandler) DownloadExport(c *gin.Context) {
 	c.File(fullPath)
 }
 
+func (h *ReportHandler) DeleteExport(c *gin.Context) {
+	callerID, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, _ := ctxRole(c)
+
+	n, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil || n == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+		return
+	}
+	id := uint(n)
+
+	if err := h.Svc.DeleteSaved(id, callerID, role); err != nil {
+		if err == services.ErrSavedReportNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if err == services.ErrForbidden {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (h *ReportHandler) Generate(c *gin.Context) {
 	callerID, ok := ctxUserID(c)
 	if !ok {

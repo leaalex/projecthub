@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
 import { useTaskStore } from '../../stores/task.store'
+import { useUiStore } from '../../stores/ui.store'
 import type { TaskStatus } from '../../types/task'
 
 const router = useRouter()
@@ -11,8 +13,8 @@ const route = useRoute()
 const auth = useAuthStore()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
-
-const open = ref(false)
+const ui = useUiStore()
+const { commandPaletteOpen } = storeToRefs(ui)
 const query = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const selected = ref(0)
@@ -158,7 +160,7 @@ watch(filtered, () => {
   selected.value = 0
 })
 
-watch(open, async (v) => {
+watch(commandPaletteOpen, async (v) => {
   if (v) {
     query.value = ''
     selected.value = 0
@@ -170,7 +172,7 @@ watch(open, async (v) => {
 })
 
 function close() {
-  open.value = false
+  ui.closeCommandPalette()
 }
 
 function activate(i: number) {
@@ -185,10 +187,10 @@ function onKeydown(e: KeyboardEvent) {
   const meta = e.metaKey || e.ctrlKey
   if (meta && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    open.value = !open.value
+    ui.toggleCommandPalette()
     return
   }
-  if (!open.value) return
+  if (!commandPaletteOpen.value) return
   if (e.key === 'Escape') {
     e.preventDefault()
     close()
@@ -220,7 +222,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   <Teleport to="body">
     <Transition name="palette">
       <div
-        v-if="open"
+        v-if="commandPaletteOpen"
         class="fixed inset-0 z-[95] flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-[12vh] backdrop-blur-sm"
         role="dialog"
         aria-modal="true"

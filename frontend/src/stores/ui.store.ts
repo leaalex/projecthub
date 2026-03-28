@@ -101,14 +101,32 @@ export const useUiStore = defineStore('ui', () => {
     theme.value = mode
   }
 
+  const commandPaletteOpen = ref(false)
+
+  function openCommandPalette() {
+    commandPaletteOpen.value = true
+  }
+
+  function closeCommandPalette() {
+    commandPaletteOpen.value = false
+  }
+
+  function toggleCommandPalette() {
+    commandPaletteOpen.value = !commandPaletteOpen.value
+  }
+
   return {
     sidebarCollapsed,
     mobileMenuOpen,
     theme,
+    commandPaletteOpen,
     toggleSidebarCollapsed,
     toggleMobileMenu,
     closeMobileMenu,
     cycleTheme,
     setTheme,
+    openCommandPalette,
+    closeCommandPalette,
+    toggleCommandPalette,
   }
 })

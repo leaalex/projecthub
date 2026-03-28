@@ -9,7 +9,10 @@ export interface WeeklyReport {
   projects_count: number
 }
 
-export type ReportFormat = 'csv' | 'xlsx' | 'pdf'
+export type ReportFormat = 'csv' | 'xlsx' | 'pdf' | 'txt'
+
+/** PDF export: grid vs one block per task (UTF-8 text). */
+export type ReportPdfLayout = 'table' | 'list'
 
 export type ReportGroupBy =
   | ''
@@ -39,4 +42,6 @@ export interface ReportConfig {
   priorities: TaskPriority[]
   fields: string[]
   group_by: ReportGroupBy
+  /** Only for format === 'pdf'. Default on server: table. */
+  pdf_layout?: ReportPdfLayout
 }

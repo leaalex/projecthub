@@ -2,15 +2,17 @@
 import {
   ArrowRightStartOnRectangleIcon,
   ChartBarIcon,
-  ChevronDoubleLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClipboardDocumentCheckIcon,
   FolderIcon,
   HomeIcon,
+  MagnifyingGlassIcon,
   SwatchIcon,
   UsersIcon,
 } from '@heroicons/vue/24/outline'
 import type { Component } from 'vue'
-import { computed } from 'vue'
+import { computed, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUiStore } from '../../stores/ui.store'
@@ -66,34 +68,70 @@ async function logout() {
   await router.push('/login')
   emit('navigate')
 }
+
+function openCommandPaletteFromSidebar() {
+  onNavigate()
+  void nextTick(() => {
+    ui.openCommandPalette()
+  })
+}
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-1 flex-col">
     <div
-      class="flex items-center gap-1 border-b border-border px-2 py-3 md:gap-2 md:px-3"
+      class="flex border-b border-border px-2 py-3 md:px-3"
+      :class="
+        collapsed
+          ? 'items-stretch'
+          : 'items-center gap-1 md:gap-2'
+      "
     >
       <RouterLink
+        v-if="!collapsed"
         to="/dashboard"
-        class="flex min-w-0 flex-1 items-center justify-center font-semibold text-primary md:justify-start"
-        :title="collapsed ? 'Project Hub' : undefined"
+        class="flex min-w-0 flex-1 items-center font-semibold text-primary md:justify-start"
         @click="onNavigate"
       >
-        <span class="truncate text-lg">{{ collapsed ? 'P' : 'Project Hub' }}</span>
+        <span class="truncate text-lg">Project Hub</span>
       </RouterLink>
       <button
         type="button"
-        class="hidden shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground md:inline-flex"
+        class="hidden rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground md:inline-flex md:items-center md:justify-center"
+        :class="
+          collapsed
+            ? 'w-full py-2'
+            : 'shrink-0 p-1.5'
+        "
         :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         :aria-expanded="!collapsed"
         aria-label="Toggle sidebar width"
         @click="ui.toggleSidebarCollapsed()"
       >
-        <ChevronDoubleLeftIcon
-          class="h-5 w-5 transition-transform"
-          :class="ui.sidebarCollapsed ? 'rotate-180' : ''"
+        <ChevronLeftIcon
+          v-if="!collapsed"
+          class="h-5 w-5"
           aria-hidden="true"
         />
+        <ChevronRightIcon
+          v-else
+          class="h-5 w-5"
+          aria-hidden="true"
+        />
+      </button>
+    </div>
+
+    <div class="border-b border-border px-2 pb-2 pt-2">
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
+        :class="collapsed ? 'justify-center px-2' : ''"
+        title="Command palette — ⌘K or Ctrl+K"
+        aria-label="Open command palette"
+        @click="openCommandPaletteFromSidebar"
+      >
+        <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+        <span v-show="!collapsed" class="truncate">Command palette</span>
       </button>
     </div>
 

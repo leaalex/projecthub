@@ -28,6 +28,8 @@ type GenerateRequest struct {
 	Priorities  []string `json:"priorities"`
 	Fields      []string `json:"fields"`
 	GroupBy     string   `json:"group_by"`
+	// PdfLayout: "table" (default) or "list" — only used when format is pdf.
+	PdfLayout string `json:"pdf_layout"`
 }
 
 // ErrSavedReportNotFound is returned when a saved export id does not exist.
@@ -131,7 +133,7 @@ func parseReportDateStart(s string) (time.Time, error) {
 // generateReportBytes builds report file bytes (query + export).
 func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
 	format := strings.ToLower(strings.TrimSpace(req.Format))
-	if format != "csv" && format != "xlsx" && format != "pdf" {
+	if format != "csv" && format != "xlsx" && format != "pdf" && format != "txt" {
 		return nil, "", "", ErrInvalidInput
 	}
 
@@ -205,7 +207,15 @@ func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req
 		return nil, "", "", err
 	}
 
-	return BuildReportFile(format, tasks, req.Fields, groupBy)
+	pdfLayout := strings.ToLower(strings.TrimSpace(req.PdfLayout))
+	if pdfLayout == "" {
+		pdfLayout = "table"
+	}
+	if pdfLayout != "table" && pdfLayout != "list" {
+		pdfLayout = "table"
+	}
+
+	return BuildReportFile(format, tasks, req.Fields, groupBy, pdfLayout)
 }
 
 func randomStorageKey(ext string) (string, error) {
@@ -224,6 +234,8 @@ func reportFormatExt(format string) string {
 		return ".xlsx"
 	case "pdf":
 		return ".pdf"
+	case "txt":
+		return ".txt"
 	default:
 		return ".bin"
 	}
@@ -238,6 +250,8 @@ func ReportMIME(format string) string {
 		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	case "pdf":
 		return "application/pdf"
+	case "txt":
+		return "text/plain; charset=utf-8"
 	default:
 		return "application/octet-stream"
 	}
@@ -319,4 +333,24 @@ func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role)
 		return nil, "", err
 	}
 	return &r, full, nil
+}
+
+// DeleteSaved removes a saved export row and its file after the same ACL as download.
+func (s *ReportService) DeleteSaved(id, callerID uint, role models.Role) error {
+	var r models.SavedReport
+	if err := s.DB.First(&r, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrSavedReportNotFound
+		}
+		return err
+	}
+	if role != models.RoleAdmin && r.UserID != callerID {
+		return ErrForbidden
+	}
+	full := filepath.Join(s.ReportsDir, r.StorageKey)
+	_ = os.Remove(full)
+	if err := s.DB.Delete(&models.SavedReport{}, id).Error; err != nil {
+		return err
+	}
+	return nil
 }
