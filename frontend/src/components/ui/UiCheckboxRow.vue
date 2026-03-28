@@ -23,7 +23,9 @@ function onChange(e: Event) {
 </script>
 
 <template>
-  <label class="flex cursor-pointer items-center gap-2 text-sm">
+  <label
+    class="flex min-h-8 cursor-pointer items-center gap-2 text-xs leading-normal"
+  >
     <input
       type="checkbox"
       class="rounded border-border text-primary focus:ring-ring"

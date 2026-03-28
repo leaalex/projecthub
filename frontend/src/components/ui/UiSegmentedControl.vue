@@ -22,7 +22,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="inline-flex gap-1 rounded-lg border border-border bg-surface-muted/50 p-1"
+    class="inline-flex gap-0.5 rounded-lg border border-border bg-surface-muted/50 p-0.5"
     role="tablist"
     :aria-label="ariaLabel"
   >
@@ -34,7 +34,7 @@ const emit = defineEmits<{
       :aria-selected="modelValue === opt.value"
       :tabindex="modelValue === opt.value ? 0 : -1"
       :disabled="opt.disabled"
-      class="rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      class="inline-flex min-h-8 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
       :class="
         modelValue === opt.value
           ? 'bg-surface text-foreground shadow-sm'

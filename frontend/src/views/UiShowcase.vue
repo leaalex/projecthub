@@ -296,8 +296,7 @@ async function runConfirmDemo() {
           <UiSelect
             id="ui-sel-3"
             v-model="demoSelectSm"
-            label="Small size"
-            size="sm"
+            label="Same compact height as other controls"
             :options="selectFlavorOptions"
           />
           <UiSelect
@@ -371,11 +370,14 @@ async function runConfirmDemo() {
             :value="p"
           />
         </div>
-        <p class="mb-3 mt-6 text-sm font-medium text-muted">Avatar sizes</p>
-        <div class="flex flex-wrap items-end gap-4">
-          <UiAvatar size="sm" name="Alex Doe" email="alex@example.com" />
-          <UiAvatar size="md" name="Jamie Smith" email="jamie@example.com" />
-          <UiAvatar size="lg" email="only@email.com" />
+        <p class="mb-3 mt-6 text-sm font-medium text-muted">Avatar</p>
+        <p class="mb-3 text-xs text-muted">
+          Single size (32×32px, <code class="text-foreground">text-xs</code>) everywhere.
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <UiAvatar name="Alex Doe" email="alex@example.com" />
+          <UiAvatar name="Jamie Smith" email="jamie@example.com" />
+          <UiAvatar email="only@email.com" />
         </div>
       </UiCard>
 

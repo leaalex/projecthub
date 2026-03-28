@@ -117,7 +117,7 @@ async function remove(u: User) {
     >
       <tr v-for="u in users" :key="u.id" class="hover:bg-surface-muted">
         <td class="px-4 py-3">
-          <Avatar size="sm" :email="u.email" :name="u.name" />
+          <Avatar :email="u.email" :name="u.name" />
         </td>
         <td class="px-4 py-3 font-mono text-xs">{{ u.id }}</td>
         <td class="px-4 py-3">{{ u.email }}</td>

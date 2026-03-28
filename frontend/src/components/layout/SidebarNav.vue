@@ -149,7 +149,6 @@ async function logout() {
           <Avatar
             :email="auth.user.email"
             :name="auth.user.name"
-            size="sm"
           />
           <div
             v-show="!collapsed"

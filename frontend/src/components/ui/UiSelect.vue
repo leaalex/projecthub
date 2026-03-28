@@ -36,7 +36,6 @@ const props = withDefaults(
     error?: string
     /** Full width (default true) */
     block?: boolean
-    size?: 'sm' | 'md'
     /**
      * When true (default), the list is teleported to `body` with fixed positioning
      * so parent `overflow: hidden` does not clip it (e.g. task list, modals).
@@ -50,7 +49,6 @@ const props = withDefaults(
   {
     placeholder: 'Select…',
     block: true,
-    size: 'md',
     teleport: true,
     filterable: false,
     multiple: false,
@@ -144,27 +142,12 @@ const displayTitle = computed(() => {
     .join(', ')
 })
 
-const btnSizeClass = computed(() =>
-  props.size === 'sm'
-    ? 'px-2 py-1 text-xs'
-    : 'px-3 py-2 text-sm',
-)
-
-const optSizeClass = computed(() =>
-  props.size === 'sm'
-    ? 'px-2 py-1.5 text-xs'
-    : 'px-3 py-2 text-sm',
-)
-
-const searchSizeClass = computed(() =>
-  props.size === 'sm'
-    ? 'px-2 py-1.5 text-xs'
-    : 'px-3 py-2 text-sm',
-)
-
-const chevronClass = computed(() =>
-  props.size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4',
-)
+/** Единая компактная сетка (см. style.css --ui-control-h) */
+const triggerClass =
+  'h-8 min-h-8 px-3 text-xs leading-normal'
+const optionRowClass = 'min-h-8 px-3 py-1.5 text-xs leading-normal'
+const searchFieldClass = 'h-8 min-h-8 px-3 text-xs leading-normal'
+const chevronIconClass = 'h-3.5 w-3.5 shrink-0'
 
 const displayLabel = computed(() => {
   if (props.multiple) {
@@ -431,7 +414,7 @@ function optionClasses(fi: number, row: FilterRow) {
   const active = fi === activeIndex.value
   return [
     'flex w-full cursor-pointer select-none items-center gap-2 text-left text-foreground',
-    optSizeClass.value,
+    optionRowClass,
     row.opt.disabled && 'cursor-not-allowed opacity-50',
     !row.opt.disabled && active && 'bg-surface-muted',
     !row.opt.disabled && !active && 'hover:bg-surface-muted/80',
@@ -449,7 +432,7 @@ function optionClasses(fi: number, row: FilterRow) {
     <label
       v-if="label"
       :for="baseId"
-      class="mb-1 block text-sm font-medium text-foreground"
+      class="mb-1 block text-xs font-medium text-foreground"
       >{{ label }}</label
     >
     <button
@@ -465,7 +448,7 @@ function optionClasses(fi: number, row: FilterRow) {
       :title="displayTitle"
       :class="[
         'flex w-full items-center justify-between gap-2 rounded-md border border-border bg-surface text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
-        btnSizeClass,
+        triggerClass,
         showPlaceholderStyle ? 'text-muted' : 'text-foreground',
       ]"
       @click.stop="toggle"
@@ -474,7 +457,7 @@ function optionClasses(fi: number, row: FilterRow) {
       <span class="min-w-0 flex-1 truncate">{{ displayLabel }}</span>
       <ChevronDownIcon
         class="shrink-0 text-muted transition-transform duration-200"
-        :class="[chevronClass, open && 'rotate-180']"
+        :class="[chevronIconClass, open && 'rotate-180']"
         aria-hidden="true"
       />
     </button>
@@ -508,7 +491,7 @@ function optionClasses(fi: number, row: FilterRow) {
             aria-label="Filter options"
             :class="[
               'w-full shrink-0 border-b border-border bg-surface text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-              searchSizeClass,
+              searchFieldClass,
             ]"
             placeholder="Search…"
             @keydown="onSearchKeydown"

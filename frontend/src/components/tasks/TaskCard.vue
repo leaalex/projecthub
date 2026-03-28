@@ -14,11 +14,14 @@ import Badge from '../ui/UiBadge.vue'
 import UiSelect, { type UiSelectModelValue } from '../ui/UiSelect.vue'
 
 const controlClass =
-  'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
+  'h-8 min-h-8 w-full rounded-md border border-border bg-surface px-3 text-xs leading-normal text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
 
-/** Compact controls for the inline edit toolbar row */
+/** Inline toolbar: same grid as UiSelect / UiInput */
 const rowControlClass =
-  'min-h-8 min-w-0 rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
+  'h-8 min-h-8 min-w-0 rounded-md border border-border bg-surface px-3 text-xs leading-normal text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
+
+const textareaClass =
+  'min-h-[4rem] w-full rounded-md border border-border bg-surface px-3 py-2 text-xs leading-snug text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
 
 const props = withDefaults(
   defineProps<{
@@ -324,7 +327,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
             type="text"
             placeholder="Title"
             :class="controlClass"
-            class="min-w-0 flex-1 py-1.5 text-sm font-medium"
+            class="min-w-0 flex-1 font-medium"
             :disabled="busy"
             @keydown="onTitleKeydown"
           />
@@ -334,8 +337,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
           v-model="draftDescription"
           rows="2"
           placeholder="Description (optional)"
-          :class="controlClass"
-          class="py-1.5 text-sm leading-snug"
+          :class="textareaClass"
           :disabled="busy"
           @keydown="onInlineEscape"
         />
@@ -348,7 +350,6 @@ function setDraftAssignee(v: UiSelectModelValue) {
           >
             <UiSelect
               :model-value="draftStatus"
-              size="sm"
               :block="false"
               class="w-full min-w-0"
               placeholder="Status"
@@ -363,7 +364,6 @@ function setDraftAssignee(v: UiSelectModelValue) {
           >
             <UiSelect
               :model-value="draftPriority"
-              size="sm"
               :block="false"
               class="w-full min-w-0"
               placeholder="Priority"
@@ -379,7 +379,6 @@ function setDraftAssignee(v: UiSelectModelValue) {
           >
             <UiSelect
               :model-value="draftProjectId"
-              size="sm"
               :block="false"
               class="w-full min-w-0"
               placeholder="Project"
@@ -395,7 +394,6 @@ function setDraftAssignee(v: UiSelectModelValue) {
           >
             <UiSelect
               :model-value="draftAssigneeId === '' ? '' : draftAssigneeId"
-              size="sm"
               :block="false"
               class="w-full min-w-0"
               placeholder="Assignee"
@@ -436,7 +434,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
           <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              class="rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+              class="inline-flex h-8 min-h-8 items-center justify-center rounded-md border border-border bg-surface px-3 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
               :disabled="busy"
               @click="collapseExpanded"
             >
@@ -444,7 +442,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
             </button>
             <button
               type="button"
-              class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              class="inline-flex h-8 min-h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               :disabled="busy"
               @click="saveAndCollapse"
             >

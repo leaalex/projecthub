@@ -24,7 +24,7 @@ withDefaults(
     :type="type"
     :disabled="disabled || loading"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+      'inline-flex h-8 min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
       block ? 'w-full' : '',
       variant === 'primary' &&
         'bg-primary text-primary-foreground hover:bg-primary-hover',
@@ -37,7 +37,7 @@ withDefaults(
   >
     <ArrowPathIcon
       v-if="loading"
-      class="h-4 w-4 shrink-0 animate-spin"
+      class="h-3.5 w-3.5 shrink-0 animate-spin"
       aria-hidden="true"
     />
     <slot />

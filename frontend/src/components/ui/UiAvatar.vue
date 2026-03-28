@@ -4,8 +4,6 @@ import { computed } from 'vue'
 const props = defineProps<{
   email?: string | null
   name?: string | null
-  /** Size in Tailwind scale: sm | md | lg */
-  size?: 'sm' | 'md' | 'lg'
 }>()
 
 const initials = computed(() => {
@@ -46,23 +44,12 @@ const paletteClass = computed(() => {
   const key = props.email || props.name || 'x'
   return PALETTE[hashString(key) % PALETTE.length]
 })
-
-const sizeClass = computed(() => {
-  switch (props.size) {
-    case 'sm':
-      return 'h-8 w-8 text-xs'
-    case 'lg':
-      return 'h-12 w-12 text-base'
-    default:
-      return 'h-9 w-9 text-sm'
-  }
-})
 </script>
 
 <template>
   <span
-    class="inline-flex shrink-0 items-center justify-center rounded-full font-semibold"
-    :class="[sizeClass, paletteClass]"
+    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+    :class="paletteClass"
     :title="email || name || undefined"
     aria-hidden="true"
   >

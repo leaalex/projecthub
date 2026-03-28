@@ -24,7 +24,7 @@ function onChange(e: Event) {
 
 <template>
   <label
-    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs transition-colors"
+    class="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 text-xs transition-colors"
     :class="
       checked
         ? 'border-primary bg-primary/10 text-primary'
