@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import EmptyState from '../components/ui/UiEmptyState.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
@@ -54,6 +55,11 @@ const status = ref<TaskStatus>('todo')
 const priority = ref<TaskPriority>('medium')
 const saving = ref(false)
 const taskView = ref<'list' | 'board'>('list')
+
+const viewModeOptions = [
+  { value: 'list', label: 'List' },
+  { value: 'board', label: 'Board' },
+]
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
@@ -185,32 +191,12 @@ async function onReopen(id: number) {
       </Button>
     </div>
 
-    <div class="mt-4 flex gap-1 rounded-lg border border-border bg-surface-muted/50 p-1">
-      <button
-        type="button"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
-        :class="
-          taskView === 'list'
-            ? 'bg-surface text-foreground shadow-sm'
-            : 'text-muted hover:text-foreground'
-        "
-        @click="taskView = 'list'"
-      >
-        List
-      </button>
-      <button
-        type="button"
-        class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
-        :class="
-          taskView === 'board'
-            ? 'bg-surface text-foreground shadow-sm'
-            : 'text-muted hover:text-foreground'
-        "
-        @click="taskView = 'board'"
-      >
-        Board
-      </button>
-    </div>
+    <UiSegmentedControl
+      v-model="taskView"
+      class="mt-4"
+      aria-label="Tasks view"
+      :options="viewModeOptions"
+    />
 
     <div class="mt-4 flex flex-wrap gap-4">
       <div>

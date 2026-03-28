@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import Modal from '../ui/UiModal.vue'
+import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import TaskForm from './TaskForm.vue'
 import { useTaskStore } from '../../stores/task.store'
 import { useCanEditTask } from '../../composables/useCanEditTask'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { formatDate, formatTaskStatus } from '../../utils/formatters'
@@ -21,11 +23,13 @@ const emit = defineEmits<{
 
 const taskStore = useTaskStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const task = ref<Task | null>(null)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 const saving = ref(false)
+const removing = ref(false)
 
 const formTitle = ref('')
 const formDescription = ref('')
@@ -99,6 +103,29 @@ async function save() {
 
 function close() {
   emit('update:modelValue', false)
+}
+
+async function removeTask() {
+  const t = task.value
+  if (!t) return
+  const ok = await confirm({
+    title: 'Delete task',
+    message: `Remove “${t.title}”? This cannot be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  removing.value = true
+  try {
+    await taskStore.remove(t.id)
+    toast.success('Task deleted')
+    close()
+    emit('saved')
+  } catch {
+    toast.error('Could not delete task')
+  } finally {
+    removing.value = false
+  }
 }
 </script>
 
@@ -208,6 +235,17 @@ function close() {
           @submit="save"
           @cancel="close"
         />
+        <div class="flex justify-end border-t border-border pt-4">
+          <Button
+            variant="danger"
+            type="button"
+            :loading="removing"
+            :disabled="saving"
+            @click="removeTask"
+          >
+            Delete task
+          </Button>
+        </div>
       </div>
     </template>
   </Modal>

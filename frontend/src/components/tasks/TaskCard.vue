@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { InformationCircleIcon } from '@heroicons/vue/24/outline'
+import {
+  InformationCircleIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { useTaskStore } from '../../stores/task.store'
+import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import { timeAgo } from '../../utils/formatters'
-import Avatar from '../ui/UiAvatar.vue'
 import Badge from '../ui/UiBadge.vue'
 import UiSelect from '../ui/UiSelect.vue'
 
@@ -40,9 +43,11 @@ const emit = defineEmits<{
 
 const taskStore = useTaskStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const expanded = ref(false)
 const busy = ref(false)
+const deleting = ref(false)
 
 const draftTitle = ref('')
 const draftDescription = ref('')
@@ -94,6 +99,29 @@ function onBodyClick() {
 function collapseExpanded() {
   expanded.value = false
   syncDraftsFromTask()
+}
+
+async function requestDelete() {
+  if (!props.canEdit || deleting.value) return
+  const t = props.task
+  const ok = await confirm({
+    title: 'Delete task',
+    message: `Remove “${t.title}”? This cannot be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  deleting.value = true
+  try {
+    await taskStore.remove(t.id)
+    toast.success('Task deleted')
+    collapseExpanded()
+    emit('updated')
+  } catch {
+    toast.error('Could not delete task')
+  } finally {
+    deleting.value = false
+  }
 }
 
 function onInlineEscape(e: KeyboardEvent) {
@@ -253,6 +281,16 @@ function setDraftAssignee(v: string | number) {
           >
             <InformationCircleIcon class="h-4 w-4" />
           </button>
+          <button
+            v-if="canEdit"
+            type="button"
+            class="inline-flex shrink-0 items-center justify-center rounded-md p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            aria-label="Delete task"
+            :disabled="deleting"
+            @click.stop="requestDelete"
+          >
+            <TrashIcon class="h-4 w-4" />
+          </button>
         </div>
         <p
           v-if="task.description"
@@ -273,13 +311,8 @@ function setDraftAssignee(v: string | number) {
             <span class="shrink-0">Due {{ dueFromTask(task.due_date) }}</span>
           </template>
           <span class="shrink-0">·</span>
-          <span class="inline-flex min-w-0 max-w-full items-center gap-1">
+          <span class="inline-flex min-w-0 max-w-full items-center">
             <template v-if="task.assignee">
-              <Avatar
-                size="sm"
-                :email="task.assignee.email"
-                :name="task.assignee.name"
-              />
               <span class="truncate">{{
                 task.assignee.name || task.assignee.email
               }}</span>
@@ -416,6 +449,16 @@ function setDraftAssignee(v: string | number) {
             :disabled="busy"
             @keydown="onInlineEscape"
           />
+        </div>
+        <div class="flex justify-end border-t border-border pt-2">
+          <button
+            type="button"
+            class="text-xs font-medium text-destructive hover:underline disabled:opacity-50"
+            :disabled="busy || deleting"
+            @click="requestDelete"
+          >
+            Delete task
+          </button>
         </div>
       </div>
     </div>

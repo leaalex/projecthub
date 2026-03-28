@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { TrashIcon } from '@heroicons/vue/24/outline'
 import { useTaskStore } from '../../stores/task.store'
+import { useConfirm } from '../../composables/useConfirm'
+import { useTaskEditPermission } from '../../composables/useCanEditTask'
 import { useToast } from '../../composables/useToast'
 import type { Task, TaskStatus } from '../../types/task'
 import { formatTaskStatus } from '../../utils/formatters'
@@ -16,6 +19,8 @@ const emit = defineEmits<{
 
 const taskStore = useTaskStore()
 const toast = useToast()
+const { confirm } = useConfirm()
+const { canEditTask } = useTaskEditPermission()
 
 const columns: { status: TaskStatus; title: string }[] = [
   { status: 'todo', title: 'To do' },
@@ -25,6 +30,7 @@ const columns: { status: TaskStatus; title: string }[] = [
 ]
 
 const dragOverColumn = ref<TaskStatus | null>(null)
+const removingId = ref<number | null>(null)
 
 function tasksIn(status: TaskStatus) {
   return props.tasks.filter((t) => t.status === status)
@@ -71,6 +77,27 @@ async function markDone(taskId: number) {
     emit('changed')
   } catch {
     toast.error('Could not complete task')
+  }
+}
+
+async function removeTask(task: Task) {
+  if (!canEditTask(task)) return
+  const ok = await confirm({
+    title: 'Delete task',
+    message: `Remove “${task.title}”? This cannot be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  removingId.value = task.id
+  try {
+    await taskStore.remove(task.id)
+    toast.success('Task deleted')
+    emit('changed')
+  } catch {
+    toast.error('Could not delete task')
+  } finally {
+    removingId.value = null
   }
 }
 </script>
@@ -120,14 +147,25 @@ async function markDone(taskId: number) {
           <p class="mt-2 text-xs text-muted">
             {{ formatTaskStatus(task.status) }} · {{ task.priority }}
           </p>
-          <Button
-            v-if="task.status !== 'done'"
-            class="mt-2"
-            variant="secondary"
-            @click="markDone(task.id)"
-          >
-            Mark done
-          </Button>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              v-if="task.status !== 'done'"
+              variant="secondary"
+              @click="markDone(task.id)"
+            >
+              Mark done
+            </Button>
+            <button
+              v-if="canEditTask(task)"
+              type="button"
+              class="inline-flex items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+              aria-label="Delete task"
+              :disabled="removingId === task.id"
+              @click.stop="removeTask(task)"
+            >
+              <TrashIcon class="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

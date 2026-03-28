@@ -5,11 +5,17 @@ import UiBadge from '../components/ui/UiBadge.vue'
 import UiBreadcrumb from '../components/ui/UiBreadcrumb.vue'
 import UiButton from '../components/ui/UiButton.vue'
 import UiCard from '../components/ui/UiCard.vue'
+import UiCheckboxRow from '../components/ui/UiCheckboxRow.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
+import UiFilterChip from '../components/ui/UiFilterChip.vue'
+import UiFormSection from '../components/ui/UiFormSection.vue'
 import UiInput from '../components/ui/UiInput.vue'
 import UiModal from '../components/ui/UiModal.vue'
+import UiScrollPanel from '../components/ui/UiScrollPanel.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import UiSelect from '../components/ui/UiSelect.vue'
 import UiSkeleton from '../components/ui/UiSkeleton.vue'
+import UiTextAction from '../components/ui/UiTextAction.vue'
 import UiTable from '../components/ui/UiTable.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
@@ -21,6 +27,10 @@ const toast = useToast()
 const demoInput = ref('Sample value')
 const demoErrorInput = ref('')
 const demoDisabled = ref('Read-only value')
+const demoDate = ref('')
+
+const demoCheckboxIds = ref<number[]>([1, 2])
+const demoFilterChips = ref<string[]>(['todo', 'done'])
 
 const demoSelectPlain = ref('mocha')
 const demoSelectDisabledOpt = ref('a')
@@ -41,6 +51,18 @@ const selectWithDisabledOption = [
 
 const modalOpen = ref(false)
 const buttonLoading = ref(false)
+
+const demoSegment = ref('list')
+const demoSegmentThree = ref('b')
+const segmentedTwo = [
+  { value: 'list', label: 'List' },
+  { value: 'board', label: 'Board' },
+]
+const segmentedThree = [
+  { value: 'a', label: 'Alpha' },
+  { value: 'b', label: 'Beta' },
+  { value: 'c', label: 'Gamma' },
+]
 
 const statuses: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical']
@@ -79,6 +101,7 @@ async function runConfirmDemo() {
       <p class="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
         On this page:
         <span class="text-foreground/90">UiButton</span>,
+        <span class="text-foreground/90">UiSegmentedControl</span>,
         <span class="text-foreground/90">UiInput</span>,
         <span class="text-foreground/90">UiSelect</span>,
         <span class="text-foreground/90">UiBadge</span>,
@@ -88,7 +111,12 @@ async function runConfirmDemo() {
         <span class="text-foreground/90">UiBreadcrumb</span>,
         <span class="text-foreground/90">UiEmptyState</span>,
         <span class="text-foreground/90">UiSkeleton</span>,
-        <span class="text-foreground/90">UiModal</span>.
+        <span class="text-foreground/90">UiModal</span>,
+        <span class="text-foreground/90">UiFormSection</span>,
+        <span class="text-foreground/90">UiScrollPanel</span>,
+        <span class="text-foreground/90">UiTextAction</span>,
+        <span class="text-foreground/90">UiCheckboxRow</span>,
+        <span class="text-foreground/90">UiFilterChip</span>.
         Globally in the app shell:
         <span class="text-foreground/90">UiToast</span>,
         <span class="text-foreground/90">UiConfirmDialog</span>,
@@ -116,6 +144,34 @@ async function runConfirmDemo() {
         </div>
       </UiCard>
 
+      <UiCard title="Segmented control (UiSegmentedControl)">
+        <p class="mb-4 text-sm text-muted">
+          Same pattern as List / Board on the Tasks page. Uses
+          <code class="text-foreground">v-model</code> with string values.
+        </p>
+        <div class="flex flex-col gap-6">
+          <div>
+            <p class="mb-2 text-xs font-medium text-muted">Two segments</p>
+            <UiSegmentedControl
+              v-model="demoSegment"
+              aria-label="Demo two options"
+              :options="segmentedTwo"
+            />
+            <p class="mt-2 text-xs text-muted">
+              Selected: <code class="text-foreground">{{ demoSegment }}</code>
+            </p>
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-medium text-muted">Three segments</p>
+            <UiSegmentedControl
+              v-model="demoSegmentThree"
+              aria-label="Demo three options"
+              :options="segmentedThree"
+            />
+          </div>
+        </div>
+      </UiCard>
+
       <UiCard title="Inputs (UiInput)">
         <div class="grid max-w-md gap-4">
           <UiInput
@@ -137,7 +193,60 @@ async function runConfirmDemo() {
             label="Disabled"
             disabled
           />
+          <UiInput
+            id="ui-demo-date"
+            v-model="demoDate"
+            type="date"
+            label="Date (type=&quot;date&quot;)"
+          />
         </div>
+      </UiCard>
+
+      <UiCard title="Form sections & filters">
+        <p class="mb-4 text-sm text-muted">
+          Primitives used in dense forms (e.g.
+          <code class="text-foreground">ReportSettings</code>).
+        </p>
+        <UiFormSection title="Sample checklist">
+          <template #actions>
+            <UiTextAction
+              @click="
+                demoCheckboxIds =
+                  demoCheckboxIds.length < 3 ? [1, 2, 3] : []
+              "
+            >
+              {{ demoCheckboxIds.length < 3 ? 'Select all' : 'Clear' }}
+            </UiTextAction>
+          </template>
+          <UiScrollPanel max-height-class="max-h-28">
+            <UiCheckboxRow v-model="demoCheckboxIds" :value="1">
+              Option one
+            </UiCheckboxRow>
+            <UiCheckboxRow v-model="demoCheckboxIds" :value="2">
+              Option two
+            </UiCheckboxRow>
+            <UiCheckboxRow v-model="demoCheckboxIds" :value="3">
+              Option three
+            </UiCheckboxRow>
+          </UiScrollPanel>
+        </UiFormSection>
+        <UiFormSection title="Filter chips" class="mt-6">
+          <div class="flex flex-wrap gap-2">
+            <UiFilterChip v-model="demoFilterChips" value="todo">
+              To do
+            </UiFilterChip>
+            <UiFilterChip v-model="demoFilterChips" value="in_progress">
+              In progress
+            </UiFilterChip>
+            <UiFilterChip v-model="demoFilterChips" value="done">
+              Done
+            </UiFilterChip>
+          </div>
+          <p class="mt-2 text-xs text-muted">
+            Selected:
+            <code class="text-foreground">{{ demoFilterChips.join(', ') || '—' }}</code>
+          </p>
+        </UiFormSection>
       </UiCard>
 
       <UiCard title="Select (UiSelect)">
