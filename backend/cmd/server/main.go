@@ -63,12 +63,13 @@ func main() {
 
 	protected := api.Group("")
 	protected.Use(middleware.JWTAuth(cfg.JWTSecret))
+	protected.Use(middleware.SyncRoleFromDB(db))
 	protected.GET("/me", authHandler.Me)
 	protected.POST("/me/password", authHandler.ChangePassword)
 
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
-	projects.POST("", projectHandler.Create)
+	projects.POST("", middleware.RequireCreatorOrAbove(), projectHandler.Create)
 	projects.GET("/:id", projectHandler.Get)
 	projects.PUT("/:id", projectHandler.Update)
 	projects.DELETE("/:id", projectHandler.Delete)
@@ -76,7 +77,7 @@ func main() {
 
 	tasks := protected.Group("/tasks")
 	tasks.GET("", taskHandler.List)
-	tasks.POST("", taskHandler.Create)
+	tasks.POST("", middleware.RequireCreatorOrAbove(), taskHandler.Create)
 	tasks.GET("/:id/subtasks", subtaskHandler.List)
 	tasks.POST("/:id/subtasks", subtaskHandler.Create)
 	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)
@@ -89,7 +90,9 @@ func main() {
 	tasks.POST("/:id/complete", taskHandler.Complete)
 
 	users := protected.Group("/users")
-	users.GET("", middleware.RequireAdmin(), userHandler.List)
+	users.GET("", middleware.RequireStaffOrAdmin(), userHandler.List)
+	users.POST("", middleware.RequireAdmin(), userHandler.Create)
+	users.PATCH("/:id/role", middleware.RequireAdmin(), userHandler.SetRole)
 	users.GET("/:id", userHandler.Get)
 	users.PUT("/:id", userHandler.Update)
 	users.DELETE("/:id", middleware.RequireAdmin(), userHandler.Delete)

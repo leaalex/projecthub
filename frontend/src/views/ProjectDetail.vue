@@ -22,6 +22,7 @@ import {
   type TaskGroupBy,
   type TaskSortKey,
 } from '../composables/useTaskListPresentation'
+import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
 import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
@@ -35,6 +36,8 @@ const taskViewModeOptions = [
 ]
 
 const toast = useToast()
+const auth = useAuthStore()
+const canCreateTasks = computed(() => auth.user?.role !== 'user')
 const { canEditTask } = useTaskEditPermission()
 const { assignableUsers } = useAdminAssignableUsers()
 
@@ -222,7 +225,7 @@ async function onReopen(taskId: number) {
       <Skeleton variant="line" :lines="2" />
     </div>
     <div
-      class="mt-6 overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+      class="mt-6 overflow-hidden rounded-lg border border-border bg-surface"
     >
       <div class="border-b border-border px-3 py-3">
         <Skeleton variant="line" class="max-w-lg" />
@@ -285,6 +288,7 @@ async function onReopen(taskId: number) {
           </Button>
         </div>
         <Button
+          v-if="canCreateTasks"
           type="button"
           class="shrink-0"
           :disabled="!Number.isFinite(id) || id <= 0"
@@ -324,8 +328,8 @@ async function onReopen(taskId: number) {
 
       <template v-if="projectTaskView === 'list'">
         <div
-          v-if="showTaskComposer"
-          class="overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+          v-if="canCreateTasks && showTaskComposer"
+          class="overflow-hidden rounded-lg border border-border bg-surface"
         >
           <div class="border-b border-border px-3 py-3">
             <TaskInlineComposer
@@ -402,9 +406,14 @@ async function onReopen(taskId: number) {
           v-else-if="!displayFlat.length"
           class="mt-6"
           title="No tasks yet"
-          description="Create a task to see it on the board."
+          :description="
+            canCreateTasks
+              ? 'Create a task to see it on the board.'
+              : 'No tasks in this project yet.'
+          "
         >
           <Button
+            v-if="canCreateTasks"
             type="button"
             :disabled="!Number.isFinite(id) || id <= 0"
             @click="showModal = true"
@@ -427,7 +436,7 @@ async function onReopen(taskId: number) {
       @saved="refreshProjectTasks"
     />
 
-    <Modal v-model="showModal" title="New task">
+    <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
       <TaskForm
         v-model:title="modalTitle"
         v-model:description="modalDescription"

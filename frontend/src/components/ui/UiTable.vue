@@ -1,7 +1,12 @@
 <script setup lang="ts">
-defineProps<{
-  headers: string[]
-}>()
+withDefaults(
+  defineProps<{
+    headers: string[]
+    /** Per-column classes for `<th>` (e.g. `text-right` for numeric/actions columns). */
+    columnClass?: string[]
+  }>(),
+  { columnClass: () => [] },
+)
 </script>
 
 <template>
@@ -13,6 +18,7 @@ defineProps<{
             v-for="(h, i) in headers"
             :key="i"
             class="px-4 py-3 font-semibold text-foreground"
+            :class="columnClass[i]"
           >
             {{ h }}
           </th>

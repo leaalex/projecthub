@@ -11,7 +11,7 @@ withDefaults(
 
 <template>
   <div
-    class="rounded-lg border border-border bg-surface shadow-sm"
+    class="rounded-lg border border-border bg-surface"
     :class="padding"
   >
     <h2

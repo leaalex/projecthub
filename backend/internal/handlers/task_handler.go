@@ -42,6 +42,11 @@ func (h *TaskHandler) List(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	var projectID *uint
 	if p := c.Query("project_id"); p != "" {
 		n, err := strconv.ParseUint(p, 10, 32)
@@ -57,7 +62,7 @@ func (h *TaskHandler) List(c *gin.Context) {
 		st := models.TaskStatus(s)
 		status = &st
 	}
-	tasks, err := h.Svc.List(uid, projectID, status)
+	tasks, err := h.Svc.List(uid, role, projectID, status)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -71,12 +76,17 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	var body taskCreateBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Create(uid, services.TaskCreate{
+	t, err := h.Svc.Create(uid, role, services.TaskCreate{
 		Title:       body.Title,
 		Description: body.Description,
 		ProjectID:   body.ProjectID,
@@ -96,12 +106,17 @@ func (h *TaskHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	t, err := h.Svc.Get(uint(id), uid)
+	t, err := h.Svc.Get(uint(id), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -111,6 +126,11 @@ func (h *TaskHandler) Get(c *gin.Context) {
 
 func (h *TaskHandler) Update(c *gin.Context) {
 	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -125,7 +145,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Update(uint(id), uid, services.TaskUpdate{
+	t, err := h.Svc.Update(uint(id), uid, role, services.TaskUpdate{
 		Title:       body.Title,
 		Description: body.Description,
 		Status:      body.Status,
@@ -146,12 +166,17 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(id), uid); err != nil {
+	if err := h.Svc.Delete(uint(id), uid, role); err != nil {
 		handleServiceError(c, err)
 		return
 	}
@@ -160,6 +185,11 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 
 func (h *TaskHandler) Assign(c *gin.Context) {
 	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -174,7 +204,7 @@ func (h *TaskHandler) Assign(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Assign(uint(id), uid, body.AssigneeID)
+	t, err := h.Svc.Assign(uint(id), uid, role, body.AssigneeID)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -188,12 +218,17 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	t, err := h.Svc.Complete(uint(id), uid)
+	t, err := h.Svc.Complete(uint(id), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return

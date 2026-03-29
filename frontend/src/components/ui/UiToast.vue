@@ -15,7 +15,7 @@ const toast = useToastStore()
         <div
           v-for="t in toast.items"
           :key="t.id"
-          class="pointer-events-auto flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-lg"
+          class="pointer-events-auto flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3"
           :class="{
             'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40':
               t.type === 'success',

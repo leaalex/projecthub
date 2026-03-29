@@ -6,6 +6,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
 import Card from '../components/ui/UiCard.vue'
@@ -163,6 +164,17 @@ async function savePassword() {
     <h1 class="text-2xl font-semibold text-foreground">Профиль</h1>
     <p class="mt-1 text-sm text-muted">
       Личные данные и безопасность
+    </p>
+    <p
+      v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
+      class="mt-3 text-sm"
+    >
+      <RouterLink
+        to="/admin/users"
+        class="font-medium text-primary underline underline-offset-2 hover:no-underline"
+      >
+        Пользователи и глобальные роли
+      </RouterLink>
     </p>
 
     <div

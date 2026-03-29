@@ -338,7 +338,7 @@ async function onAssigneeMenuSelect(v: string | number) {
       <button
         v-if="task.status !== 'done'"
         type="button"
-        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-muted-foreground/45 transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/45 transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Mark done"
         @click.stop="emit('complete', task.id)"
       />

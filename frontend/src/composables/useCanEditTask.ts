@@ -2,14 +2,17 @@ import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import type { Task } from '../types/task'
+import type { UserRole } from '../types/user'
 
 /** Project owner can edit tasks (same rules as TaskDetailModal). */
 export function canEditTaskRecord(
   task: Task | null | undefined,
   userId: number | undefined,
+  userRole: UserRole | undefined,
   projectStore: ReturnType<typeof useProjectStore>,
 ): boolean {
   if (!task || userId == null) return false
+  if (userRole === 'admin' || userRole === 'staff') return true
   if (projectStore.projects.some((p) => p.id === task.project_id)) return true
   if (
     projectStore.current?.id === task.project_id &&
@@ -24,7 +27,7 @@ export function useCanEditTask(taskGetter: MaybeRefOrGetter<Task | null | undefi
   const auth = useAuthStore()
   const projectStore = useProjectStore()
   return computed(() =>
-    canEditTaskRecord(toValue(taskGetter), auth.user?.id, projectStore),
+    canEditTaskRecord(toValue(taskGetter), auth.user?.id, auth.user?.role, projectStore),
   )
 }
 
@@ -34,7 +37,7 @@ export function useTaskEditPermission() {
   const projectStore = useProjectStore()
   return {
     canEditTask(t: Task) {
-      return canEditTaskRecord(t, auth.user?.id, projectStore)
+      return canEditTaskRecord(t, auth.user?.id, auth.user?.role, projectStore)
     },
   }
 }

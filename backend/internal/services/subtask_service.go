@@ -17,8 +17,8 @@ type SubtaskService struct {
 }
 
 // List returns subtasks for a task if the user can access the task.
-func (s *SubtaskService) List(taskID, userID uint) ([]models.Subtask, error) {
-	_, err := s.Tasks.Get(taskID, userID)
+func (s *SubtaskService) List(taskID, userID uint, role models.Role) ([]models.Subtask, error) {
+	_, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -28,12 +28,12 @@ func (s *SubtaskService) List(taskID, userID uint) ([]models.Subtask, error) {
 }
 
 // Create adds a subtask at the end; only project owner.
-func (s *SubtaskService) Create(taskID, userID uint, title string) (*models.Subtask, error) {
-	t, err := s.Tasks.Get(taskID, userID)
+func (s *SubtaskService) Create(taskID, userID uint, role models.Role, title string) (*models.Subtask, error) {
+	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
 	}
-	ok, err := s.Tasks.IsProjectOwner(t.ProjectID, userID)
+	ok, err := s.Tasks.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +85,12 @@ type SubtaskUpdate struct {
 }
 
 // Update edits a subtask; only project owner.
-func (s *SubtaskService) Update(taskID, subtaskID, userID uint, in SubtaskUpdate) (*models.Subtask, error) {
-	t, err := s.Tasks.Get(taskID, userID)
+func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role models.Role, in SubtaskUpdate) (*models.Subtask, error) {
+	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
 	}
-	ok, err := s.Tasks.IsProjectOwner(t.ProjectID, userID)
+	ok, err := s.Tasks.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -121,12 +121,12 @@ func (s *SubtaskService) Update(taskID, subtaskID, userID uint, in SubtaskUpdate
 }
 
 // Delete removes a subtask; only project owner.
-func (s *SubtaskService) Delete(taskID, subtaskID, userID uint) error {
-	t, err := s.Tasks.Get(taskID, userID)
+func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role models.Role) error {
+	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return err
 	}
-	ok, err := s.Tasks.IsProjectOwner(t.ProjectID, userID)
+	ok, err := s.Tasks.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return err
 	}
@@ -141,17 +141,17 @@ func (s *SubtaskService) Delete(taskID, subtaskID, userID uint) error {
 }
 
 // Toggle flips done; project owner or task assignee only.
-func (s *SubtaskService) Toggle(taskID, subtaskID, userID uint) (*models.Subtask, error) {
-	t, err := s.Tasks.Get(taskID, userID)
+func (s *SubtaskService) Toggle(taskID, subtaskID, userID uint, role models.Role) (*models.Subtask, error) {
+	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
 	}
-	isOwner, err := s.Tasks.IsProjectOwner(t.ProjectID, userID)
+	isManager, err := s.Tasks.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}
 	isAssignee := t.AssigneeID != nil && *t.AssigneeID == userID
-	if !isOwner && !isAssignee {
+	if !isManager && !isAssignee {
 		return nil, ErrForbidden
 	}
 	st, err := s.getSubtaskForTask(subtaskID, taskID)

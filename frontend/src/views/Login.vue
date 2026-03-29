@@ -30,7 +30,7 @@ async function onSubmit() {
 
 <template>
   <div class="flex min-h-screen items-center justify-center bg-background px-4">
-    <div class="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-sm">
+    <div class="w-full max-w-md rounded-xl border border-border bg-surface p-8">
       <h1 class="text-2xl font-semibold text-foreground">Sign in</h1>
       <p class="mt-1 text-sm text-muted">Project Hub</p>
       <LoginForm

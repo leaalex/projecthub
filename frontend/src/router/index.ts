@@ -70,13 +70,13 @@ const router = createRouter({
       path: '/ui-kit',
       name: 'ui-kit',
       component: () => import('../views/UiShowcase.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresStaffOrAdmin: true },
     },
     {
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('../views/Admin/Users.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      meta: { requiresAuth: true, requiresStaffOrAdmin: true },
     },
   ],
 })
@@ -87,6 +87,13 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+    return { name: 'dashboard' }
+  }
+  if (
+    to.meta.requiresStaffOrAdmin &&
+    auth.user?.role !== 'admin' &&
+    auth.user?.role !== 'staff'
+  ) {
     return { name: 'dashboard' }
   }
   if (

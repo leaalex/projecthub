@@ -32,7 +32,7 @@ const useAuthLayout = computed(() => route.meta.layout === 'auth')
       >
         <button
           type="button"
-          class="fixed left-4 top-4 z-30 rounded-md border border-border bg-surface p-2 text-muted shadow-sm transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
+          class="fixed left-4 top-4 z-30 rounded-md border border-border bg-surface p-2 text-muted transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
           aria-label="Open menu"
           @click="ui.toggleMobileMenu()"
         >

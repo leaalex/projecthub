@@ -66,42 +66,54 @@ const navItems = computed<Item[]>(() => {
       subtitle: 'Your profile',
       run: () => void router.push('/profile'),
     },
-    {
-      id: 'nav-ui-kit',
-      kind: 'nav',
-      label: 'UI kit',
-      subtitle: 'Component gallery',
-      run: () => void router.push('/ui-kit'),
-    },
   ]
-  if (auth.user?.role === 'admin') {
-    base.push({
-      id: 'nav-users',
-      kind: 'nav',
-      label: 'Users',
-      subtitle: 'Admin',
-      run: () => void router.push('/admin/users'),
-    })
+  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
+    base.push(
+      {
+        id: 'nav-users',
+        kind: 'nav',
+        label: 'Users',
+        subtitle: 'Admin',
+        run: () => void router.push('/admin/users'),
+      },
+      {
+        id: 'nav-ui-kit',
+        kind: 'nav',
+        label: 'UI kit',
+        subtitle: 'Component gallery',
+        run: () => void router.push('/ui-kit'),
+      },
+    )
+  }
+  if (auth.user?.role === 'user') {
+    return base.filter(
+      (x) => x.id !== 'nav-projects' && x.id !== 'nav-tasks',
+    )
   }
   return base
 })
 
-const actionItems = computed<Item[]>(() => [
-  {
-    id: 'act-new-project',
-    kind: 'action',
-    label: 'New project',
-    subtitle: 'Open projects',
-    run: () => void router.push('/projects'),
-  },
-  {
-    id: 'act-new-task',
-    kind: 'action',
-    label: 'New task',
-    subtitle: 'Open tasks',
-    run: () => void router.push('/tasks'),
-  },
-  {
+const actionItems = computed<Item[]>(() => {
+  const items: Item[] = []
+  if (auth.user?.role !== 'user') {
+    items.push(
+      {
+        id: 'act-new-project',
+        kind: 'action',
+        label: 'New project',
+        subtitle: 'Open projects',
+        run: () => void router.push('/projects'),
+      },
+      {
+        id: 'act-new-task',
+        kind: 'action',
+        label: 'New task',
+        subtitle: 'Open tasks',
+        run: () => void router.push('/tasks'),
+      },
+    )
+  }
+  items.push({
     id: 'act-signout',
     kind: 'action',
     label: 'Sign out',
@@ -110,8 +122,9 @@ const actionItems = computed<Item[]>(() => [
       auth.logout()
       void router.push('/login')
     },
-  },
-])
+  })
+  return items
+})
 
 const projectItems = computed<Item[]>(() =>
   projectStore.projects.map((p) => ({
@@ -230,7 +243,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         @click.self="close"
       >
         <div
-          class="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
+          class="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-surface"
           @keydown.stop
         >
           <div class="border-b border-border p-3">

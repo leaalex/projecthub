@@ -228,7 +228,7 @@ onUnmounted(() => {
           ref="panelRef"
           role="dialog"
           aria-label="Due date"
-          class="fixed rounded-md border border-border bg-surface p-2 shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+          class="fixed rounded-md border border-border bg-surface p-2"
           :style="floatingStyle"
           @keydown="onPanelKeydown"
         >

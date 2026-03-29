@@ -29,12 +29,17 @@ func (h *SubtaskHandler) List(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	list, err := h.Svc.List(uint(taskID), uid)
+	list, err := h.Svc.List(uint(taskID), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -44,6 +49,11 @@ func (h *SubtaskHandler) List(c *gin.Context) {
 
 func (h *SubtaskHandler) Create(c *gin.Context) {
 	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -58,7 +68,7 @@ func (h *SubtaskHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	st, err := h.Svc.Create(uint(taskID), uid, body.Title)
+	st, err := h.Svc.Create(uint(taskID), uid, role, body.Title)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -68,6 +78,11 @@ func (h *SubtaskHandler) Create(c *gin.Context) {
 
 func (h *SubtaskHandler) Update(c *gin.Context) {
 	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -87,7 +102,7 @@ func (h *SubtaskHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	st, err := h.Svc.Update(uint(taskID), uint(sid), uid, services.SubtaskUpdate{
+	st, err := h.Svc.Update(uint(taskID), uint(sid), uid, role, services.SubtaskUpdate{
 		Title:    body.Title,
 		Done:     body.Done,
 		Position: body.Position,
@@ -105,25 +120,7 @@ func (h *SubtaskHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
-		return
-	}
-	sid, err := strconv.ParseUint(c.Param("sid"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad subtask id"})
-		return
-	}
-	if err := h.Svc.Delete(uint(taskID), uint(sid), uid); err != nil {
-		handleServiceError(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *SubtaskHandler) Toggle(c *gin.Context) {
-	uid, ok := ctxUserID(c)
+	role, ok := ctxRole(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -138,7 +135,35 @@ func (h *SubtaskHandler) Toggle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad subtask id"})
 		return
 	}
-	st, err := h.Svc.Toggle(uint(taskID), uint(sid), uid)
+	if err := h.Svc.Delete(uint(taskID), uint(sid), uid, role); err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *SubtaskHandler) Toggle(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+		return
+	}
+	sid, err := strconv.ParseUint(c.Param("sid"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad subtask id"})
+		return
+	}
+	st, err := h.Svc.Toggle(uint(taskID), uint(sid), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return

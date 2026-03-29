@@ -20,7 +20,7 @@ withDefaults(
   </div>
   <div
     v-else-if="variant === 'card'"
-    class="animate-pulse rounded-lg border border-border bg-surface p-4 shadow-sm"
+    class="animate-pulse rounded-lg border border-border bg-surface p-4"
   >
     <div class="mb-3 h-3 w-1/3 rounded-md bg-surface-muted" />
     <div class="h-6 w-1/2 rounded-md bg-surface-muted" />

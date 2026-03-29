@@ -27,7 +27,7 @@ watch(
     <Transition name="slide">
       <aside
         v-if="ui.mobileMenuOpen"
-        class="fixed bottom-3 left-3 top-3 z-50 flex w-[min(16rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl md:hidden"
+        class="fixed bottom-3 left-3 top-3 z-50 flex w-[min(16rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface md:hidden"
       >
         <SidebarNav :collapsed="false" @navigate="ui.closeMobileMenu()" />
       </aside>
@@ -36,7 +36,7 @@ watch(
 
   <!-- Desktop rail -->
   <aside
-    class="relative hidden h-full max-h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out dark:shadow-xl dark:ring-white/10 md:flex"
+    class="relative hidden h-full max-h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface transition-[width] duration-200 ease-out md:flex"
     :class="ui.sidebarCollapsed ? 'w-16' : 'w-56'"
   >
     <SidebarNav :collapsed="ui.sidebarCollapsed" />

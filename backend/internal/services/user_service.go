@@ -5,16 +5,21 @@ import (
 	"strings"
 
 	"task-manager/backend/internal/models"
+	"task-manager/backend/internal/utils"
 
 	"gorm.io/gorm"
 )
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrCannotDeleteSelf = errors.New("cannot delete own account")
+var ErrCannotChangeOwnRole = errors.New("cannot change own global role")
+var ErrInvalidGlobalRole = errors.New("invalid global role")
 
 type UserService struct {
 	DB *gorm.DB
 }
+
+const minAdminPasswordLen = 8
 
 // UserProfilePatch is a partial update for PUT /users/:id.
 type UserProfilePatch struct {
@@ -26,6 +31,21 @@ type UserProfilePatch struct {
 	Department  *string
 	JobTitle    *string
 	Phone       *string
+	// Password: only applied when caller is admin; empty string ignored.
+	Password *string
+}
+
+// AdminCreateInput is used by POST /users (admin only).
+type AdminCreateInput struct {
+	Email      string
+	Password   string
+	Role       models.Role
+	LastName   string
+	FirstName  string
+	Patronymic string
+	Department string
+	JobTitle   string
+	Phone      string
 }
 
 func (s *UserService) List() ([]models.User, error) {
@@ -49,16 +69,84 @@ func (s *UserService) CanAccessUser(callerID uint, callerRole models.Role, targe
 	if callerID == targetID {
 		return true
 	}
-	return callerRole == models.RoleAdmin
+	if callerRole == models.RoleAdmin || callerRole == models.RoleStaff {
+		return true
+	}
+	return false
+}
+
+func (s *UserService) AdminCreate(callerRole models.Role, in AdminCreateInput) (*models.User, error) {
+	if callerRole != models.RoleAdmin {
+		return nil, ErrForbidden
+	}
+	email := strings.TrimSpace(strings.ToLower(in.Email))
+	password := strings.TrimSpace(in.Password)
+	if email == "" || password == "" {
+		return nil, ErrInvalidInput
+	}
+	if len(password) < minAdminPasswordLen {
+		return nil, ErrInvalidInput
+	}
+	role := in.Role
+	if role == "" {
+		role = models.RoleUser
+	}
+	switch role {
+	case models.RoleUser, models.RoleCreator, models.RoleStaff:
+	default:
+		return nil, ErrInvalidGlobalRole
+	}
+	var existing models.User
+	if err := s.DB.Where("email = ?", email).First(&existing).Error; err == nil {
+		return nil, ErrEmailTaken
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	hash, err := utils.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	u := models.User{
+		Email:        email,
+		PasswordHash: hash,
+		Role:         role,
+		LastName:     strings.TrimSpace(in.LastName),
+		FirstName:    strings.TrimSpace(in.FirstName),
+		Patronymic:   strings.TrimSpace(in.Patronymic),
+		Department:   strings.TrimSpace(in.Department),
+		JobTitle:     strings.TrimSpace(in.JobTitle),
+		Phone:        strings.TrimSpace(in.Phone),
+	}
+	models.SyncNameFromFIO(&u)
+	if err := s.DB.Create(&u).Error; err != nil {
+		return nil, err
+	}
+	return s.Get(u.ID)
 }
 
 func (s *UserService) Update(id, callerID uint, callerRole models.Role, patch UserProfilePatch) (*models.User, error) {
-	if !s.CanAccessUser(callerID, callerRole, id) {
+	if callerID != id && callerRole != models.RoleAdmin {
 		return nil, ErrForbidden
 	}
 	u, err := s.Get(id)
 	if err != nil {
 		return nil, err
+	}
+	if patch.Password != nil {
+		p := strings.TrimSpace(*patch.Password)
+		if p != "" {
+			if callerRole != models.RoleAdmin {
+				return nil, ErrForbidden
+			}
+			if len(p) < minAdminPasswordLen {
+				return nil, ErrInvalidInput
+			}
+			hash, err := utils.HashPassword(p)
+			if err != nil {
+				return nil, err
+			}
+			u.PasswordHash = hash
+		}
 	}
 	if patch.Email != nil {
 		e := strings.TrimSpace(strings.ToLower(*patch.Email))
@@ -115,4 +203,28 @@ func (s *UserService) Delete(id, adminID uint, adminRole models.Role) error {
 		return err
 	}
 	return s.DB.Delete(u).Error
+}
+
+// SetGlobalRole assigns staff, creator, or user. Only admin; cannot target self; cannot assign admin.
+func (s *UserService) SetGlobalRole(targetID, callerID uint, callerRole models.Role, newRole models.Role) (*models.User, error) {
+	if callerRole != models.RoleAdmin {
+		return nil, ErrForbidden
+	}
+	if targetID == callerID {
+		return nil, ErrCannotChangeOwnRole
+	}
+	switch newRole {
+	case models.RoleStaff, models.RoleCreator, models.RoleUser:
+	default:
+		return nil, ErrInvalidGlobalRole
+	}
+	u, err := s.Get(targetID)
+	if err != nil {
+		return nil, err
+	}
+	u.Role = newRole
+	if err := s.DB.Save(u).Error; err != nil {
+		return nil, err
+	}
+	return u, nil
 }

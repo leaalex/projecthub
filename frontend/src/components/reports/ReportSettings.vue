@@ -32,7 +32,9 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const projectStore = useProjectStore()
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
+const canFilterUsers = computed(
+  () => auth.user?.role === 'admin' || auth.user?.role === 'staff',
+)
 
 const format = ref<ReportFormat>('xlsx')
 const dateFrom = ref('')
@@ -97,7 +99,7 @@ const groupSelectOptions = [
 
 onMounted(async () => {
   await projectStore.fetchList().catch(() => {})
-  if (isAdmin.value) {
+  if (canFilterUsers.value) {
     loadingUsers.value = true
     try {
       const { data } = await api.get<{ users: User[] }>('/users')
@@ -131,7 +133,7 @@ function submit() {
     date_from: dateFrom.value.trim() || undefined,
     date_to: dateTo.value.trim() || undefined,
     project_ids: [...selectedProjectIds.value],
-    user_ids: isAdmin.value ? [...selectedUserIds.value] : [],
+    user_ids: canFilterUsers.value ? [...selectedUserIds.value] : [],
     statuses: [...selectedStatuses.value],
     priorities: [...selectedPriorities.value],
     fields: [...selectedFields.value],
@@ -212,7 +214,7 @@ function statusLabel(s: TaskStatus) {
         </UiScrollPanel>
       </UiFormSection>
 
-      <div v-if="isAdmin">
+      <div v-if="canFilterUsers">
         <UiFormSection title="Users (empty = all tasks; otherwise assignee or project owner in list)">
           <div
             v-if="loadingUsers"

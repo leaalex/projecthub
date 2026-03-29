@@ -29,7 +29,7 @@ withDefaults(
       variant === 'primary' &&
         'border-border/65 bg-primary text-primary-foreground hover:bg-primary-hover',
       variant === 'secondary' &&
-        'border-border/65 bg-surface text-foreground hover:bg-surface-muted',
+        'border-border/65 bg-surface-muted text-foreground hover:bg-border',
       variant === 'ghost' &&
         'text-foreground hover:border-border/55 hover:bg-surface-muted',
       variant === 'danger' &&

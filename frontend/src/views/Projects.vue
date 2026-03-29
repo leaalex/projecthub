@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from '../components/ui/UiButton.vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -9,10 +9,18 @@ import Modal from '../components/ui/UiModal.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectList from '../components/projects/ProjectList.vue'
 import { useConfirm } from '../composables/useConfirm'
+import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 
 const router = useRouter()
+const auth = useAuthStore()
 const store = useProjectStore()
+const canCreateProjects = computed(() => auth.user?.role !== 'user')
+const projectsSubtitle = computed(() =>
+  auth.user?.role === 'admin' || auth.user?.role === 'staff'
+    ? 'All projects in the workspace'
+    : 'Projects you own',
+)
 const { confirm } = useConfirm()
 
 const showModal = ref(false)
@@ -96,9 +104,9 @@ async function removeEditProject() {
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold text-foreground">Projects</h1>
-        <p class="mt-1 text-sm text-muted">Projects you own</p>
+        <p class="mt-1 text-sm text-muted">{{ projectsSubtitle }}</p>
       </div>
-      <Button @click="showModal = true">New project</Button>
+      <Button v-if="canCreateProjects" @click="showModal = true">New project</Button>
     </div>
 
     <div
@@ -111,9 +119,15 @@ async function removeEditProject() {
       v-else-if="!store.projects.length"
       class="mt-6"
       title="No projects yet"
-      description="Create your first project to start organizing tasks."
+      :description="
+        canCreateProjects
+          ? 'Create your first project to start organizing tasks.'
+          : 'Ask a project owner to invite you. You cannot create projects yet.'
+      "
     >
-      <Button @click="showModal = true">Create your first project</Button>
+      <Button v-if="canCreateProjects" @click="showModal = true"
+        >Create your first project</Button
+      >
     </EmptyState>
     <ProjectList
       v-else

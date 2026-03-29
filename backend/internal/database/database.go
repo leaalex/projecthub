@@ -31,5 +31,9 @@ func Open(databasePath string) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// One-time migration of legacy global roles
+	_ = db.Model(&models.User{}).Where("role = ?", "member").Update("role", string(models.RoleUser)).Error
+	_ = db.Model(&models.User{}).Where("role = ?", "manager").Update("role", string(models.RoleCreator)).Error
+
 	return db, nil
 }

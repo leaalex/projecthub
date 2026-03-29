@@ -32,18 +32,20 @@ func (s *TaskService) ownedProjectIDs(userID uint) ([]uint, error) {
 	return ids, err
 }
 
-func (s *TaskService) List(userID uint, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
-	owned, err := s.ownedProjectIDs(userID)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *TaskService) List(userID uint, role models.Role, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
 	q := preloadTaskAll(s.DB.Model(&models.Task{}))
-	switch {
-	case len(owned) > 0:
-		q = q.Where("project_id IN ? OR assignee_id = ?", owned, userID)
-	default:
-		q = q.Where("assignee_id = ?", userID)
+	if models.IsSystemRole(role) {
+		// all tasks
+	} else {
+		owned, err := s.ownedProjectIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(owned) > 0 {
+			q = q.Where("project_id IN ? OR assignee_id = ?", owned, userID)
+		} else {
+			q = q.Where("assignee_id = ?", userID)
+		}
 	}
 
 	if projectID != nil {
@@ -54,11 +56,14 @@ func (s *TaskService) List(userID uint, projectID *uint, status *models.TaskStat
 	}
 
 	var tasks []models.Task
-	err = q.Order("updated_at desc").Find(&tasks).Error
+	err := q.Order("updated_at desc").Find(&tasks).Error
 	return tasks, err
 }
 
-func (s *TaskService) canAccessTask(task *models.Task, userID uint) bool {
+func (s *TaskService) canAccessTask(task *models.Task, userID uint, role models.Role) bool {
+	if models.IsSystemRole(role) {
+		return true
+	}
 	if task.AssigneeID != nil && *task.AssigneeID == userID {
 		return true
 	}
@@ -67,6 +72,14 @@ func (s *TaskService) canAccessTask(task *models.Task, userID uint) bool {
 		return false
 	}
 	return p.OwnerID == userID
+}
+
+// CanManageProjectTasks is true for admin/staff on any project, or project owner.
+func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role models.Role) (bool, error) {
+	if models.IsSystemRole(role) {
+		return true, nil
+	}
+	return s.isProjectOwner(projectID, userID)
 }
 
 // IsProjectOwner reports whether userID owns the project.
@@ -85,7 +98,7 @@ func (s *TaskService) isProjectOwner(projectID, userID uint) (bool, error) {
 	return p.OwnerID == userID, nil
 }
 
-func (s *TaskService) Get(id, userID uint) (*models.Task, error) {
+func (s *TaskService) Get(id, userID uint, role models.Role) (*models.Task, error) {
 	var t models.Task
 	if err := preloadTaskAll(s.DB).First(&t, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -93,7 +106,7 @@ func (s *TaskService) Get(id, userID uint) (*models.Task, error) {
 		}
 		return nil, err
 	}
-	if !s.canAccessTask(&t, userID) {
+	if !s.canAccessTask(&t, userID, role) {
 		return nil, ErrForbidden
 	}
 	return &t, nil
@@ -108,11 +121,11 @@ type TaskCreate struct {
 	DueDate     *string // ISO date optional
 }
 
-func (s *TaskService) Create(userID uint, in TaskCreate) (*models.Task, error) {
+func (s *TaskService) Create(userID uint, role models.Role, in TaskCreate) (*models.Task, error) {
 	if in.ProjectID == 0 {
 		return nil, ErrInvalidInput
 	}
-	ok, err := s.isProjectOwner(in.ProjectID, userID)
+	ok, err := s.CanManageProjectTasks(in.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +183,12 @@ func assigneeMayReopenDone(t *models.Task, userID uint, in TaskUpdate) bool {
 	return true
 }
 
-func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, error) {
-	t, err := s.Get(id, userID)
+func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (*models.Task, error) {
+	t, err := s.Get(id, userID, role)
 	if err != nil {
 		return nil, err
 	}
-	owner, err := s.isProjectOwner(t.ProjectID, userID)
+	owner, err := s.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +215,7 @@ func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, erro
 				return nil, ErrInvalidInput
 			}
 			if newPID != t.ProjectID {
-				ok, err := s.isProjectOwner(newPID, userID)
+				ok, err := s.CanManageProjectTasks(newPID, userID, role)
 				if err != nil {
 					return nil, err
 				}
@@ -243,12 +256,12 @@ func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, erro
 	return nil, ErrForbidden
 }
 
-func (s *TaskService) Delete(id, userID uint) error {
-	t, err := s.Get(id, userID)
+func (s *TaskService) Delete(id, userID uint, role models.Role) error {
+	t, err := s.Get(id, userID, role)
 	if err != nil {
 		return err
 	}
-	ok, err := s.isProjectOwner(t.ProjectID, userID)
+	ok, err := s.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil || !ok {
 		if err == nil {
 			err = ErrForbidden
@@ -258,12 +271,12 @@ func (s *TaskService) Delete(id, userID uint) error {
 	return s.DB.Delete(t).Error
 }
 
-func (s *TaskService) Assign(taskID, ownerUserID, assigneeID uint) (*models.Task, error) {
-	t, err := s.Get(taskID, ownerUserID)
+func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigneeID uint) (*models.Task, error) {
+	t, err := s.Get(taskID, ownerUserID, role)
 	if err != nil {
 		return nil, err
 	}
-	ok, err := s.isProjectOwner(t.ProjectID, ownerUserID)
+	ok, err := s.CanManageProjectTasks(t.ProjectID, ownerUserID, role)
 	if err != nil || !ok {
 		if err == nil {
 			err = ErrForbidden
@@ -293,12 +306,12 @@ func (s *TaskService) Assign(taskID, ownerUserID, assigneeID uint) (*models.Task
 	return t, nil
 }
 
-func (s *TaskService) Complete(taskID, userID uint) (*models.Task, error) {
-	t, err := s.Get(taskID, userID)
+func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.Task, error) {
+	t, err := s.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
 	}
-	owner, err := s.isProjectOwner(t.ProjectID, userID)
+	owner, err := s.CanManageProjectTasks(t.ProjectID, userID, role)
 	if err != nil {
 		return nil, err
 	}

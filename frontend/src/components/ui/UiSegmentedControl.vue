@@ -37,7 +37,7 @@ const emit = defineEmits<{
       class="inline-flex h-8 min-h-8 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
       :class="
         modelValue === opt.value
-          ? 'bg-surface text-foreground shadow-sm'
+          ? 'bg-surface text-foreground'
           : 'text-muted hover:text-foreground'
       "
       @click="emit('update:modelValue', opt.value)"

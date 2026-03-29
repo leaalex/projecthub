@@ -40,18 +40,27 @@ const iconMap: Record<string, Component> = {
   users: UsersIcon,
 }
 
-const links = computed(() => {
-  const base: { to: string; label: string; icon: string }[] = [
+type NavLink = { to: string; label: string; icon: string }
+
+const mainLinks = computed((): NavLink[] => {
+  const base: NavLink[] = [
     { to: '/dashboard', label: 'Dashboard', icon: 'home' },
     { to: '/projects', label: 'Projects', icon: 'folder' },
     { to: '/tasks', label: 'Tasks', icon: 'check' },
     { to: '/reports', label: 'Reports', icon: 'chart' },
-    { to: '/ui-kit', label: 'UI kit', icon: 'swatch' },
   ]
-  if (auth.user?.role === 'admin') {
-    base.push({ to: '/admin/users', label: 'Users', icon: 'users' })
+  if (auth.user?.role === 'user') {
+    return base.filter((link) => link.to !== '/projects' && link.to !== '/tasks')
   }
   return base
+})
+
+const adminLinks = computed((): NavLink[] => {
+  if (auth.user?.role !== 'admin' && auth.user?.role !== 'staff') return []
+  return [
+    { to: '/admin/users', label: 'Users', icon: 'users' },
+    { to: '/ui-kit', label: 'UI kit', icon: 'swatch' },
+  ]
 })
 
 function isActive(path: string) {
@@ -140,7 +149,7 @@ function openCommandPaletteFromSidebar() {
       aria-label="Main"
     >
       <RouterLink
-        v-for="l in links"
+        v-for="l in mainLinks"
         :key="l.to"
         :to="l.to"
         class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
@@ -160,6 +169,47 @@ function openCommandPaletteFromSidebar() {
         />
         <span v-show="!collapsed" class="truncate">{{ l.label }}</span>
       </RouterLink>
+
+      <template v-if="adminLinks.length">
+        <div
+          class="my-2 border-t border-border"
+          role="separator"
+          :aria-hidden="true"
+        />
+        <p
+          v-show="!collapsed"
+          class="mb-0.5 mt-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted"
+        >
+          Admin
+        </p>
+        <div
+          class="flex flex-col gap-0.5"
+          role="group"
+          aria-label="Admin"
+        >
+          <RouterLink
+            v-for="l in adminLinks"
+            :key="l.to"
+            :to="l.to"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+            :class="[
+              isActive(l.to)
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted hover:bg-surface-muted hover:text-foreground',
+              collapsed ? 'justify-center px-2' : '',
+            ]"
+            :title="collapsed ? l.label : undefined"
+            @click="onNavigate"
+          >
+            <component
+              :is="iconMap[l.icon]"
+              class="h-5 w-5 shrink-0"
+              aria-hidden="true"
+            />
+            <span v-show="!collapsed" class="truncate">{{ l.label }}</span>
+          </RouterLink>
+        </div>
+      </template>
     </nav>
 
     <div v-if="auth.user" class="mt-auto border-t border-border p-2">

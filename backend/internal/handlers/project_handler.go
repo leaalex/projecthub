@@ -24,7 +24,12 @@ func (h *ProjectHandler) List(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	list, err := h.Svc.ListByOwner(uid)
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	list, err := h.Svc.ListForCaller(uid, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -61,12 +66,17 @@ func (h *ProjectHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	p, err := h.Svc.Get(uint(id), uid)
+	p, err := h.Svc.Get(uint(id), uid, role)
 	if err != nil {
 		if err == services.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -88,6 +98,11 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
@@ -98,7 +113,7 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	p, err := h.Svc.Update(uint(id), uid, body.Name, body.Description)
+	p, err := h.Svc.Update(uint(id), uid, role, body.Name, body.Description)
 	if err != nil {
 		if err == services.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -124,12 +139,17 @@ func (h *ProjectHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(id), uid); err != nil {
+	if err := h.Svc.Delete(uint(id), uid, role); err != nil {
 		if err == services.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
@@ -150,12 +170,17 @@ func (h *ProjectHandler) Tasks(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	tasks, err := h.Svc.TasksForProject(uint(id), uid)
+	tasks, err := h.Svc.TasksForProject(uint(id), uid, role)
 	if err != nil {
 		if err == services.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})

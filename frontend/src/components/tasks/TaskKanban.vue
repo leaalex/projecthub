@@ -115,7 +115,7 @@ async function removeTask(task: Task) {
       class="flex min-h-[12rem] flex-col rounded-lg border border-border bg-surface-muted/40 p-3 transition-colors"
       :class="
         dragOverColumn === col.status
-          ? 'border-primary ring-2 ring-primary/30'
+          ? 'border-primary ring-1 ring-primary/40'
           : ''
       "
       @dragover="onDragOver($event, col.status)"
@@ -137,7 +137,7 @@ async function removeTask(task: Task) {
           v-for="task in tasksIn(col.status)"
           :key="task.id"
           draggable="true"
-          class="cursor-grab rounded-lg border border-border bg-surface p-3 shadow-sm active:cursor-grabbing"
+          class="cursor-grab rounded-lg border border-border bg-surface p-3 active:cursor-grabbing"
           @dragstart="onDragStart($event, task)"
           @dragend="onDragEnd"
         >

@@ -16,7 +16,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="flex flex-col justify-between rounded-lg border border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md"
+    class="flex flex-col justify-between rounded-lg border border-border bg-surface p-4"
   >
     <div>
       <h3 class="font-semibold text-foreground">{{ project.name }}</h3>

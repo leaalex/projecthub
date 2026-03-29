@@ -39,7 +39,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           @click="store.answer(false)"
         />
         <div
-          class="modal-panel relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl ring-1 ring-foreground/5"
+          class="modal-panel relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6"
         >
           <h2 class="text-lg font-semibold text-foreground">{{ options.title }}</h2>
           <p class="mt-2 text-sm text-muted">{{ options.message }}</p>

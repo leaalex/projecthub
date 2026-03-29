@@ -30,7 +30,7 @@ const props = withDefaults(
     /** Required when `projectId` is not set: options for the project dropdown. */
     projects?: { id: number; name: string }[]
     disabled?: boolean
-    /** No outer border/shadow — use inside TaskList panel. */
+    /** No outer border — use inside TaskList panel. */
     variant?: 'card' | 'plain'
   }>(),
   { variant: 'card' },
@@ -167,7 +167,7 @@ function onKeydown(e: KeyboardEvent) {
     :class="[
       'flex flex-col gap-3',
       variant === 'card' &&
-        'rounded-lg border border-border bg-surface p-3 shadow-sm',
+        'rounded-lg border border-border bg-surface p-3',
       variant === 'plain' && 'py-1',
     ]"
   >

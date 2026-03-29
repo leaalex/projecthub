@@ -22,6 +22,7 @@ import {
   type TaskGroupBy,
   type TaskSortKey,
 } from '../composables/useTaskListPresentation'
+import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
 import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
@@ -31,8 +32,10 @@ import type { TaskPriority, TaskStatus } from '../types/task'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
+const canCreateTasks = computed(() => auth.user?.role !== 'user')
 const toast = useToast()
 const { canEditTask } = useTaskEditPermission()
 const { assignableUsers } = useAdminAssignableUsers()
@@ -252,7 +255,13 @@ async function onReopen(id: number) {
     />
     <div class="min-w-0">
       <h1 class="text-2xl font-semibold text-foreground">Tasks</h1>
-      <p class="mt-1 text-sm text-muted">Tasks in your projects or assigned to you</p>
+      <p class="mt-1 text-sm text-muted">
+        {{
+          auth.user?.role === 'admin' || auth.user?.role === 'staff'
+            ? 'All tasks in the workspace'
+            : 'Tasks in your projects or assigned to you'
+        }}
+      </p>
     </div>
 
     <div
@@ -287,6 +296,7 @@ async function onReopen(id: number) {
         </Button>
       </div>
       <Button
+        v-if="canCreateTasks"
         class="shrink-0"
         :disabled="!projectStore.projects.length"
         @click="
@@ -327,8 +337,8 @@ async function onReopen(id: number) {
     <template v-else-if="taskView === 'list'">
       <div class="mt-6 space-y-4">
         <div
-          v-if="showListComposer"
-          class="overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+          v-if="canCreateTasks && showListComposer"
+          class="overflow-hidden rounded-lg border border-border bg-surface"
         >
           <div class="border-b border-border px-3 py-3">
             <TaskInlineComposer
@@ -407,9 +417,14 @@ async function onReopen(id: number) {
         v-else-if="!displayFlat.length"
         class="mt-6"
         title="No tasks found"
-        description="Create a task or adjust filters to see more."
+        :description="
+          canCreateTasks
+            ? 'Create a task or adjust filters to see more.'
+            : 'No tasks yet. You will see tasks when assigned to a project.'
+        "
       >
         <Button
+          v-if="canCreateTasks"
           :disabled="!projectStore.projects.length"
           @click="showModal = true"
         >
@@ -424,7 +439,7 @@ async function onReopen(id: number) {
       />
     </template>
 
-    <Modal v-model="showModal" title="New task">
+    <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
       <TaskForm
         v-model:title="title"
         v-model:description="description"

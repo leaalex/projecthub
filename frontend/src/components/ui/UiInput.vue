@@ -47,7 +47,7 @@ defineExpose({
       :required="required"
       :disabled="disabled"
       :autofocus="autofocus"
-      class="box-border h-8 min-h-8 w-full rounded-md border border-border bg-surface px-3 text-xs leading-none text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      class="box-border h-8 min-h-8 w-full min-w-0 truncate rounded-md border border-border bg-surface px-3 text-xs leading-none text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
     <p v-if="error" class="mt-1 text-sm text-destructive">{{ error }}</p>

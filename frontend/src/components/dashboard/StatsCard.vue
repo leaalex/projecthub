@@ -8,7 +8,7 @@ defineProps<{
 
 <template>
   <div
-    class="rounded-lg border border-border bg-surface p-4 shadow-sm"
+    class="rounded-lg border border-border bg-surface p-4"
   >
     <p class="text-sm font-medium text-muted">{{ title }}</p>
     <p class="mt-1 text-2xl font-semibold text-foreground">{{ value }}</p>

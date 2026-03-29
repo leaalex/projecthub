@@ -45,7 +45,7 @@ func (s *AuthService) Register(email, password, name string) (*models.User, stri
 		Email:        email,
 		PasswordHash: hash,
 		FirstName:    name,
-		Role:         models.RoleMember,
+		Role:         models.RoleUser,
 	}
 	models.SyncNameFromFIO(&u)
 	if err := s.DB.Create(&u).Error; err != nil {

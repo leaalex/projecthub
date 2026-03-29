@@ -9,8 +9,9 @@ type Role string
 
 const (
 	RoleAdmin   Role = "admin"
-	RoleManager Role = "manager"
-	RoleMember  Role = "member"
+	RoleStaff   Role = "staff"
+	RoleCreator Role = "creator"
+	RoleUser    Role = "user"
 )
 
 type User struct {
@@ -24,7 +25,7 @@ type User struct {
 	Department   string    `json:"department"`
 	JobTitle     string    `json:"job_title"`
 	Phone        string    `json:"phone"`
-	Role         Role      `gorm:"default:'member'" json:"role"`
+	Role         Role      `gorm:"default:'user'" json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -50,4 +51,9 @@ func UserDisplayName(u *User) string {
 // SyncNameFromFIO sets Name to UserDisplayName (keeps legacy Name when FIO empty).
 func SyncNameFromFIO(u *User) {
 	u.Name = UserDisplayName(u)
+}
+
+// IsSystemRole is true for roles that bypass normal project/task scoping (full visibility).
+func IsSystemRole(r Role) bool {
+	return r == RoleAdmin || r == RoleStaff
 }

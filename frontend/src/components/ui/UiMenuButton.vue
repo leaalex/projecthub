@@ -399,7 +399,7 @@ function optionClasses(fi: number, row: Row) {
         <div
           v-if="open"
           ref="panelRef"
-          class="flex flex-col overflow-hidden rounded-md border border-border bg-surface shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+          class="flex flex-col overflow-hidden rounded-md border border-border bg-surface"
           :class="
             teleport
               ? 'fixed'

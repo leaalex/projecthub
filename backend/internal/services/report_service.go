@@ -49,7 +49,7 @@ type WeeklyReport struct {
 	ProjectsCount   int64          `json:"projects_count"`
 }
 
-func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
+func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, error) {
 	now := time.Now().UTC()
 	weekday := int(now.Weekday())
 	if weekday == 0 {
@@ -58,16 +58,20 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -(weekday - 1))
 	end := start.AddDate(0, 0, 7)
 
-	ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	base := s.DB.Model(&models.Task{})
-	if len(ownedIDs) > 0 {
-		base = base.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+	var base *gorm.DB
+	if models.IsSystemRole(role) {
+		base = s.DB.Model(&models.Task{})
 	} else {
-		base = base.Where("assignee_id = ?", userID)
+		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		base = s.DB.Model(&models.Task{})
+		if len(ownedIDs) > 0 {
+			base = base.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		} else {
+			base = base.Where("assignee_id = ?", userID)
+		}
 	}
 
 	var total int64
@@ -80,10 +84,18 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 		Cnt    int
 	}
 	q := s.DB.Model(&models.Task{})
-	if len(ownedIDs) > 0 {
-		q = q.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+	if models.IsSystemRole(role) {
+		// all tasks
 	} else {
-		q = q.Where("assignee_id = ?", userID)
+		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(ownedIDs) > 0 {
+			q = q.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		} else {
+			q = q.Where("assignee_id = ?", userID)
+		}
 	}
 	if err := q.Select("status, count(*) as cnt").Group("status").Scan(&byStatus).Error; err != nil {
 		return nil, err
@@ -95,10 +107,18 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 
 	var completed int64
 	q2 := s.DB.Model(&models.Task{}).Where("status = ?", models.StatusDone)
-	if len(ownedIDs) > 0 {
-		q2 = q2.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+	if models.IsSystemRole(role) {
+		// all tasks
 	} else {
-		q2 = q2.Where("assignee_id = ?", userID)
+		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(ownedIDs) > 0 {
+			q2 = q2.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		} else {
+			q2 = q2.Where("assignee_id = ?", userID)
+		}
 	}
 	q2 = q2.Where("updated_at >= ? AND updated_at < ?", start, end)
 	if err := q2.Count(&completed).Error; err != nil {
@@ -106,7 +126,11 @@ func (s *ReportService) Weekly(userID uint) (*WeeklyReport, error) {
 	}
 
 	var pc int64
-	_ = s.DB.Model(&models.Project{}).Where("owner_id = ?", userID).Count(&pc).Error
+	if models.IsSystemRole(role) {
+		_ = s.DB.Model(&models.Project{}).Count(&pc).Error
+	} else {
+		_ = s.DB.Model(&models.Project{}).Where("owner_id = ?", userID).Count(&pc).Error
+	}
 
 	return &WeeklyReport{
 		WeekStart:       start.Format(time.RFC3339),
@@ -144,17 +168,17 @@ func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req
 		return nil, "", "", ErrInvalidInput
 	}
 
-	if role != models.RoleAdmin && len(req.UserIDs) > 0 {
+	if !models.IsSystemRole(role) && len(req.UserIDs) > 0 {
 		return nil, "", "", ErrForbidden
 	}
 
 	q := s.DB.Model(&models.Task{}).Preload("Project").Preload("Assignee")
 	taskSvc := &TaskService{DB: s.DB}
 
-	if role == models.RoleAdmin && len(req.UserIDs) > 0 {
+	if models.IsSystemRole(role) && len(req.UserIDs) > 0 {
 		q = q.Joins("LEFT JOIN projects AS rep_proj ON rep_proj.id = tasks.project_id").
 			Where("(tasks.assignee_id IN ?) OR (rep_proj.owner_id IN ?)", req.UserIDs, req.UserIDs)
-	} else if role != models.RoleAdmin {
+	} else if !models.IsSystemRole(role) {
 		owned, err := taskSvc.ownedProjectIDs(callerID)
 		if err != nil {
 			return nil, "", "", err
@@ -304,7 +328,7 @@ func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req Gen
 func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.SavedReport, error) {
 	var list []models.SavedReport
 	q := s.DB.Model(&models.SavedReport{}).Order("created_at desc")
-	if role != models.RoleAdmin {
+	if !models.IsSystemRole(role) {
 		q = q.Where("user_id = ?", callerID)
 	}
 	if err := q.Find(&list).Error; err != nil {
@@ -322,7 +346,7 @@ func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role)
 		}
 		return nil, "", err
 	}
-	if role != models.RoleAdmin && r.UserID != callerID {
+	if !models.IsSystemRole(role) && r.UserID != callerID {
 		return nil, "", ErrForbidden
 	}
 	full := filepath.Join(s.ReportsDir, r.StorageKey)
@@ -344,7 +368,7 @@ func (s *ReportService) DeleteSaved(id, callerID uint, role models.Role) error {
 		}
 		return err
 	}
-	if role != models.RoleAdmin && r.UserID != callerID {
+	if !models.IsSystemRole(role) && r.UserID != callerID {
 		return ErrForbidden
 	}
 	full := filepath.Join(s.ReportsDir, r.StorageKey)

@@ -478,7 +478,7 @@ function optionClasses(fi: number, row: FilterRow) {
           v-if="open"
           ref="panelRef"
           :class="[
-            'flex flex-col overflow-hidden rounded-md border border-border bg-surface shadow-lg ring-1 ring-black/5 dark:ring-white/10',
+            'flex flex-col overflow-hidden rounded-md border border-border bg-surface',
             teleport
               ? 'fixed'
               : 'absolute left-0 right-0 z-50 mt-1 min-w-full max-h-60',

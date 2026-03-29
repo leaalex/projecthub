@@ -442,7 +442,7 @@ function onDemoMenuSelect(v: string | number) {
       </UiCard>
 
       <UiCard title="Cards & table">
-        <UiCard class="mb-6 border-dashed bg-surface-muted/30 p-4 shadow-none">
+        <UiCard class="mb-6 border-dashed bg-surface-muted/30 p-4">
           <p class="text-sm text-foreground">
             Nested card (no title) for nested content.
           </p>
@@ -450,7 +450,7 @@ function onDemoMenuSelect(v: string | number) {
         <UiTable :headers="['Name', 'Role', 'Status']">
           <tr v-for="row in 3" :key="row" class="text-foreground">
             <td class="px-4 py-3">User {{ row }}</td>
-            <td class="px-4 py-3 text-muted">Member</td>
+            <td class="px-4 py-3 text-muted">user</td>
             <td class="px-4 py-3">Active</td>
           </tr>
         </UiTable>

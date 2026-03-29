@@ -9,13 +9,13 @@ export type AssignableUserOption = {
   name: string
 }
 
-/** Lists all users for task assignee pickers (admin only; others get an empty list). */
+/** Lists all users for task assignee pickers (admin or staff; others get an empty list). */
 export function useAdminAssignableUsers() {
   const auth = useAuthStore()
   const assignableUsers = ref<AssignableUserOption[]>([])
 
   async function refresh() {
-    if (auth.user?.role !== 'admin') {
+    if (auth.user?.role !== 'admin' && auth.user?.role !== 'staff') {
       assignableUsers.value = []
       return
     }

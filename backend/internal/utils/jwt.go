@@ -18,7 +18,7 @@ func SignJWT(userID uint, role string, secret string, expiryHours int) (string, 
 		expiryHours = 72
 	}
 	if role == "" {
-		role = "member"
+		role = "user"
 	}
 	claims := Claims{
 		UserID: userID,
@@ -47,7 +47,7 @@ func ParseJWT(tokenString, secret string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 	if claims.Role == "" {
-		claims.Role = "member"
+		claims.Role = "user"
 	}
 	return claims, nil
 }

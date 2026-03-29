@@ -27,7 +27,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+    class="overflow-hidden rounded-lg border border-border bg-surface"
   >
     <div
       v-if="$slots.header"

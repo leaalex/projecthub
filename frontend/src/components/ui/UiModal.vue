@@ -88,7 +88,7 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
         />
         <div
           ref="panelRef"
-          class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ring-1 ring-foreground/5"
+          class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
           :class="wide ? 'max-w-2xl' : 'max-w-lg'"
           @keydown="onPanelKeydown"
         >

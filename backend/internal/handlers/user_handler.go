@@ -23,6 +23,19 @@ type userUpdateBody struct {
 	Department  *string `json:"department"`
 	JobTitle    *string `json:"job_title"`
 	Phone       *string `json:"phone"`
+	Password    *string `json:"password"`
+}
+
+type userCreateBody struct {
+	Email      string `json:"email" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+	Role       string `json:"role"`
+	LastName   string `json:"last_name"`
+	FirstName  string `json:"first_name"`
+	Patronymic string `json:"patronymic"`
+	Department string `json:"department"`
+	JobTitle   string `json:"job_title"`
+	Phone      string `json:"phone"`
 }
 
 func userPublic(u *models.User) gin.H {
@@ -40,6 +53,49 @@ func userPublic(u *models.User) gin.H {
 		"created_at":  u.CreatedAt,
 		"updated_at":  u.UpdatedAt,
 	}
+}
+
+func (h *UserHandler) Create(c *gin.Context) {
+	_, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var body userCreateBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	u, err := h.Svc.AdminCreate(role, services.AdminCreateInput{
+		Email:      body.Email,
+		Password:   body.Password,
+		Role:       models.Role(body.Role),
+		LastName:   body.LastName,
+		FirstName:  body.FirstName,
+		Patronymic: body.Patronymic,
+		Department: body.Department,
+		JobTitle:   body.JobTitle,
+		Phone:      body.Phone,
+	})
+	if err != nil {
+		switch err {
+		case services.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case services.ErrInvalidInput, services.ErrInvalidGlobalRole:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case services.ErrEmailTaken:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"user": userPublic(u)})
 }
 
 func (h *UserHandler) List(c *gin.Context) {
@@ -117,6 +173,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Department:  body.Department,
 		JobTitle:    body.JobTitle,
 		Phone:       body.Phone,
+		Password:    body.Password,
 	}
 	u, err := h.Svc.Update(uint(id), callerID, role, patch)
 	if err != nil {
@@ -171,4 +228,48 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+type setRoleBody struct {
+	Role string `json:"role" binding:"required"`
+}
+
+func (h *UserHandler) SetRole(c *gin.Context) {
+	callerID, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+		return
+	}
+	var body setRoleBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	u, err := h.Svc.SetGlobalRole(uint(id), callerID, role, models.Role(body.Role))
+	if err != nil {
+		switch err {
+		case services.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case services.ErrCannotChangeOwnRole:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case services.ErrInvalidGlobalRole:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case services.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": userPublic(u)})
 }
