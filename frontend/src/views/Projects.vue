@@ -8,15 +8,23 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectList from '../components/projects/ProjectList.vue'
+import { useConfirm } from '../composables/useConfirm'
 import { useProjectStore } from '../stores/project.store'
 
 const router = useRouter()
 const store = useProjectStore()
+const { confirm } = useConfirm()
 
 const showModal = ref(false)
 const name = ref('')
 const description = ref('')
 const saving = ref(false)
+
+const editModalOpen = ref(false)
+const editId = ref(0)
+const editName = ref('')
+const editDescription = ref('')
+const editSaving = ref(false)
 
 onMounted(() => {
   store.fetchList().catch(() => {})
@@ -39,6 +47,40 @@ async function createProject() {
 
 function openProject(id: number) {
   router.push(`/projects/${id}`)
+}
+
+function openEditProject(id: number) {
+  const p = store.projects.find((x) => x.id === id)
+  if (!p) return
+  editId.value = id
+  editName.value = p.name
+  editDescription.value = p.description ?? ''
+  editModalOpen.value = true
+}
+
+async function saveEditProject() {
+  editSaving.value = true
+  try {
+    await store.update(editId.value, {
+      name: editName.value,
+      description: editDescription.value,
+    })
+    editModalOpen.value = false
+  } finally {
+    editSaving.value = false
+  }
+}
+
+async function removeEditProject() {
+  const ok = await confirm({
+    title: 'Delete project',
+    message: 'Delete this project and its task links?',
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  await store.remove(editId.value)
+  editModalOpen.value = false
 }
 </script>
 
@@ -78,6 +120,7 @@ function openProject(id: number) {
       class="mt-6"
       :projects="store.projects"
       @open="openProject"
+      @edit="openEditProject"
     />
 
     <Modal v-model="showModal" title="New project">
@@ -89,6 +132,23 @@ function openProject(id: number) {
         @submit="createProject"
         @cancel="showModal = false"
       />
+    </Modal>
+
+    <Modal v-model="editModalOpen" title="Edit project">
+      <ProjectForm
+        v-model:name="editName"
+        v-model:description="editDescription"
+        submit-label="Save"
+        :loading="editSaving"
+        @submit="saveEditProject"
+        @cancel="editModalOpen = false"
+      >
+        <template #actions-start>
+          <Button variant="ghost-danger" type="button" @click="removeEditProject">
+            Delete project
+          </Button>
+        </template>
+      </ProjectForm>
     </Modal>
   </div>
 </template>

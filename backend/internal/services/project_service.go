@@ -89,6 +89,6 @@ func (s *ProjectService) TasksForProject(projectID, ownerID uint) ([]models.Task
 		return nil, err
 	}
 	var tasks []models.Task
-	err = s.DB.Where("project_id = ?", p.ID).Preload("Assignee").Order("updated_at desc").Find(&tasks).Error
+	err = s.DB.Where("project_id = ?", p.ID).Preload("Assignee").Preload("Subtasks", subtasksOrdered).Order("updated_at desc").Find(&tasks).Error
 	return tasks, err
 }

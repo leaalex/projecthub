@@ -8,6 +8,7 @@ defineProps<{
 
 const emit = defineEmits<{
   open: [id: number]
+  edit: [id: number]
 }>()
 </script>
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{
       :key="p.id"
       :project="p"
       @open="emit('open', $event)"
+      @edit="emit('edit', $event)"
     />
   </div>
 </template>

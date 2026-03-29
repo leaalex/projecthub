@@ -4,7 +4,7 @@ import { ArrowPathIcon } from '@heroicons/vue/24/outline'
 withDefaults(
   defineProps<{
     type?: 'button' | 'submit'
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'ghost-danger'
     disabled?: boolean
     block?: boolean
     loading?: boolean
@@ -24,15 +24,18 @@ withDefaults(
     :type="type"
     :disabled="disabled || loading"
     :class="[
-      'inline-flex h-8 min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+      'box-border inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-xs font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
       block ? 'w-full' : '',
       variant === 'primary' &&
-        'bg-primary text-primary-foreground hover:bg-primary-hover',
+        'border-border/65 bg-primary text-primary-foreground hover:bg-primary-hover',
       variant === 'secondary' &&
-        'border border-border bg-surface text-foreground hover:bg-surface-muted',
-      variant === 'ghost' && 'text-foreground hover:bg-surface-muted',
+        'border-border/65 bg-surface text-foreground hover:bg-surface-muted',
+      variant === 'ghost' &&
+        'text-foreground hover:border-border/55 hover:bg-surface-muted',
       variant === 'danger' &&
-        'bg-destructive text-white hover:bg-destructive-hover',
+        'border-border/65 bg-destructive text-white hover:bg-destructive-hover',
+      variant === 'ghost-danger' &&
+        'text-destructive hover:border-destructive/30 hover:bg-destructive/10',
     ]"
   >
     <ArrowPathIcon

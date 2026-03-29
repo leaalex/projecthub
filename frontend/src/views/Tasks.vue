@@ -2,16 +2,19 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
+import { FunnelIcon } from '@heroicons/vue/24/outline'
 import Button from '../components/ui/UiButton.vue'
 import EmptyState from '../components/ui/UiEmptyState.vue'
+import UiInput from '../components/ui/UiInput.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
+import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
-import TasksToolbar from '../components/tasks/TasksToolbar.vue'
 import {
   presentTasks,
   type AssigneeFilterValue,
@@ -35,14 +38,15 @@ const { canEditTask } = useTaskEditPermission()
 const { assignableUsers } = useAdminAssignableUsers()
 
 const filterProject = ref<number | ''>('')
-const filterStatus = ref<TaskStatus | ''>('')
+const filterStatus = ref<TaskStatus[]>([])
 
 const searchQuery = ref('')
-const clientPriority = ref<TaskPriority | ''>('')
-const assigneeFilter = ref<AssigneeFilterValue>('')
+const clientPriority = ref<TaskPriority[]>([])
+const assigneeFilter = ref<AssigneeFilterValue[]>([])
 const sortKey = ref<TaskSortKey>('updated_at')
 const sortDir = ref<SortDir>('desc')
 const groupBy = ref<TaskGroupBy>('none')
+const filtersOpen = ref(false)
 
 const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 
@@ -56,9 +60,9 @@ function syncFiltersFromRoute() {
     filterProject.value = ''
   }
   if (typeof st === 'string' && validStatuses.includes(st as TaskStatus)) {
-    filterStatus.value = st as TaskStatus
+    filterStatus.value = [st as TaskStatus]
   } else {
-    filterStatus.value = ''
+    filterStatus.value = []
   }
 }
 
@@ -71,10 +75,17 @@ const priority = ref<TaskPriority>('medium')
 const saving = ref(false)
 const taskView = ref<'list' | 'board'>('list')
 
+const taskViewModeOptions = [
+  { value: 'list', label: 'List' },
+  { value: 'board', label: 'Board' },
+]
+
 const allowServerFilterWatch = ref(false)
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
+/** List view: inline create form toggled by "New task". */
+const showListComposer = ref(false)
 
 const inlineComposerProjectId = computed(() => {
   if (filterProject.value === '') return undefined
@@ -96,6 +107,7 @@ const presentation = computed(() =>
     sortKey: sortKey.value,
     sortDir: sortDir.value,
     groupBy: groupBy.value,
+    status: filterStatus.value,
   }),
 )
 
@@ -134,6 +146,10 @@ watch(
 watch([filterProject, filterStatus], async () => {
   if (!allowServerFilterWatch.value) return
   await load()
+}, { deep: true })
+
+watch(taskView, (v) => {
+  if (v === 'board') showListComposer.value = false
 })
 
 watch(showModal, (open) => {
@@ -150,19 +166,25 @@ watch(showModal, (open) => {
 async function load() {
   const params: { project_id?: number; status?: TaskStatus } = {}
   if (filterProject.value !== '') params.project_id = Number(filterProject.value)
-  if (filterStatus.value !== '') params.status = filterStatus.value
+  if (filterStatus.value.length === 1) params.status = filterStatus.value[0]!
   await taskStore.fetchList(params)
 }
 
+async function onListComposerCreated() {
+  await load()
+  showListComposer.value = false
+}
+
 function resetToolbar() {
+  filtersOpen.value = false
   searchQuery.value = ''
-  clientPriority.value = ''
-  assigneeFilter.value = ''
+  clientPriority.value = []
+  assigneeFilter.value = []
   sortKey.value = 'updated_at'
   sortDir.value = 'desc'
   groupBy.value = 'none'
   filterProject.value = ''
-  filterStatus.value = ''
+  filterStatus.value = []
   router.replace({ path: route.path, query: {} })
 }
 
@@ -228,36 +250,76 @@ async function onReopen(id: number) {
         { label: 'Tasks' },
       ]"
     />
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold text-foreground">Tasks</h1>
-        <p class="mt-1 text-sm text-muted">Tasks in your projects or assigned to you</p>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-semibold text-foreground">Tasks</h1>
+      <p class="mt-1 text-sm text-muted">Tasks in your projects or assigned to you</p>
+    </div>
+
+    <div
+      class="mt-6 flex w-full flex-wrap items-center justify-between gap-2"
+    >
+      <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <UiSegmentedControl
+          v-model="taskView"
+          class="shrink-0"
+          aria-label="Tasks view"
+          :options="taskViewModeOptions"
+        />
+        <div class="min-w-[8rem] max-w-md flex-1">
+          <UiInput
+            id="tasks-search"
+            v-model="searchQuery"
+            placeholder="Search title or description…"
+            autocomplete="off"
+            aria-label="Search"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          class="shrink-0 px-2.5"
+          :aria-expanded="filtersOpen"
+          aria-controls="task-filters-panel"
+          @click="filtersOpen = !filtersOpen"
+        >
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span class="sr-only">Filters</span>
+        </Button>
       </div>
       <Button
-        v-if="taskView === 'board'"
+        class="shrink-0"
         :disabled="!projectStore.projects.length"
-        @click="showModal = true"
+        @click="
+          taskView === 'board' ? (showModal = true) : (showListComposer = true)
+        "
       >
         New task
       </Button>
     </div>
 
-    <TasksToolbar
-      v-model:task-view="taskView"
-      v-model:filter-project="filterProject"
-      v-model:filter-status="filterStatus"
-      v-model:search-query="searchQuery"
-      v-model:client-priority="clientPriority"
-      v-model:assignee-filter="assigneeFilter"
-      v-model:sort-key="sortKey"
-      v-model:sort-dir="sortDir"
-      v-model:group-by="groupBy"
+    <div
+      v-show="filtersOpen"
+      id="task-filters-panel"
       class="mt-4"
-      :projects="inlineComposerProjects"
-      :assignable-users="assignableUsers"
-      :show-assignee-filter="showAssigneeFilter"
-      @reset="resetToolbar"
-    />
+      role="region"
+      aria-label="Task filters and sort"
+    >
+      <TaskFiltersPanel
+        v-model:task-view="taskView"
+        v-model:filter-project="filterProject"
+        v-model:filter-status="filterStatus"
+        v-model:client-priority="clientPriority"
+        v-model:assignee-filter="assigneeFilter"
+        v-model:sort-key="sortKey"
+        v-model:sort-dir="sortDir"
+        v-model:group-by="groupBy"
+        :projects="inlineComposerProjects"
+        :assignable-users="assignableUsers"
+        :show-assignee-filter="showAssigneeFilter"
+        :show-view-switcher="false"
+        @reset="resetToolbar"
+      />
+    </div>
 
     <div v-if="taskStore.loading" class="mt-6 space-y-3">
       <Skeleton v-for="i in 5" :key="i" variant="card" />
@@ -265,6 +327,7 @@ async function onReopen(id: number) {
     <template v-else-if="taskView === 'list'">
       <div class="mt-6 space-y-4">
         <div
+          v-if="showListComposer"
           class="overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
         >
           <div class="border-b border-border px-3 py-3">
@@ -273,7 +336,8 @@ async function onReopen(id: number) {
               :project-id="inlineComposerProjectId"
               :projects="inlineComposerProjects"
               :disabled="!projectStore.projects.length"
-              @created="load"
+              @created="onListComposerCreated"
+              @dismiss="showListComposer = false"
             />
           </div>
         </div>

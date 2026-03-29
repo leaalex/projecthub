@@ -26,13 +26,16 @@ const emit = defineEmits<{
       label="Description"
       :rows="3"
     />
-    <div class="flex justify-end gap-2">
-      <Button type="button" variant="ghost" @click="emit('cancel')">
-        Cancel
-      </Button>
-      <Button type="submit" :loading="loading">
-        {{ submitLabel ?? 'Save' }}
-      </Button>
+    <div class="flex flex-wrap items-center gap-2">
+      <slot name="actions-start" />
+      <div class="ml-auto flex flex-wrap gap-2">
+        <Button type="button" variant="ghost" @click="emit('cancel')">
+          Cancel
+        </Button>
+        <Button type="submit" :loading="loading">
+          {{ submitLabel ?? 'Save' }}
+        </Button>
+      </div>
     </div>
   </form>
 </template>

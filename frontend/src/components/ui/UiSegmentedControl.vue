@@ -34,7 +34,7 @@ const emit = defineEmits<{
       :aria-selected="modelValue === opt.value"
       :tabindex="modelValue === opt.value ? 0 : -1"
       :disabled="opt.disabled"
-      class="inline-flex min-h-8 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      class="inline-flex h-8 min-h-8 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
       :class="
         modelValue === opt.value
           ? 'bg-surface text-foreground shadow-sm'

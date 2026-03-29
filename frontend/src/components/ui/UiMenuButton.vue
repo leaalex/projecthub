@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon } from '@heroicons/vue/20/solid'
+import {
+  EllipsisVerticalIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline'
 import {
   computed,
   nextTick,
@@ -18,21 +22,38 @@ const GAP_PX = 4
 const props = withDefaults(
   defineProps<{
     options: UiSelectOption<string | number>[]
-    /** Accessible name for the icon-only trigger (required). */
+    /**
+     * `icon` — квадратная кнопка с иконкой (слот).
+     * `field` — полоса как у селекта: текущее значение + шеврон.
+     */
+    variant?: 'icon' | 'field'
+    /** Accessible name for the trigger (required). */
     ariaLabel: string
-    modelValue?: string | number | null
+    modelValue?: string | number | null | ''
     disabled?: boolean
     title?: string
+    /** Shown on `field` when value does not match an option. */
+    placeholder?: string
     placement?: 'bottom-start' | 'bottom-end'
     teleport?: boolean
     /** Minimum panel width in px; panel is at least this wide and at least trigger width. */
     minPanelWidth?: number
+    /** Shown to the right of the icon trigger (`variant="icon"` only). */
+    summary?: string
+    /** Show a clear control next to the summary (e.g. remove optional assignee). */
+    showClear?: boolean
+    clearAriaLabel?: string
   }>(),
   {
+    variant: 'icon',
     modelValue: undefined,
+    placeholder: 'Select…',
     placement: 'bottom-end',
     teleport: true,
     minPanelWidth: 160,
+    summary: '',
+    showClear: false,
+    clearAriaLabel: 'Clear',
   },
 )
 
@@ -40,6 +61,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | number]
   select: [value: string | number]
   escape: []
+  clear: []
 }>()
 
 const uid = useId()
@@ -60,11 +82,29 @@ const rows = computed((): Row[] =>
   props.options.map((opt, sourceIndex) => ({ opt, sourceIndex })),
 )
 
+const summaryText = computed(() => props.summary.trim())
+
+const fieldTriggerText = computed(() => {
+  if (props.variant !== 'field') return ''
+  const mv = props.modelValue
+  if (mv === undefined || mv === null || mv === '') {
+    return props.placeholder
+  }
+  const row = props.options.find((o) => o.value === mv)
+  if (row) return row.label
+  return props.placeholder
+})
+
 const enabledIndices = computed(() =>
   rows.value
     .map((row, fi) => (row.opt.disabled ? -1 : fi))
     .filter((fi) => fi >= 0),
 )
+
+const effectivePlacement = computed(() => {
+  if (props.variant === 'field') return 'bottom-start' as const
+  return props.placement
+})
 
 function updateFloatingPosition() {
   const el = buttonRef.value
@@ -74,7 +114,7 @@ function updateFloatingPosition() {
   const spaceBelow = window.innerHeight - r.bottom - GAP_PX - 8
   const maxH = Math.min(MAX_PANEL_PX, Math.max(96, spaceBelow))
   let left: number
-  if (props.placement === 'bottom-end') {
+  if (effectivePlacement.value === 'bottom-end') {
     left = r.right - panelW
   } else {
     left = r.left
@@ -287,7 +327,14 @@ function optionClasses(fi: number, row: Row) {
 </script>
 
 <template>
-  <div ref="rootRef" class="relative inline-flex">
+  <div
+    ref="rootRef"
+    :class="
+      variant === 'field'
+        ? 'relative block w-full min-w-0'
+        : 'relative inline-flex max-w-full min-w-0 items-center gap-1.5'
+    "
+  >
     <button
       :id="baseId"
       ref="buttonRef"
@@ -300,14 +347,45 @@ function optionClasses(fi: number, row: Row) {
       :aria-label="ariaLabel"
       :disabled="disabled || !options.length"
       :title="title"
-      class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+      :class="
+        variant === 'field'
+          ? 'inline-flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 text-left text-xs text-foreground transition-colors hover:bg-surface-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+          : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+      "
       @click.stop="toggle"
       @keydown="onButtonKeydown"
     >
-      <slot>
+      <template v-if="variant === 'field'">
+        <span class="min-w-0 flex-1 truncate text-foreground">{{
+          fieldTriggerText
+        }}</span>
+        <ChevronDownIcon
+          class="h-4 w-4 shrink-0 text-muted"
+          aria-hidden="true"
+        />
+      </template>
+      <slot v-else>
         <EllipsisVerticalIcon class="h-5 w-5" aria-hidden="true" />
       </slot>
     </button>
+
+    <template v-if="variant === 'icon'">
+      <span
+        v-if="summaryText"
+        class="min-w-0 max-w-[9rem] shrink truncate text-xs text-foreground"
+        :title="summaryText"
+      >{{ summaryText }}</span>
+      <button
+        v-if="showClear"
+        type="button"
+        class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+        :aria-label="clearAriaLabel"
+        :disabled="disabled"
+        @click.stop="emit('clear')"
+      >
+        <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </template>
 
     <Teleport to="body" :disabled="!teleport">
       <Transition

@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import { CheckIcon } from '@heroicons/vue/24/solid'
 import {
+  BoltIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  FolderIcon,
   InformationCircleIcon,
+  RectangleStackIcon,
+  TagIcon,
   TrashIcon,
+  UserPlusIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
+import { useAuthStore } from '../../stores/auth.store'
 import { useTaskStore } from '../../stores/task.store'
 import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import { timeAgo } from '../../utils/formatters'
 import Badge from '../ui/UiBadge.vue'
 import Button from '../ui/UiButton.vue'
+import UiDateMenuButton from '../ui/UiDateMenuButton.vue'
 import UiInput from '../ui/UiInput.vue'
-import UiSelect, { type UiSelectModelValue } from '../ui/UiSelect.vue'
+import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
+import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -37,13 +47,18 @@ const emit = defineEmits<{
   updated: []
 }>()
 
+const authStore = useAuthStore()
 const taskStore = useTaskStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
 const expanded = ref(false)
+/** Collapsed row: show subtasks list without opening full editor. */
+const subtasksExpanded = ref(false)
 const busy = ref(false)
 const deleting = ref(false)
+/** Quick assignee change from collapsed row (UiMenuButton); avoids opening expanded editor. */
+const assigningQuick = ref(false)
 
 const draftTitle = ref('')
 const draftDescription = ref('')
@@ -54,6 +69,9 @@ const draftDue = ref('')
 const draftAssigneeId = ref<number | ''>('')
 
 const titleInputRef = ref<{ focus: () => void } | null>(null)
+/** Full subtasks editor in expanded card: hidden until + or when task already has subtasks. */
+const subtasksBlockVisible = ref(false)
+const subtasksPanelRef = ref<{ focusNewInput: () => void } | null>(null)
 
 /** Исполнитель в правой колонке (колонка скрыта при развёрнутом редактировании). */
 const assigneeLabel = computed(() => {
@@ -70,6 +88,29 @@ const assigneeTitle = computed(() => {
 })
 
 const isAssigneePlaceholder = computed(() => assigneeLabel.value === 'Unassigned')
+
+const subtaskSummary = computed(() => {
+  const list = props.task.subtasks ?? []
+  if (list.length === 0) return null
+  const done = list.filter((s) => s.done).length
+  return `${done}/${list.length}`
+})
+
+const hasSubtasks = computed(() => (props.task.subtasks?.length ?? 0) > 0)
+
+/** Owner can toggle; assignee can toggle (matches API). */
+const canToggleSubtasks = computed(() => {
+  if (props.canEdit) return true
+  const uid = authStore.user?.id
+  return uid != null && props.task.assignee_id === uid
+})
+
+watch(expanded, (v) => {
+  if (v) {
+    subtasksExpanded.value = false
+    subtasksBlockVisible.value = (props.task.subtasks?.length ?? 0) > 0
+  }
+})
 
 function dueFromTask(iso: string | null): string {
   if (!iso) return ''
@@ -99,7 +140,13 @@ function openExpanded() {
   if (!props.canEdit) return
   syncDraftsFromTask()
   expanded.value = true
+  subtasksBlockVisible.value = (props.task.subtasks?.length ?? 0) > 0
   nextTick(() => titleInputRef.value?.focus())
+}
+
+function revealSubtasksAndFocus() {
+  subtasksBlockVisible.value = true
+  nextTick(() => subtasksPanelRef.value?.focusNewInput())
 }
 
 function onBodyClick() {
@@ -242,9 +289,46 @@ const assigneeSelectOptions = computed(() => [
   })),
 ])
 
-function setDraftAssignee(v: UiSelectModelValue) {
-  if (Array.isArray(v)) return
+const draftStatusMenuLabel = computed(
+  () => STATUS_OPTIONS.find((o) => o.value === draftStatus.value)?.label ?? '',
+)
+const draftPriorityMenuLabel = computed(
+  () => PRIORITY_OPTIONS.find((o) => o.value === draftPriority.value)?.label ?? '',
+)
+const draftProjectMenuLabel = computed(
+  () =>
+    projectSelectOptions.value.find((o) => o.value === draftProjectId.value)
+      ?.label ?? '',
+)
+const draftAssigneeMenuLabel = computed(() => {
+  const v = draftAssigneeId.value
+  const key: string | number = v === '' ? '' : v
+  return (
+    assigneeSelectOptions.value.find((o) => o.value === key)?.label ?? ''
+  )
+})
+
+function setDraftAssigneeFromMenu(v: string | number) {
   draftAssigneeId.value = v === '' ? '' : Number(v)
+}
+
+async function onAssigneeMenuSelect(v: string | number) {
+  if (!props.canEdit || assigningQuick.value) return
+  const next = v === '' ? 0 : Number(v)
+  const prev = props.task.assignee_id ?? 0
+  if (next === prev) return
+  assigningQuick.value = true
+  try {
+    await taskStore.assign(props.task.id, next)
+    emit('updated')
+    toast.success('Assignee updated')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update assignee')
+  } finally {
+    assigningQuick.value = false
+  }
 }
 </script>
 
@@ -306,6 +390,44 @@ function setDraftAssignee(v: UiSelectModelValue) {
             <span class="shrink-0">Due {{ dueFromTask(task.due_date) }}</span>
           </template>
         </div>
+        <button
+          v-if="hasSubtasks && subtaskSummary"
+          type="button"
+          class="mt-1 flex w-full min-w-0 items-center gap-1 rounded-md py-0.5 text-left text-xs text-muted transition-colors hover:bg-surface-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          :aria-expanded="subtasksExpanded"
+          :aria-controls="`task-subtasks-${task.id}`"
+          @click.stop="subtasksExpanded = !subtasksExpanded"
+        >
+          <ChevronRightIcon
+            v-if="!subtasksExpanded"
+            class="h-3.5 w-3.5 shrink-0"
+            aria-hidden="true"
+          />
+          <ChevronDownIcon
+            v-else
+            class="h-3.5 w-3.5 shrink-0"
+            aria-hidden="true"
+          />
+          <span class="min-w-0">
+            Subtasks
+            <span class="font-medium text-foreground">{{ subtaskSummary }}</span>
+          </span>
+        </button>
+        <div
+          v-if="subtasksExpanded && hasSubtasks"
+          :id="`task-subtasks-${task.id}`"
+          class="mt-1.5"
+          @click.stop
+        >
+          <TaskSubtasksPanel
+            :task="task"
+            compact
+            hide-heading
+            :allow-toggle="canToggleSubtasks"
+            :allow-rename="canEdit"
+            @updated="emit('updated')"
+          />
+        </div>
       </template>
 
       <div
@@ -333,97 +455,149 @@ function setDraftAssignee(v: UiSelectModelValue) {
         />
 
         <div
-          class="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          v-if="subtasksBlockVisible"
+          class="mt-2"
         >
-          <div
-            class="min-w-[6.25rem] shrink-0 sm:min-w-0 sm:flex-1"
-          >
-            <UiSelect
-              :model-value="draftStatus"
-              :block="false"
-              class="w-full min-w-0"
-              placeholder="Status"
-              :options="STATUS_OPTIONS"
-              :disabled="busy"
-              @update:model-value="(v) => (draftStatus = v as TaskStatus)"
-              @escape="collapseExpanded"
-            />
+          <TaskSubtasksPanel
+            ref="subtasksPanelRef"
+            :task="task"
+            @updated="emit('updated')"
+          />
+        </div>
+
+        <div
+          class="flex w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          :class="
+            subtasksBlockVisible && 'border-t border-border pt-2'
+          "
+        >
+          <div class="flex shrink-0 items-center gap-1.5">
+            <div class="flex shrink-0 items-center">
+              <UiMenuButton
+                v-model="draftStatus"
+                :summary="draftStatusMenuLabel"
+                :ariaLabel="`Status: ${draftStatusMenuLabel}`"
+                :title="`Status: ${draftStatusMenuLabel}`"
+                :options="STATUS_OPTIONS"
+                :disabled="busy"
+                @escape="collapseExpanded"
+              >
+                <TagIcon class="h-5 w-5" aria-hidden="true" />
+              </UiMenuButton>
+            </div>
+            <div class="flex shrink-0 items-center">
+              <UiMenuButton
+                v-model="draftPriority"
+                :summary="draftPriorityMenuLabel"
+                :ariaLabel="`Priority: ${draftPriorityMenuLabel}`"
+                :title="`Priority: ${draftPriorityMenuLabel}`"
+                :options="PRIORITY_OPTIONS"
+                :disabled="busy"
+                @escape="collapseExpanded"
+              >
+                <BoltIcon class="h-5 w-5" aria-hidden="true" />
+              </UiMenuButton>
+            </div>
+            <div
+              v-if="showProjectPicker()"
+              class="flex shrink-0 items-center"
+            >
+              <UiMenuButton
+                v-model="draftProjectId"
+                :summary="draftProjectMenuLabel"
+                :ariaLabel="`Project: ${draftProjectMenuLabel}`"
+                :title="`Project: ${draftProjectMenuLabel}`"
+                :options="projectSelectOptions"
+                :disabled="busy"
+                @escape="collapseExpanded"
+              >
+                <FolderIcon class="h-5 w-5" aria-hidden="true" />
+              </UiMenuButton>
+            </div>
           </div>
+
           <div
-            class="min-w-[5.5rem] shrink-0 sm:min-w-0 sm:flex-1"
+            class="ml-auto flex shrink-0 items-center gap-1.5"
           >
-            <UiSelect
-              :model-value="draftPriority"
-              :block="false"
-              class="w-full min-w-0"
-              placeholder="Priority"
-              :options="PRIORITY_OPTIONS"
-              :disabled="busy"
-              @update:model-value="(v) => (draftPriority = v as TaskPriority)"
-              @escape="collapseExpanded"
-            />
-          </div>
-          <div
-            v-if="showProjectPicker()"
-            class="min-w-[5rem] max-w-[9rem] shrink-0 sm:max-w-none sm:flex-1 sm:min-w-0"
-          >
-            <UiSelect
-              :model-value="draftProjectId"
-              :block="false"
-              class="w-full min-w-0"
-              placeholder="Project"
-              :options="projectSelectOptions"
-              :disabled="busy"
-              @update:model-value="(v) => (draftProjectId = Number(v))"
-              @escape="collapseExpanded"
-            />
-          </div>
-          <div
-            v-if="showAssigneePicker()"
-            class="min-w-[6rem] max-w-[10rem] shrink-0 sm:max-w-none sm:flex-1 sm:min-w-0"
-          >
-            <UiSelect
-              :model-value="draftAssigneeId === '' ? '' : draftAssigneeId"
-              :block="false"
-              class="w-full min-w-0"
-              placeholder="Assignee"
-              :options="assigneeSelectOptions"
-              :disabled="busy"
-              @update:model-value="setDraftAssignee"
-              @escape="collapseExpanded"
-            />
-          </div>
-          <span
-            v-else
-            class="inline-flex min-h-8 min-w-[6rem] max-w-[10rem] shrink-0 items-center truncate rounded-md border border-dashed border-border/70 bg-surface/50 px-2 text-xs text-muted"
-            :title="
-              task.assignee
-                ? task.assignee.name || task.assignee.email
-                : 'Unassigned'
-            "
-          >
-            {{
-              task.assignee
-                ? task.assignee.name || task.assignee.email
-                : 'No assignee'
-            }}
-          </span>
-          <div
-            class="w-auto min-w-[9.25rem] shrink-0 sm:flex-1 sm:min-w-[9.25rem]"
-          >
-            <UiInput
-              v-model="draftDue"
-              type="date"
-              aria-label="Due date"
-              :disabled="busy"
-              @keydown="onInlineEscape"
-            />
+            <div
+              v-if="showAssigneePicker()"
+              class="flex shrink-0 items-center"
+            >
+              <UiMenuButton
+                :model-value="draftAssigneeId === '' ? '' : draftAssigneeId"
+                :summary="
+                  draftAssigneeId === '' ? '' : draftAssigneeMenuLabel
+                "
+                :show-clear="draftAssigneeId !== ''"
+                clear-aria-label="Remove assignee"
+                :ariaLabel="`Assignee: ${draftAssigneeMenuLabel}`"
+                :title="`Assignee: ${draftAssigneeMenuLabel}`"
+                :options="assigneeSelectOptions"
+                :disabled="busy"
+                @update:model-value="setDraftAssigneeFromMenu"
+                @clear="draftAssigneeId = ''"
+                @escape="collapseExpanded"
+              >
+                <UserPlusIcon class="h-5 w-5" aria-hidden="true" />
+              </UiMenuButton>
+            </div>
+            <span
+              v-else
+              class="inline-flex min-h-8 min-w-[6rem] max-w-[10rem] shrink-0 items-center truncate rounded-md border border-dashed border-border/70 bg-surface/50 px-2 text-xs text-muted"
+              :title="
+                task.assignee
+                  ? task.assignee.name || task.assignee.email
+                  : 'Unassigned'
+              "
+            >
+              {{
+                task.assignee
+                  ? task.assignee.name || task.assignee.email
+                  : 'No assignee'
+              }}
+            </span>
+            <div class="flex shrink-0 items-center">
+              <UiDateMenuButton
+                v-model="draftDue"
+                :ariaLabel="
+                  draftDue.trim()
+                    ? `Due date ${draftDue.slice(0, 10)}`
+                    : 'Due date'
+                "
+                :disabled="busy"
+                @escape="collapseExpanded"
+              />
+            </div>
+            <div
+              v-if="!hasSubtasks && !subtasksBlockVisible"
+              class="flex shrink-0 items-center"
+            >
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                aria-label="Add subtask"
+                title="Add subtask"
+                :disabled="busy"
+                @click.stop="revealSubtasksAndFocus"
+              >
+                <RectangleStackIcon class="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
+
         <div
-          class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2"
+          class="flex flex-wrap items-center gap-2 border-t border-border pt-2"
         >
-          <div class="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost-danger"
+            type="button"
+            :disabled="busy || deleting"
+            @click="requestDelete"
+          >
+            Delete task
+          </Button>
+          <div class="ml-auto flex flex-wrap gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -436,14 +610,6 @@ function setDraftAssignee(v: UiSelectModelValue) {
               Save
             </Button>
           </div>
-          <button
-            type="button"
-            class="text-xs font-medium text-destructive hover:underline disabled:opacity-50"
-            :disabled="busy || deleting"
-            @click="requestDelete"
-          >
-            Delete task
-          </button>
         </div>
       </div>
     </div>
@@ -453,15 +619,32 @@ function setDraftAssignee(v: UiSelectModelValue) {
       class="flex shrink-0 flex-row items-stretch self-stretch"
     >
       <div
-        class="flex w-40 shrink-0 flex-col justify-center overflow-hidden border-l border-border/50 px-2"
+        class="flex w-44 min-w-0 shrink-0 flex-col justify-center overflow-visible border-l border-border/50 px-2"
         :title="assigneeTitle"
+        @click.stop
       >
-        <span
-          class="min-w-0 truncate text-xs leading-tight"
-          :class="isAssigneePlaceholder ? 'text-muted' : 'text-foreground'"
-        >
-          {{ assigneeLabel }}
-        </span>
+        <div class="flex min-w-0 items-center gap-1">
+          <span
+            class="min-w-0 flex-1 truncate text-xs leading-tight"
+            :class="isAssigneePlaceholder ? 'text-muted' : 'text-foreground'"
+          >
+            {{ assigneeLabel }}
+          </span>
+          <UiMenuButton
+            v-if="canEdit && showAssigneePicker()"
+            class="shrink-0"
+            :model-value="task.assignee_id ?? ''"
+            ariaLabel="Change assignee"
+            title="Change assignee"
+            placement="bottom-end"
+            :options="assigneeSelectOptions"
+            :disabled="assigningQuick"
+            :min-panel-width="200"
+            @select="onAssigneeMenuSelect"
+          >
+            <UserPlusIcon class="h-4 w-4" aria-hidden="true" />
+          </UiMenuButton>
+        </div>
       </div>
       <div
         class="flex shrink-0 flex-row items-center justify-center gap-0.5 self-stretch border-l border-border/50 pl-2"
@@ -478,7 +661,7 @@ function setDraftAssignee(v: UiSelectModelValue) {
         <button
           v-if="canEdit"
           type="button"
-          class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           aria-label="Delete task"
           :disabled="deleting"
           @click="requestDelete"

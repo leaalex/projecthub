@@ -37,12 +37,14 @@ func main() {
 	}
 	projectSvc := &services.ProjectService{DB: db}
 	taskSvc := &services.TaskService{DB: db}
+	subtaskSvc := &services.SubtaskService{DB: db, Tasks: taskSvc}
 	userSvc := &services.UserService{DB: db}
 	reportSvc := &services.ReportService{DB: db, ReportsDir: cfg.ReportsDir}
 
 	authHandler := &handlers.AuthHandler{Auth: authSvc}
 	projectHandler := &handlers.ProjectHandler{Svc: projectSvc}
 	taskHandler := &handlers.TaskHandler{Svc: taskSvc}
+	subtaskHandler := &handlers.SubtaskHandler{Svc: subtaskSvc}
 	userHandler := &handlers.UserHandler{Svc: userSvc}
 	reportHandler := &handlers.ReportHandler{Svc: reportSvc}
 
@@ -75,6 +77,11 @@ func main() {
 	tasks := protected.Group("/tasks")
 	tasks.GET("", taskHandler.List)
 	tasks.POST("", taskHandler.Create)
+	tasks.GET("/:id/subtasks", subtaskHandler.List)
+	tasks.POST("/:id/subtasks", subtaskHandler.Create)
+	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)
+	tasks.DELETE("/:id/subtasks/:sid", subtaskHandler.Delete)
+	tasks.POST("/:id/subtasks/:sid/toggle", subtaskHandler.Toggle)
 	tasks.GET("/:id", taskHandler.Get)
 	tasks.PUT("/:id", taskHandler.Update)
 	tasks.DELETE("/:id", taskHandler.Delete)

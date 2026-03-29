@@ -12,6 +12,16 @@ import (
 
 var ErrTaskNotFound = errors.New("task not found")
 
+// subtasksOrdered is a GORM scope for consistent subtask ordering in Preload.
+func subtasksOrdered(db *gorm.DB) *gorm.DB {
+	return db.Order("subtasks.position ASC, subtasks.id ASC")
+}
+
+// preloadTaskAll loads Project, Assignee, and ordered Subtasks for a task query.
+func preloadTaskAll(db *gorm.DB) *gorm.DB {
+	return db.Preload("Project").Preload("Assignee").Preload("Subtasks", subtasksOrdered)
+}
+
 type TaskService struct {
 	DB *gorm.DB
 }
@@ -28,7 +38,7 @@ func (s *TaskService) List(userID uint, projectID *uint, status *models.TaskStat
 		return nil, err
 	}
 
-	q := s.DB.Model(&models.Task{}).Preload("Project").Preload("Assignee")
+	q := preloadTaskAll(s.DB.Model(&models.Task{}))
 	switch {
 	case len(owned) > 0:
 		q = q.Where("project_id IN ? OR assignee_id = ?", owned, userID)
@@ -59,6 +69,11 @@ func (s *TaskService) canAccessTask(task *models.Task, userID uint) bool {
 	return p.OwnerID == userID
 }
 
+// IsProjectOwner reports whether userID owns the project.
+func (s *TaskService) IsProjectOwner(projectID, userID uint) (bool, error) {
+	return s.isProjectOwner(projectID, userID)
+}
+
 func (s *TaskService) isProjectOwner(projectID, userID uint) (bool, error) {
 	var p models.Project
 	if err := s.DB.First(&p, projectID).Error; err != nil {
@@ -72,7 +87,7 @@ func (s *TaskService) isProjectOwner(projectID, userID uint) (bool, error) {
 
 func (s *TaskService) Get(id, userID uint) (*models.Task, error) {
 	var t models.Task
-	if err := s.DB.Preload("Project").Preload("Assignee").First(&t, id).Error; err != nil {
+	if err := preloadTaskAll(s.DB).First(&t, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrTaskNotFound
 		}
@@ -126,7 +141,7 @@ func (s *TaskService) Create(userID uint, in TaskCreate) (*models.Task, error) {
 	if err := s.DB.Create(&t).Error; err != nil {
 		return nil, err
 	}
-	s.DB.Preload("Project").Preload("Assignee").First(&t, t.ID)
+	preloadTaskAll(s.DB).First(&t, t.ID)
 	return &t, nil
 }
 
@@ -212,7 +227,7 @@ func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, erro
 		if err := s.DB.Save(t).Error; err != nil {
 			return nil, err
 		}
-		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		preloadTaskAll(s.DB).First(t, t.ID)
 		return t, nil
 	}
 
@@ -221,7 +236,7 @@ func (s *TaskService) Update(id, userID uint, in TaskUpdate) (*models.Task, erro
 		if err := s.DB.Save(t).Error; err != nil {
 			return nil, err
 		}
-		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		preloadTaskAll(s.DB).First(t, t.ID)
 		return t, nil
 	}
 
@@ -260,7 +275,7 @@ func (s *TaskService) Assign(taskID, ownerUserID, assigneeID uint) (*models.Task
 		if err := s.DB.Save(t).Error; err != nil {
 			return nil, err
 		}
-		s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+		preloadTaskAll(s.DB).First(t, t.ID)
 		return t, nil
 	}
 	var u models.User
@@ -274,7 +289,7 @@ func (s *TaskService) Assign(taskID, ownerUserID, assigneeID uint) (*models.Task
 	if err := s.DB.Save(t).Error; err != nil {
 		return nil, err
 	}
-	s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+	preloadTaskAll(s.DB).First(t, t.ID)
 	return t, nil
 }
 
@@ -296,6 +311,6 @@ func (s *TaskService) Complete(taskID, userID uint) (*models.Task, error) {
 	if err := s.DB.Save(t).Error; err != nil {
 		return nil, err
 	}
-	s.DB.Preload("Project").Preload("Assignee").First(t, t.ID)
+	preloadTaskAll(s.DB).First(t, t.ID)
 	return t, nil
 }

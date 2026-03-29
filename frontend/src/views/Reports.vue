@@ -232,7 +232,7 @@ async function deleteSaved(r: SavedReport) {
                 </Button>
                 <Button
                   type="button"
-                  variant="danger"
+                  variant="ghost-danger"
                   :loading="deletingId === r.id"
                   :disabled="deletingId !== null && deletingId !== r.id"
                   @click="deleteSaved(r)"

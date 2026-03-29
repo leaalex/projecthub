@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { BoltIcon, FolderIcon, TagIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import type { TaskPriority, TaskStatus } from '../../types/task'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
-import UiSelect from '../ui/UiSelect.vue'
+import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
 
 const title = defineModel<string>('title', { default: '' })
@@ -49,6 +50,16 @@ const projectOptions = computed(() => [
   { value: 0, label: 'Select project', disabled: true },
   ...props.projects.map((p) => ({ value: p.id, label: p.name })),
 ])
+
+const projectMenuLabel = computed(
+  () => projectOptions.value.find((o) => o.value === projectId.value)?.label ?? 'Project',
+)
+const statusMenuLabel = computed(
+  () => statusOptions.find((o) => o.value === status.value)?.label ?? 'Status',
+)
+const priorityMenuLabel = computed(
+  () => priorityOptions.find((o) => o.value === priority.value)?.label ?? 'Priority',
+)
 </script>
 
 <template>
@@ -62,33 +73,65 @@ const projectOptions = computed(() => [
       placeholder="Optional"
     />
     <div v-if="!hideProjectSelect">
-      <UiSelect
-        id="tf-project"
-        v-model="projectId"
-        label="Project"
-        :options="projectOptions"
-        placeholder="Select project"
-      />
+      <label class="mb-1 block text-xs font-medium text-foreground">Project</label>
+      <div class="flex min-w-0 items-center gap-2">
+        <UiMenuButton
+          v-model="projectId"
+          :ariaLabel="`Project: ${projectMenuLabel}`"
+          :title="`Project: ${projectMenuLabel}`"
+          :options="projectOptions"
+        >
+          <FolderIcon class="h-5 w-5" aria-hidden="true" />
+        </UiMenuButton>
+        <span class="min-w-0 flex-1 truncate text-sm text-foreground">{{
+          projectMenuLabel
+        }}</span>
+      </div>
     </div>
     <div class="grid grid-cols-2 gap-4">
-      <UiSelect
-        id="tf-status"
-        v-model="status"
-        label="Status"
-        :options="statusOptions"
-      />
-      <UiSelect
-        id="tf-priority"
-        v-model="priority"
-        label="Priority"
-        :options="priorityOptions"
-      />
+      <div>
+        <label class="mb-1 block text-xs font-medium text-foreground">Status</label>
+        <div class="flex min-w-0 items-center gap-2">
+          <UiMenuButton
+            v-model="status"
+            :ariaLabel="`Status: ${statusMenuLabel}`"
+            :title="`Status: ${statusMenuLabel}`"
+            :options="statusOptions"
+          >
+            <TagIcon class="h-5 w-5" aria-hidden="true" />
+          </UiMenuButton>
+          <span class="min-w-0 flex-1 truncate text-sm text-foreground">{{
+            statusMenuLabel
+          }}</span>
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-foreground">Priority</label>
+        <div class="flex min-w-0 items-center gap-2">
+          <UiMenuButton
+            v-model="priority"
+            :ariaLabel="`Priority: ${priorityMenuLabel}`"
+            :title="`Priority: ${priorityMenuLabel}`"
+            :options="priorityOptions"
+          >
+            <BoltIcon class="h-5 w-5" aria-hidden="true" />
+          </UiMenuButton>
+          <span class="min-w-0 flex-1 truncate text-sm text-foreground">{{
+            priorityMenuLabel
+          }}</span>
+        </div>
+      </div>
     </div>
-    <div class="flex justify-end gap-2">
-      <Button type="button" variant="ghost" @click="emit('cancel')">
-        Cancel
-      </Button>
-      <Button type="submit" :loading="loading">{{ submitLabel ?? 'Create' }}</Button>
+    <div class="flex flex-wrap items-center gap-2">
+      <slot name="actions-start" />
+      <div class="ml-auto flex flex-wrap gap-2">
+        <Button type="button" variant="ghost" @click="emit('cancel')">
+          Cancel
+        </Button>
+        <Button type="submit" :loading="loading">{{
+          submitLabel ?? 'Create'
+        }}</Button>
+      </div>
     </div>
   </form>
 </template>

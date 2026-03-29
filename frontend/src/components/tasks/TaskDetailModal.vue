@@ -4,6 +4,7 @@ import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import TaskForm from './TaskForm.vue'
+import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { useTaskStore } from '../../stores/task.store'
 import { useCanEditTask } from '../../composables/useCanEditTask'
 import { useConfirm } from '../../composables/useConfirm'
@@ -105,6 +106,16 @@ function close() {
   emit('update:modelValue', false)
 }
 
+async function refreshTask() {
+  const id = props.taskId
+  if (id == null || !task.value) return
+  try {
+    task.value = await taskStore.fetchOne(id)
+  } catch {
+    /* keep existing task */
+  }
+}
+
 async function removeTask() {
   const t = task.value
   if (!t) return
@@ -154,6 +165,12 @@ async function removeTask() {
           <dt class="font-medium text-muted">Description</dt>
           <dd class="mt-1 whitespace-pre-wrap text-foreground">
             {{ task.description || '—' }}
+          </dd>
+        </div>
+        <div>
+          <dt class="font-medium text-muted">Subtasks</dt>
+          <dd class="mt-1">
+            <TaskSubtasksPanel :task="task" hide-heading readonly />
           </dd>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
@@ -234,18 +251,20 @@ async function removeTask() {
           :loading="saving"
           @submit="save"
           @cancel="close"
-        />
-        <div class="flex justify-end border-t border-border pt-4">
-          <Button
-            variant="danger"
-            type="button"
-            :loading="removing"
-            :disabled="saving"
-            @click="removeTask"
-          >
-            Delete task
-          </Button>
-        </div>
+        >
+          <template #actions-start>
+            <Button
+              variant="ghost-danger"
+              type="button"
+              :loading="removing"
+              :disabled="saving"
+              @click="removeTask"
+            >
+              Delete task
+            </Button>
+          </template>
+        </TaskForm>
+        <TaskSubtasksPanel :task="task" @updated="refreshTask" />
       </div>
     </template>
   </Modal>

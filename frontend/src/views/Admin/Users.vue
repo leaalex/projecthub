@@ -106,7 +106,7 @@ async function remove(u: User) {
           <span class="font-mono">ID {{ u.id }}</span>
           <span class="rounded bg-surface-muted px-2 py-0.5">{{ u.role }}</span>
         </div>
-        <Button variant="danger" class="w-full" @click="remove(u)">Delete</Button>
+        <Button variant="ghost-danger" class="w-full" @click="remove(u)">Delete</Button>
       </div>
     </div>
 
@@ -124,7 +124,7 @@ async function remove(u: User) {
         <td class="px-4 py-3">{{ u.name || '—' }}</td>
         <td class="px-4 py-3">{{ u.role }}</td>
         <td class="px-4 py-3">
-          <Button variant="danger" @click="remove(u)">Delete</Button>
+          <Button variant="ghost-danger" @click="remove(u)">Delete</Button>
         </td>
       </tr>
     </Table>

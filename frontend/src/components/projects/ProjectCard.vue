@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PencilSquareIcon } from '@heroicons/vue/24/outline'
 import type { Project } from '../../types/project'
 import { timeAgo } from '../../utils/formatters'
 import Button from '../ui/UiButton.vue'
@@ -9,6 +10,7 @@ defineProps<{
 
 const emit = defineEmits<{
   open: [id: number]
+  edit: [id: number]
 }>()
 </script>
 
@@ -34,8 +36,24 @@ const emit = defineEmits<{
         Updated {{ timeAgo(project.updated_at) }}
       </p>
     </div>
-    <Button class="mt-4" variant="secondary" @click="emit('open', project.id)">
-      Open
-    </Button>
+    <div class="mt-4 flex items-center gap-2">
+      <Button
+        class="min-w-0 flex-1"
+        variant="secondary"
+        @click="emit('open', project.id)"
+      >
+        Open
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        class="shrink-0 px-2.5"
+        :aria-label="`Edit project ${project.name}`"
+        @click="emit('edit', project.id)"
+      >
+        <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
+        <span class="sr-only">Edit project</span>
+      </Button>
+    </div>
   </div>
 </template>

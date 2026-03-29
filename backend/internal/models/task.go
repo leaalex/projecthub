@@ -31,6 +31,7 @@ type Task struct {
 	AssigneeID  *uint        `gorm:"index" json:"assignee_id"`
 	Assignee    *User        `gorm:"foreignKey:AssigneeID" json:"assignee,omitempty"`
 	DueDate     *time.Time   `json:"due_date"`
+	Subtasks    []Subtask    `gorm:"foreignKey:TaskID" json:"subtasks"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 }

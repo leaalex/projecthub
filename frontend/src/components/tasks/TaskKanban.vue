@@ -159,7 +159,7 @@ async function removeTask(task: Task) {
             <button
               v-if="canEditTask(task)"
               type="button"
-              class="inline-flex items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+              class="inline-flex items-center justify-center rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               aria-label="Delete task"
               :disabled="removingId === task.id"
               @click.stop="removeTask(task)"

@@ -48,7 +48,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
               {{ options.cancelLabel }}
             </Button>
             <Button
-              :variant="options.danger ? 'danger' : 'primary'"
+              :variant="options.danger ? 'ghost-danger' : 'primary'"
               @click="store.answer(true)"
             >
               {{ options.confirmLabel }}

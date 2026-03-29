@@ -25,6 +25,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 		&models.User{},
 		&models.Project{},
 		&models.Task{},
+		&models.Subtask{},
 		&models.SavedReport{},
 	); err != nil {
 		return nil, err

@@ -1,12 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Task, TaskPriority, TaskStatus } from '../types/task'
+import type { Subtask, Task, TaskPriority, TaskStatus } from '../types/task'
 import { api } from '../utils/api'
+
+function sortSubtasks(list: Subtask[]): Subtask[] {
+  return [...list].sort(
+    (a, b) => a.position - b.position || a.id - b.id,
+  )
+}
 
 export const useTaskStore = defineStore('task', () => {
   const tasks = ref<Task[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  function patchTaskSubtasks(taskId: number, next: Subtask[]) {
+    const i = tasks.value.findIndex((t) => t.id === taskId)
+    if (i < 0) return
+    const t = tasks.value[i]
+    tasks.value[i] = { ...t, subtasks: sortSubtasks(next) }
+  }
 
   async function fetchList(params?: {
     project_id?: number
@@ -83,6 +96,53 @@ export const useTaskStore = defineStore('task', () => {
     return data.task
   }
 
+  async function createSubtask(taskId: number, title: string) {
+    const { data } = await api.post<{ subtask: Subtask }>(
+      `/tasks/${taskId}/subtasks`,
+      { title },
+    )
+    const t = tasks.value.find((x) => x.id === taskId)
+    const list = [...(t?.subtasks ?? []), data.subtask]
+    patchTaskSubtasks(taskId, list)
+    return data.subtask
+  }
+
+  async function toggleSubtask(taskId: number, subtaskId: number) {
+    const { data } = await api.post<{ subtask: Subtask }>(
+      `/tasks/${taskId}/subtasks/${subtaskId}/toggle`,
+    )
+    const t = tasks.value.find((x) => x.id === taskId)
+    const list = (t?.subtasks ?? []).map((s) =>
+      s.id === data.subtask.id ? data.subtask : s,
+    )
+    patchTaskSubtasks(taskId, list)
+    return data.subtask
+  }
+
+  async function updateSubtask(
+    taskId: number,
+    subtaskId: number,
+    patch: Partial<{ title: string; done: boolean; position: number }>,
+  ) {
+    const { data } = await api.put<{ subtask: Subtask }>(
+      `/tasks/${taskId}/subtasks/${subtaskId}`,
+      patch,
+    )
+    const t = tasks.value.find((x) => x.id === taskId)
+    const list = (t?.subtasks ?? []).map((s) =>
+      s.id === data.subtask.id ? data.subtask : s,
+    )
+    patchTaskSubtasks(taskId, list)
+    return data.subtask
+  }
+
+  async function deleteSubtask(taskId: number, subtaskId: number) {
+    await api.delete(`/tasks/${taskId}/subtasks/${subtaskId}`)
+    const t = tasks.value.find((x) => x.id === taskId)
+    const list = (t?.subtasks ?? []).filter((s) => s.id !== subtaskId)
+    patchTaskSubtasks(taskId, list)
+  }
+
   return {
     tasks,
     loading,
@@ -94,5 +154,9 @@ export const useTaskStore = defineStore('task', () => {
     remove,
     assign,
     complete,
+    createSubtask,
+    toggleSubtask,
+    updateSubtask,
+    deleteSubtask,
   }
 })

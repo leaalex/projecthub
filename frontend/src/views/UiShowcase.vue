@@ -175,6 +175,7 @@ function onDemoMenuSelect(v: string | number) {
           <UiButton variant="secondary">Secondary</UiButton>
           <UiButton variant="ghost">Ghost</UiButton>
           <UiButton variant="danger">Danger</UiButton>
+          <UiButton variant="ghost-danger">Ghost danger</UiButton>
         </div>
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <UiButton :loading="true">Loading</UiButton>
@@ -369,10 +370,11 @@ function onDemoMenuSelect(v: string | number) {
       <UiCard title="Menu button (UiMenuButton)">
         <p class="mb-4 text-sm text-muted">
           Dropdown like
-          <code class="text-foreground">UiSelect</code>, opened by an icon
-          trigger (<code class="text-foreground">aria-label</code> required).
+          <code class="text-foreground">UiSelect</code>: icon trigger or
+          <code class="text-foreground">variant="field"</code> (value + chevron).
+          <code class="text-foreground">ariaLabel</code> is required.
         </p>
-        <div class="flex flex-wrap items-center gap-6">
+        <div class="flex flex-col flex-wrap gap-6 sm:flex-row sm:items-center">
           <div class="flex items-center gap-3">
             <span class="text-xs font-medium text-muted">With v-model</span>
             <UiMenuButton
@@ -393,6 +395,18 @@ function onDemoMenuSelect(v: string | number) {
               @select="onDemoMenuSelect"
             />
             <code class="text-xs text-foreground">{{ demoMenuActionLog }}</code>
+          </div>
+          <div class="max-w-xs flex-1">
+            <span class="mb-1 block text-xs font-medium text-muted"
+              >Field style (tasks / filters)</span
+            >
+            <UiMenuButton
+              v-model="demoMenuValue"
+              variant="field"
+              ariaLabel="Choose drink"
+              placeholder="Pick a drink"
+              :options="selectFlavorOptions"
+            />
           </div>
         </div>
       </UiCard>

@@ -59,7 +59,7 @@ func (h *TaskHandler) List(c *gin.Context) {
 	}
 	tasks, err := h.Svc.List(uid, projectID, status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
@@ -84,15 +84,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		Priority:    body.Priority,
 	})
 	if err != nil {
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"task": t})
@@ -111,15 +103,7 @@ func (h *TaskHandler) Get(c *gin.Context) {
 	}
 	t, err := h.Svc.Get(uint(id), uid)
 	if err != nil {
-		if err == services.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task": t})
@@ -150,19 +134,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		DueDate:     body.DueDate,
 	})
 	if err != nil {
-		if err == services.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task": t})
@@ -180,15 +152,7 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.Svc.Delete(uint(id), uid); err != nil {
-		if err == services.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -212,19 +176,7 @@ func (h *TaskHandler) Assign(c *gin.Context) {
 	}
 	t, err := h.Svc.Assign(uint(id), uid, body.AssigneeID)
 	if err != nil {
-		if err == services.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task": t})
@@ -243,15 +195,7 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 	}
 	t, err := h.Svc.Complete(uint(id), uid)
 	if err != nil {
-		if err == services.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task": t})

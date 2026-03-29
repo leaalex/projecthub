@@ -51,22 +51,64 @@ function parseIso(s: string): number {
   return Number.isFinite(t) ? t : 0
 }
 
+function matchesStatus(
+  t: Task,
+  status: TaskStatus | '' | TaskStatus[] | undefined,
+): boolean {
+  const st = status ?? ''
+  if (Array.isArray(st)) {
+    if (st.length === 0) return true
+    return st.includes(t.status)
+  }
+  if (st === '') return true
+  return t.status === st
+}
+
+function matchesPriority(
+  t: Task,
+  priority: TaskPriority | '' | TaskPriority[],
+): boolean {
+  const pr = priority
+  if (Array.isArray(pr)) {
+    if (pr.length === 0) return true
+    return pr.includes(t.priority)
+  }
+  if (pr === '') return true
+  return t.priority === pr
+}
+
+function matchesAssignee(
+  t: Task,
+  assignee: AssigneeFilterValue | AssigneeFilterValue[],
+): boolean {
+  if (Array.isArray(assignee)) {
+    if (assignee.length === 0) return true
+    return assignee.some((opt) => {
+      if (opt === '') return false
+      if (opt === 'unassigned') return t.assignee_id == null
+      return t.assignee_id === opt
+    })
+  }
+  if (assignee === 'unassigned') return t.assignee_id == null
+  if (assignee === '') return true
+  return t.assignee_id === assignee
+}
+
 export function filterTasks(
   tasks: Task[],
   opts: {
     search: string
-    priority: TaskPriority | ''
-    assignee: AssigneeFilterValue
+    priority: TaskPriority | '' | TaskPriority[]
+    assignee: AssigneeFilterValue | AssigneeFilterValue[]
+    /** Client-side status filter (e.g. project page; global tasks may use server filter). */
+    status?: TaskStatus | '' | TaskStatus[]
   },
 ): Task[] {
   const q = opts.search.trim().toLowerCase()
   return tasks.filter((t) => {
-    if (opts.priority !== '' && t.priority !== opts.priority) return false
-    if (opts.assignee === 'unassigned') {
-      if (t.assignee_id != null) return false
-    } else if (opts.assignee !== '' && typeof opts.assignee === 'number') {
-      if (t.assignee_id !== opts.assignee) return false
-    }
+    if (!matchesStatus(t, opts.status)) return false
+    if (!matchesPriority(t, opts.priority)) return false
+    if (!matchesAssignee(t, opts.assignee)) return false
     if (q) {
       const title = t.title.toLowerCase()
       const desc = (t.description ?? '').toLowerCase()
@@ -206,17 +248,19 @@ export function presentTasks(
   tasks: Task[],
   opts: {
     search: string
-    priority: TaskPriority | ''
-    assignee: AssigneeFilterValue
+    priority: TaskPriority | '' | TaskPriority[]
+    assignee: AssigneeFilterValue | AssigneeFilterValue[]
     sortKey: TaskSortKey
     sortDir: SortDir
     groupBy: TaskGroupBy
+    status?: TaskStatus | '' | TaskStatus[]
   },
 ): { flat: Task[]; groups: TaskGroup[] } {
   const filtered = filterTasks(tasks, {
     search: opts.search,
     priority: opts.priority,
     assignee: opts.assignee,
+    status: opts.status,
   })
   const sorted = sortTasks(filtered, opts.sortKey, opts.sortDir)
   if (opts.groupBy === 'none') {

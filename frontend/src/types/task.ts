@@ -4,6 +4,16 @@ import type { User } from './user'
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 
+export interface Subtask {
+  id: number
+  task_id: number
+  title: string
+  done: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
 export interface Task {
   id: number
   title: string
@@ -17,4 +27,5 @@ export interface Task {
   updated_at: string
   project?: Project
   assignee?: User | null
+  subtasks?: Subtask[]
 }
