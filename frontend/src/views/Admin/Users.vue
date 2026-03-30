@@ -281,7 +281,7 @@ function isSelf(u: User) {
           <UiMenuButton
             :key="`${u.id}-${u.role}`"
             :model-value="u.role"
-            :aria-label="`Change role for ${u.email}, current ${u.role}`"
+            :ariaLabel="`Change role for ${u.email}, current ${u.role}`"
             :title="`Change role (now ${u.role})`"
             :options="roleMenuOptions"
             :disabled="roleSavingId === u.id"
@@ -347,7 +347,7 @@ function isSelf(u: User) {
                   v-if="isAdmin && u.role !== 'admin'"
                   :key="`${u.id}-${u.role}`"
                   :model-value="u.role"
-                  :aria-label="`Change role for ${u.email}, current ${u.role}`"
+                  :ariaLabel="`Change role for ${u.email}, current ${u.role}`"
                   :title="`Change role (now ${u.role})`"
                   :options="roleMenuOptions"
                   :disabled="roleSavingId === u.id"

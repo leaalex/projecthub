@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { TrashIcon } from '@heroicons/vue/24/outline'
+import {
+  InformationCircleIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline'
 import { useTaskStore } from '../../stores/task.store'
 import { useConfirm } from '../../composables/useConfirm'
 import { useTaskEditPermission } from '../../composables/useCanEditTask'
@@ -15,12 +18,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changed: []
+  info: [id: number]
 }>()
 
 const taskStore = useTaskStore()
 const toast = useToast()
 const { confirm } = useConfirm()
-const { canEditTask } = useTaskEditPermission()
+const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
 const columns: { status: TaskStatus; title: string }[] = [
   { status: 'todo', title: 'To do' },
@@ -38,6 +42,10 @@ function tasksIn(status: TaskStatus) {
 }
 
 function onDragStart(e: DragEvent, task: Task) {
+  if (!canChangeTaskStatus(task)) {
+    e.preventDefault()
+    return
+  }
   e.dataTransfer?.setData('text/plain', String(task.id))
   e.dataTransfer!.effectAllowed = 'move'
 }
@@ -60,6 +68,7 @@ async function onDrop(e: DragEvent, status: TaskStatus) {
   if (!Number.isFinite(id)) return
   const task = props.tasks.find((t) => t.id === id)
   if (!task || task.status === status) return
+  if (!canChangeTaskStatus(task)) return
   try {
     await taskStore.update(id, { status })
     emit('changed')
@@ -82,7 +91,7 @@ async function markDone(taskId: number) {
 }
 
 async function removeTask(task: Task) {
-  if (!canEditTask(task)) return
+  if (!canManageTask(task)) return
   const ok = await confirm({
     title: 'Delete task',
     message: `Remove “${task.title}”? This cannot be undone.`,
@@ -136,8 +145,13 @@ async function removeTask(task: Task) {
         <div
           v-for="task in tasksIn(col.status)"
           :key="task.id"
-          draggable="true"
-          class="cursor-grab rounded-lg border border-border bg-surface p-3 active:cursor-grabbing"
+          :draggable="canChangeTaskStatus(task)"
+          class="rounded-lg border border-border bg-surface p-3"
+          :class="
+            canChangeTaskStatus(task)
+              ? 'cursor-grab active:cursor-grabbing'
+              : 'cursor-default'
+          "
           @dragstart="onDragStart($event, task)"
           @dragend="onDragEnd"
         >
@@ -149,15 +163,25 @@ async function removeTask(task: Task) {
             {{ formatTaskStatus(task.status) }} · {{ task.priority }}
           </p>
           <div class="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded-md p-1.5 text-xs text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Task details"
+              title="Open details"
+              @click.stop="emit('info', task.id)"
+            >
+              <InformationCircleIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Open</span>
+            </button>
             <Button
-              v-if="task.status !== 'done'"
+              v-if="task.status !== 'done' && canChangeTaskStatus(task)"
               variant="secondary"
-              @click="markDone(task.id)"
+              @click.stop="markDone(task.id)"
             >
               Mark done
             </Button>
             <button
-              v-if="canEditTask(task)"
+              v-if="canManageTask(task)"
               type="button"
               class="inline-flex items-center justify-center rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               aria-label="Delete task"

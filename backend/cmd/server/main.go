@@ -35,14 +35,16 @@ func main() {
 		JWTSecret:    cfg.JWTSecret,
 		JWTExpiryHrs: cfg.JWTExpiryHrs,
 	}
-	projectSvc := &services.ProjectService{DB: db}
+	memberSvc := &services.ProjectMemberService{DB: db}
+	projectSvc := &services.ProjectService{DB: db, Members: memberSvc}
 	taskSvc := &services.TaskService{DB: db}
 	subtaskSvc := &services.SubtaskService{DB: db, Tasks: taskSvc}
 	userSvc := &services.UserService{DB: db}
 	reportSvc := &services.ReportService{DB: db, ReportsDir: cfg.ReportsDir}
 
 	authHandler := &handlers.AuthHandler{Auth: authSvc}
-	projectHandler := &handlers.ProjectHandler{Svc: projectSvc}
+	projectHandler := &handlers.ProjectHandler{Svc: projectSvc, Members: memberSvc, TaskSvc: taskSvc}
+	memberHandler := &handlers.MemberHandler{Svc: memberSvc}
 	taskHandler := &handlers.TaskHandler{Svc: taskSvc}
 	subtaskHandler := &handlers.SubtaskHandler{Svc: subtaskSvc}
 	userHandler := &handlers.UserHandler{Svc: userSvc}
@@ -70,10 +72,16 @@ func main() {
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
 	projects.POST("", middleware.RequireCreatorOrAbove(), projectHandler.Create)
+	// Register longer /:id/... routes before /:id so Gin never mis-matches paths like /:id/tasks.
+	projects.GET("/:id/tasks", projectHandler.Tasks)
+	projects.GET("/:id/members", memberHandler.List)
+	projects.POST("/:id/members", memberHandler.Add)
+	projects.PUT("/:id/members/:user_id", memberHandler.UpdateRole)
+	projects.DELETE("/:id/members/:user_id", memberHandler.Remove)
+	projects.PATCH("/:id/owner", middleware.RequireStaffOrAdmin(), memberHandler.TransferOwnership)
 	projects.GET("/:id", projectHandler.Get)
 	projects.PUT("/:id", projectHandler.Update)
 	projects.DELETE("/:id", projectHandler.Delete)
-	projects.GET("/:id/tasks", projectHandler.Tasks)
 
 	tasks := protected.Group("/tasks")
 	tasks.GET("", taskHandler.List)
@@ -83,11 +91,11 @@ func main() {
 	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)
 	tasks.DELETE("/:id/subtasks/:sid", subtaskHandler.Delete)
 	tasks.POST("/:id/subtasks/:sid/toggle", subtaskHandler.Toggle)
+	tasks.POST("/:id/assign", taskHandler.Assign)
+	tasks.POST("/:id/complete", taskHandler.Complete)
 	tasks.GET("/:id", taskHandler.Get)
 	tasks.PUT("/:id", taskHandler.Update)
 	tasks.DELETE("/:id", taskHandler.Delete)
-	tasks.POST("/:id/assign", taskHandler.Assign)
-	tasks.POST("/:id/complete", taskHandler.Complete)
 
 	users := protected.Group("/users")
 	users.GET("", middleware.RequireStaffOrAdmin(), userHandler.List)

@@ -24,6 +24,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.Project{},
+		&models.ProjectMember{},
 		&models.Task{},
 		&models.Subtask{},
 		&models.SavedReport{},

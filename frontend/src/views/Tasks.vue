@@ -25,7 +25,7 @@ import {
 import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
-import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
+import { useTasksPageAssignableUsers } from '../composables/useAdminAssignableUsers'
 import { useTaskEditPermission } from '../composables/useCanEditTask'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
@@ -37,11 +37,12 @@ const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const canCreateTasks = computed(() => auth.user?.role !== 'user')
 const toast = useToast()
-const { canEditTask } = useTaskEditPermission()
-const { assignableUsers } = useAdminAssignableUsers()
+const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus[]>([])
+
+const { assignableUsers } = useTasksPageAssignableUsers(() => filterProject.value)
 
 const searchQuery = ref('')
 const clientPriority = ref<TaskPriority[]>([])
@@ -355,7 +356,8 @@ async function onReopen(id: number) {
         <template v-if="groupBy === 'none'">
           <TaskList
             :tasks="displayFlat"
-            :can-edit-task="canEditTask"
+            :can-edit-task="canManageTask"
+            :can-change-status-task="canChangeTaskStatus"
             :projects="inlineComposerProjects"
             :assignable-users="assignableUsers"
             :empty-message="listEmptyMessage"
@@ -368,7 +370,8 @@ async function onReopen(id: number) {
         <TaskList
           v-else-if="!displayFlat.length"
           :tasks="[]"
-          :can-edit-task="canEditTask"
+          :can-edit-task="canManageTask"
+            :can-change-status-task="canChangeTaskStatus"
           :projects="inlineComposerProjects"
           :assignable-users="assignableUsers"
           :empty-message="listEmptyMessage"
@@ -389,7 +392,8 @@ async function onReopen(id: number) {
             </h2>
             <TaskList
               :tasks="g.tasks"
-              :can-edit-task="canEditTask"
+              :can-edit-task="canManageTask"
+            :can-change-status-task="canChangeTaskStatus"
               :projects="inlineComposerProjects"
               :assignable-users="assignableUsers"
               empty-message="No tasks in this group."
@@ -436,6 +440,7 @@ async function onReopen(id: number) {
         class="mt-6"
         :tasks="displayFlat"
         @changed="load"
+        @info="openTaskDetail"
       />
     </template>
 

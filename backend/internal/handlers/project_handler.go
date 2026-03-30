@@ -10,7 +10,9 @@ import (
 )
 
 type ProjectHandler struct {
-	Svc *services.ProjectService
+	Svc     *services.ProjectService
+	Members *services.ProjectMemberService
+	TaskSvc *services.TaskService
 }
 
 type projectBody struct {
@@ -89,7 +91,11 @@ func (h *ProjectHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"project": p})
+	out := gin.H{"project": p}
+	if h.Members != nil {
+		out["caller_project_role"] = h.Members.CallerProjectRoleString(uint(id), uid, role)
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 func (h *ProjectHandler) Update(c *gin.Context) {
@@ -192,6 +198,9 @@ func (h *ProjectHandler) Tasks(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if h.TaskSvc != nil {
+		_ = h.TaskSvc.AttachCallerACLBatch(tasks, uid, role)
 	}
 	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
 }

@@ -13,7 +13,8 @@ var ErrProjectNotFound = errors.New("project not found")
 var ErrForbidden = errors.New("forbidden")
 
 type ProjectService struct {
-	DB *gorm.DB
+	DB      *gorm.DB
+	Members *ProjectMemberService
 }
 
 func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
@@ -22,17 +23,39 @@ func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
 	return list, err
 }
 
-// ListForCaller returns all projects for admin/staff, owned projects for creator, none for global user.
+// ListForCaller returns all projects for admin/staff; for creator: owned ∪ member; for user: member-only.
 func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.Project, error) {
 	if models.IsSystemRole(role) {
 		var list []models.Project
 		err := s.DB.Preload("Owner").Order("updated_at desc").Find(&list).Error
 		return list, err
 	}
-	if role == models.RoleUser {
-		return []models.Project{}, nil
+	if s.Members == nil {
+		if role == models.RoleUser {
+			return []models.Project{}, nil
+		}
+		return s.ListByOwner(userID)
 	}
-	return s.ListByOwner(userID)
+	memberIDs, err := s.Members.MemberProjectIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	var q *gorm.DB
+	if role == models.RoleUser {
+		if len(memberIDs) == 0 {
+			return []models.Project{}, nil
+		}
+		q = s.DB.Preload("Owner").Where("id IN ?", memberIDs).Order("updated_at desc")
+	} else {
+		// creator and any other non-system non-user role: owned OR member
+		if len(memberIDs) == 0 {
+			return s.ListByOwner(userID)
+		}
+		q = s.DB.Preload("Owner").Where("owner_id = ? OR id IN ?", userID, memberIDs).Order("updated_at desc")
+	}
+	var list []models.Project
+	err = q.Find(&list).Error
+	return list, err
 }
 
 func (s *ProjectService) Create(ownerID uint, name, description string) (*models.Project, error) {
@@ -54,6 +77,7 @@ func (s *ProjectService) Create(ownerID uint, name, description string) (*models
 	return &p, nil
 }
 
+// Get returns the project if caller is admin/staff, owner, or any member (viewer included).
 func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Project, error) {
 	var p models.Project
 	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
@@ -65,16 +89,33 @@ func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Proje
 	if models.IsSystemRole(role) {
 		return &p, nil
 	}
-	if p.OwnerID != callerID {
-		return nil, ErrForbidden
+	if p.OwnerID == callerID {
+		return &p, nil
 	}
-	return &p, nil
+	if s.Members != nil && s.Members.IsMember(id, callerID) {
+		return &p, nil
+	}
+	return nil, ErrForbidden
+}
+
+// canModifyProjectMetadata is true for admin/staff or project owner only.
+func (s *ProjectService) canModifyProjectMetadata(p *models.Project, callerID uint, role models.Role) bool {
+	if models.IsSystemRole(role) {
+		return true
+	}
+	return p.OwnerID == callerID
 }
 
 func (s *ProjectService) Update(id, callerID uint, role models.Role, name, description string) (*models.Project, error) {
-	p, err := s.Get(id, callerID, role)
-	if err != nil {
+	var p models.Project
+	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProjectNotFound
+		}
 		return nil, err
+	}
+	if !s.canModifyProjectMetadata(&p, callerID, role) {
+		return nil, ErrForbidden
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -82,21 +123,27 @@ func (s *ProjectService) Update(id, callerID uint, role models.Role, name, descr
 	}
 	p.Name = name
 	p.Description = description
-	if err := s.DB.Save(p).Error; err != nil {
+	if err := s.DB.Save(&p).Error; err != nil {
 		return nil, err
 	}
-	if err := s.DB.Preload("Owner").First(p, p.ID).Error; err != nil {
+	if err := s.DB.Preload("Owner").First(&p, p.ID).Error; err != nil {
 		return nil, err
 	}
-	return p, nil
+	return &p, nil
 }
 
 func (s *ProjectService) Delete(id, callerID uint, role models.Role) error {
-	p, err := s.Get(id, callerID, role)
-	if err != nil {
+	var p models.Project
+	if err := s.DB.First(&p, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrProjectNotFound
+		}
 		return err
 	}
-	return s.DB.Delete(p).Error
+	if !s.canModifyProjectMetadata(&p, callerID, role) {
+		return ErrForbidden
+	}
+	return s.DB.Delete(&p).Error
 }
 
 func (s *ProjectService) TasksForProject(projectID, callerID uint, role models.Role) ([]models.Task, error) {

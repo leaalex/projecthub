@@ -30,14 +30,21 @@ const props = withDefaults(
   defineProps<{
     task: Task
     canEdit?: boolean
+    /** When false but canChangeStatus is true, only status can be edited in expanded mode. */
+    canChangeStatus?: boolean
     projects?: { id: number; name: string }[]
     assignableUsers?: { id: number; email: string; name: string }[]
   }>(),
   {
     canEdit: false,
+    canChangeStatus: undefined,
     projects: () => [],
     assignableUsers: () => [],
   },
+)
+
+const canChangeStatusEff = computed(
+  () => props.canChangeStatus ?? props.canEdit,
 )
 
 const emit = defineEmits<{
@@ -137,11 +144,14 @@ watch(
 )
 
 function openExpanded() {
-  if (!props.canEdit) return
+  if (!props.canEdit && !canChangeStatusEff.value) return
   syncDraftsFromTask()
   expanded.value = true
-  subtasksBlockVisible.value = (props.task.subtasks?.length ?? 0) > 0
-  nextTick(() => titleInputRef.value?.focus())
+  subtasksBlockVisible.value =
+    props.canEdit && (props.task.subtasks?.length ?? 0) > 0
+  if (props.canEdit) {
+    nextTick(() => titleInputRef.value?.focus())
+  }
 }
 
 function revealSubtasksAndFocus() {
@@ -150,14 +160,40 @@ function revealSubtasksAndFocus() {
 }
 
 function onBodyClick() {
-  if (!props.canEdit || expanded.value) return
-  openExpanded()
+  if (expanded.value) return
+  if (props.canEdit || canChangeStatusEff.value) {
+    openExpanded()
+    return
+  }
+  // Viewers (and others without inline edit): open task detail modal.
+  emit('info', props.task.id)
 }
 
 /** Закрыть без сохранения. */
 function collapseExpanded() {
   expanded.value = false
   syncDraftsFromTask()
+}
+
+async function saveStatusOnly() {
+  const t = props.task
+  if (draftStatus.value === t.status) {
+    collapseExpanded()
+    return
+  }
+  busy.value = true
+  try {
+    await taskStore.update(t.id, { status: draftStatus.value })
+    emit('updated')
+    collapseExpanded()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update status')
+    syncDraftsFromTask()
+  } finally {
+    busy.value = false
+  }
 }
 
 async function requestDelete() {
@@ -261,7 +297,8 @@ function onTitleKeydown(e: KeyboardEvent) {
 }
 
 const showProjectPicker = () => props.projects.length > 0
-const showAssigneePicker = () => props.assignableUsers.length > 0
+const showAssigneePicker = () =>
+  props.canEdit && props.assignableUsers.length > 0
 
 const STATUS_OPTIONS = [
   { value: 'todo' as const, label: 'To do' },
@@ -355,7 +392,10 @@ async function onAssigneeMenuSelect(v: string | number) {
 
     <div
       class="min-w-0 flex-1"
-      :class="canEdit && !expanded && 'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'"
+      :class="
+        !expanded &&
+          'cursor-pointer rounded-md transition-colors hover:bg-surface-muted/60'
+      "
       @click="onBodyClick"
     >
       <template v-if="!expanded">
@@ -431,7 +471,7 @@ async function onAssigneeMenuSelect(v: string | number) {
       </template>
 
       <div
-        v-else
+        v-else-if="canEdit"
         class="space-y-2 rounded-md border border-border bg-surface-muted/30 p-2"
         @click.stop
       >
@@ -610,6 +650,40 @@ async function onAssigneeMenuSelect(v: string | number) {
               Save
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="space-y-3 rounded-md border border-border bg-surface-muted/30 p-2"
+        @click.stop
+      >
+        <p class="text-sm font-medium text-foreground">{{ task.title }}</p>
+        <div class="flex shrink-0 items-center gap-2">
+          <UiMenuButton
+            v-model="draftStatus"
+            :summary="draftStatusMenuLabel"
+            :ariaLabel="`Status: ${draftStatusMenuLabel}`"
+            :title="`Status: ${draftStatusMenuLabel}`"
+            :options="STATUS_OPTIONS"
+            :disabled="busy"
+            @escape="collapseExpanded"
+          >
+            <TagIcon class="h-5 w-5" aria-hidden="true" />
+          </UiMenuButton>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2 border-t border-border pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="busy"
+            @click="collapseExpanded"
+          >
+            Cancel
+          </Button>
+          <Button type="button" :disabled="busy" @click="saveStatusOnly">
+            Save
+          </Button>
         </div>
       </div>
     </div>

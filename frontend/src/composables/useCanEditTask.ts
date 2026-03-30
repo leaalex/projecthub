@@ -4,16 +4,23 @@ import { useProjectStore } from '../stores/project.store'
 import type { Task } from '../types/task'
 import type { UserRole } from '../types/user'
 
-/** Project owner can edit tasks (same rules as TaskDetailModal). */
-export function canEditTaskRecord(
+/** Full task edit (title, assignee, etc.): manager/owner/admin/staff per API flag + legacy heuristics. */
+export function canManageTaskRecord(
   task: Task | null | undefined,
   userId: number | undefined,
   userRole: UserRole | undefined,
   projectStore: ReturnType<typeof useProjectStore>,
 ): boolean {
   if (!task || userId == null) return false
+  if (task.caller_can_manage === true) return true
+  if (task.caller_can_manage === false) return false
   if (userRole === 'admin' || userRole === 'staff') return true
-  if (projectStore.projects.some((p) => p.id === task.project_id)) return true
+  if (
+    projectStore.projects.some(
+      (p) => p.id === task.project_id && p.owner_id === userId,
+    )
+  )
+    return true
   if (
     projectStore.current?.id === task.project_id &&
     projectStore.current.owner_id === userId
@@ -22,22 +29,50 @@ export function canEditTaskRecord(
   return false
 }
 
-/** Reactive: can the current user edit this task? */
+/** Status changes (executor assignee, managers, etc.). */
+export function canChangeTaskStatusRecord(
+  task: Task | null | undefined,
+  userId: number | undefined,
+  userRole: UserRole | undefined,
+  projectStore: ReturnType<typeof useProjectStore>,
+): boolean {
+  if (!task || userId == null) return false
+  if (typeof task.caller_can_change_status === 'boolean') {
+    return task.caller_can_change_status
+  }
+  if (canManageTaskRecord(task, userId, userRole, projectStore)) return true
+  return task.assignee_id === userId
+}
+
+/** Reactive: can the current user fully edit this task? */
 export function useCanEditTask(taskGetter: MaybeRefOrGetter<Task | null | undefined>) {
   const auth = useAuthStore()
   const projectStore = useProjectStore()
   return computed(() =>
-    canEditTaskRecord(toValue(taskGetter), auth.user?.id, auth.user?.role, projectStore),
+    canManageTaskRecord(
+      toValue(taskGetter),
+      auth.user?.id,
+      auth.user?.role,
+      projectStore,
+    ),
   )
 }
 
-/** Imperative helper for templates / loops (e.g. TaskList). */
+/** Per-task helpers for list/kanban rows. */
 export function useTaskEditPermission() {
   const auth = useAuthStore()
   const projectStore = useProjectStore()
   return {
-    canEditTask(t: Task) {
-      return canEditTaskRecord(t, auth.user?.id, auth.user?.role, projectStore)
+    canManageTask(t: Task) {
+      return canManageTaskRecord(t, auth.user?.id, auth.user?.role, projectStore)
+    },
+    canChangeTaskStatus(t: Task) {
+      return canChangeTaskStatusRecord(
+        t,
+        auth.user?.id,
+        auth.user?.role,
+        projectStore,
+      )
     },
   }
 }

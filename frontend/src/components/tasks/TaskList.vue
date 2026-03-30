@@ -7,8 +7,10 @@ withDefaults(
     tasks: Task[]
     /** Shown when `tasks` is empty (list mode panel). */
     emptyMessage?: string
-    /** Per-task edit permission (e.g. project owner), same rules as task detail modal. */
+    /** Full edit (manager/owner/admin/staff). */
     canEditTask?: (task: Task) => boolean
+    /** Status changes (executors, managers, etc.). */
+    canChangeStatusTask?: (task: Task) => boolean
     /** Owned projects for inline “move task” (optional). */
     projects?: { id: number; name: string }[]
     /** Users shown in assignee dropdown (e.g. admin-loaded); empty = read-only assignee. */
@@ -42,6 +44,9 @@ const emit = defineEmits<{
         class="px-3"
         :task="t"
         :can-edit="canEditTask?.(t) ?? false"
+        :can-change-status="
+          canChangeStatusTask?.(t) ?? canEditTask?.(t) ?? false
+        "
         :projects="projects"
         :assignable-users="assignableUsers"
         @complete="emit('complete', $event)"

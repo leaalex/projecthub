@@ -256,7 +256,8 @@ export function presentTasks(
     status?: TaskStatus | '' | TaskStatus[]
   },
 ): { flat: Task[]; groups: TaskGroup[] } {
-  const filtered = filterTasks(tasks, {
+  const taskList = Array.isArray(tasks) ? tasks : []
+  const filtered = filterTasks(taskList, {
     search: opts.search,
     priority: opts.priority,
     assignee: opts.assignee,

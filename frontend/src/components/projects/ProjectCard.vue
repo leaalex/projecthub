@@ -38,6 +38,7 @@ const emit = defineEmits<{
     </div>
     <div class="mt-4 flex items-center gap-2">
       <Button
+        type="button"
         class="min-w-0 flex-1"
         variant="secondary"
         @click="emit('open', project.id)"

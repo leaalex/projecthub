@@ -16,11 +16,15 @@ const router = useRouter()
 const auth = useAuthStore()
 const store = useProjectStore()
 const canCreateProjects = computed(() => auth.user?.role !== 'user')
-const projectsSubtitle = computed(() =>
-  auth.user?.role === 'admin' || auth.user?.role === 'staff'
-    ? 'All projects in the workspace'
-    : 'Projects you own',
-)
+const projectsSubtitle = computed(() => {
+  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
+    return 'All projects in the workspace'
+  }
+  if (auth.user?.role === 'user') {
+    return 'Projects you are a member of'
+  }
+  return 'Projects you own or are a member of'
+})
 const { confirm } = useConfirm()
 
 const showModal = ref(false)
@@ -54,7 +58,8 @@ async function createProject() {
 }
 
 function openProject(id: number) {
-  router.push(`/projects/${id}`)
+  if (!Number.isFinite(id) || id <= 0) return
+  router.push({ name: 'project-detail', params: { id: String(id) } })
 }
 
 function openEditProject(id: number) {

@@ -25,8 +25,9 @@ import {
 import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
-import { useAdminAssignableUsers } from '../composables/useAdminAssignableUsers'
+import { useProjectScopedAssignableUsers } from '../composables/useAdminAssignableUsers'
 import { useTaskEditPermission } from '../composables/useCanEditTask'
+import ProjectMembers from '../components/projects/ProjectMembers.vue'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 
@@ -38,19 +39,25 @@ const taskViewModeOptions = [
 const toast = useToast()
 const auth = useAuthStore()
 const canCreateTasks = computed(() => auth.user?.role !== 'user')
-const { canEditTask } = useTaskEditPermission()
-const { assignableUsers } = useAdminAssignableUsers()
-
-const projectOptions = computed(() =>
-  projectStore.projects.map((p) => ({ id: p.id, name: p.name })),
-)
+const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 
-const id = computed(() => Number(route.params.id))
+const id = computed(() => {
+  const raw = route.params.id
+  const s = Array.isArray(raw) ? raw[0] : raw
+  const n = typeof s === 'string' ? Number(s) : Number(s)
+  return Number.isFinite(n) && n > 0 ? n : NaN
+})
+
+const { assignableUsers } = useProjectScopedAssignableUsers(() => id.value)
+
+const projectOptions = computed(() =>
+  projectStore.projects.map((p) => ({ id: p.id, name: p.name })),
+)
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
@@ -110,18 +117,66 @@ function resetTaskFilters() {
 }
 
 const pageLoading = ref(true)
+const loadError = ref<string | null>(null)
+
+/** Bumps on each load so stale async work never leaves the UI stuck loading. */
+let loadGeneration = 0
 
 async function load() {
+  const gen = ++loadGeneration
   pageLoading.value = true
+  loadError.value = null
+
+  const finishIfCurrent = () => {
+    if (gen === loadGeneration) {
+      pageLoading.value = false
+    }
+  }
+
   try {
+    projectStore.resetProjectDetailView()
+
+    if (!Number.isFinite(id.value) || id.value <= 0) {
+      finishIfCurrent()
+      void router.replace('/projects')
+      return
+    }
+
     await projectStore.fetchList().catch(() => {})
+    if (gen !== loadGeneration) return
+
     await projectStore.fetchOne(id.value)
-    await projectStore.fetchTasks(id.value)
-  } catch {
-    router.replace('/projects')
-    return
+    if (gen !== loadGeneration) return
+
+    await projectStore.fetchMembers(id.value).catch(() => {
+      projectStore.members = []
+    })
+    if (gen !== loadGeneration) return
+
+    await projectStore.fetchTasks(id.value).catch(() => {
+      projectStore.tasks = []
+      toast.error('Could not load tasks for this project')
+    })
+  } catch (e: unknown) {
+    if (gen !== loadGeneration) return
+
+    const ax = e as {
+      response?: { status?: number; data?: { error?: string } }
+    }
+    const status = ax.response?.status
+    const apiMsg = ax.response?.data?.error
+    let msg = 'Could not load project'
+    if (typeof apiMsg === 'string') msg = apiMsg
+    else if (e instanceof Error && e.message) msg = e.message
+
+    if (status === 404 || status === 403) {
+      void router.replace('/projects')
+      return
+    }
+    loadError.value = msg
+    toast.error(msg)
   } finally {
-    pageLoading.value = false
+    finishIfCurrent()
   }
 }
 
@@ -130,7 +185,7 @@ watch(
   () => {
     showTaskComposer.value = false
     resetTaskFilters()
-    load()
+    void load()
   },
   { immediate: true },
 )
@@ -255,6 +310,8 @@ async function onReopen(taskId: number) {
       </p>
     </div>
 
+    <ProjectMembers class="mt-8" :project-id="id" />
+
     <div class="mt-6 space-y-4">
       <div
         class="flex w-full flex-wrap items-center justify-between gap-2"
@@ -345,7 +402,8 @@ async function onReopen(taskId: number) {
         <template v-if="groupBy === 'none'">
           <TaskList
             :tasks="displayFlat"
-            :can-edit-task="canEditTask"
+            :can-edit-task="canManageTask"
+            :can-change-status-task="canChangeTaskStatus"
             :projects="projectOptions"
             :assignable-users="assignableUsers"
             :empty-message="listEmptyMessage"
@@ -358,7 +416,8 @@ async function onReopen(taskId: number) {
         <TaskList
           v-else-if="!displayFlat.length"
           :tasks="[]"
-          :can-edit-task="canEditTask"
+          :can-edit-task="canManageTask"
+          :can-change-status-task="canChangeTaskStatus"
           :projects="projectOptions"
           :assignable-users="assignableUsers"
           :empty-message="listEmptyMessage"
@@ -379,7 +438,8 @@ async function onReopen(taskId: number) {
             </h2>
             <TaskList
               :tasks="g.tasks"
-              :can-edit-task="canEditTask"
+              :can-edit-task="canManageTask"
+            :can-change-status-task="canChangeTaskStatus"
               :projects="projectOptions"
               :assignable-users="assignableUsers"
               empty-message="No tasks in this group."
@@ -426,6 +486,7 @@ async function onReopen(taskId: number) {
           class="mt-6"
           :tasks="displayFlat"
           @changed="refreshProjectTasks"
+          @info="openTaskDetail"
         />
       </template>
     </div>
@@ -451,6 +512,30 @@ async function onReopen(taskId: number) {
         @cancel="showModal = false"
       />
     </Modal>
-
+  </div>
+  <div v-else-if="loadError" class="space-y-4">
+    <Breadcrumb
+      class="mb-4"
+      :items="[
+        { label: 'Home', to: '/dashboard' },
+        { label: 'Projects', to: '/projects' },
+        { label: 'Project' },
+      ]"
+    />
+    <EmptyState
+      title="Project unavailable"
+      :description="loadError"
+    >
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button type="button" @click="load">Retry</Button>
+        <Button
+          type="button"
+          variant="secondary"
+          @click="router.push('/projects')"
+        >
+          All projects
+        </Button>
+      </div>
+    </EmptyState>
   </div>
 </template>

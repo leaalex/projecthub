@@ -28,4 +28,8 @@ export interface Task {
   project?: Project
   assignee?: User | null
   subtasks?: Subtask[]
+  /** From API: caller can manage task fields (owner / manager / admin / staff). */
+  caller_can_manage?: boolean
+  /** From API: caller may change status (includes executors assigned to the task). */
+  caller_can_change_status?: boolean
 }

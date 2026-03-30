@@ -13,14 +13,17 @@ func handleServiceError(c *gin.Context, err error) {
 	switch err {
 	case services.ErrTaskNotFound, services.ErrProjectNotFound,
 		services.ErrSubtaskNotFound, services.ErrUserNotFound,
-		services.ErrSavedReportNotFound:
+		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
+		services.ErrNotProjectMember:
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case services.ErrForbidden:
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-	case services.ErrInvalidInput:
+	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	case services.ErrCannotDeleteSelf:
+	case services.ErrCannotDeleteSelf, services.ErrAlreadyProjectMember:
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case services.ErrCannotRemoveOwner:
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}

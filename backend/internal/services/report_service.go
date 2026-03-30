@@ -62,13 +62,13 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	if models.IsSystemRole(role) {
 		base = s.DB.Model(&models.Task{})
 	} else {
-		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
 			return nil, err
 		}
 		base = s.DB.Model(&models.Task{})
-		if len(ownedIDs) > 0 {
-			base = base.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		if len(visibleIDs) > 0 {
+			base = base.Where("project_id IN ? OR assignee_id = ?", visibleIDs, userID)
 		} else {
 			base = base.Where("assignee_id = ?", userID)
 		}
@@ -87,12 +87,12 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	if models.IsSystemRole(role) {
 		// all tasks
 	} else {
-		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
 			return nil, err
 		}
-		if len(ownedIDs) > 0 {
-			q = q.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		if len(visibleIDs) > 0 {
+			q = q.Where("project_id IN ? OR assignee_id = ?", visibleIDs, userID)
 		} else {
 			q = q.Where("assignee_id = ?", userID)
 		}
@@ -110,12 +110,12 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	if models.IsSystemRole(role) {
 		// all tasks
 	} else {
-		ownedIDs, err := (&TaskService{DB: s.DB}).ownedProjectIDs(userID)
+		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
 			return nil, err
 		}
-		if len(ownedIDs) > 0 {
-			q2 = q2.Where("project_id IN ? OR assignee_id = ?", ownedIDs, userID)
+		if len(visibleIDs) > 0 {
+			q2 = q2.Where("project_id IN ? OR assignee_id = ?", visibleIDs, userID)
 		} else {
 			q2 = q2.Where("assignee_id = ?", userID)
 		}
@@ -129,7 +129,13 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	if models.IsSystemRole(role) {
 		_ = s.DB.Model(&models.Project{}).Count(&pc).Error
 	} else {
-		_ = s.DB.Model(&models.Project{}).Where("owner_id = ?", userID).Count(&pc).Error
+		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(visibleIDs) > 0 {
+			_ = s.DB.Model(&models.Project{}).Where("id IN ?", visibleIDs).Count(&pc).Error
+		}
 	}
 
 	return &WeeklyReport{
@@ -179,12 +185,12 @@ func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req
 		q = q.Joins("LEFT JOIN projects AS rep_proj ON rep_proj.id = tasks.project_id").
 			Where("(tasks.assignee_id IN ?) OR (rep_proj.owner_id IN ?)", req.UserIDs, req.UserIDs)
 	} else if !models.IsSystemRole(role) {
-		owned, err := taskSvc.ownedProjectIDs(callerID)
+		visible, err := taskSvc.visibleProjectIDs(callerID)
 		if err != nil {
 			return nil, "", "", err
 		}
-		if len(owned) > 0 {
-			q = q.Where("tasks.project_id IN ? OR tasks.assignee_id = ?", owned, callerID)
+		if len(visible) > 0 {
+			q = q.Where("tasks.project_id IN ? OR tasks.assignee_id = ?", visible, callerID)
 		} else {
 			q = q.Where("tasks.assignee_id = ?", callerID)
 		}

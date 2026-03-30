@@ -12,6 +12,9 @@ import (
 
 var ErrTaskNotFound = errors.New("task not found")
 
+// ErrAssigneeNotProjectMember is returned when assigning a user who is not owner or member.
+var ErrAssigneeNotProjectMember = errors.New("assignee must be project owner or member")
+
 // subtasksOrdered is a GORM scope for consistent subtask ordering in Preload.
 func subtasksOrdered(db *gorm.DB) *gorm.DB {
 	return db.Order("subtasks.position ASC, subtasks.id ASC")
@@ -20,6 +23,26 @@ func subtasksOrdered(db *gorm.DB) *gorm.DB {
 // preloadTaskAll loads Project, Assignee, and ordered Subtasks for a task query.
 func preloadTaskAll(db *gorm.DB) *gorm.DB {
 	return db.Preload("Project").Preload("Assignee").Preload("Subtasks", subtasksOrdered)
+}
+
+func unionUint(a, b []uint) []uint {
+	seen := make(map[uint]struct{}, len(a)+len(b))
+	out := make([]uint, 0, len(a)+len(b))
+	for _, x := range a {
+		if _, ok := seen[x]; ok {
+			continue
+		}
+		seen[x] = struct{}{}
+		out = append(out, x)
+	}
+	for _, x := range b {
+		if _, ok := seen[x]; ok {
+			continue
+		}
+		seen[x] = struct{}{}
+		out = append(out, x)
+	}
+	return out
 }
 
 type TaskService struct {
@@ -32,17 +55,35 @@ func (s *TaskService) ownedProjectIDs(userID uint) ([]uint, error) {
 	return ids, err
 }
 
+func (s *TaskService) memberProjectIDs(userID uint) ([]uint, error) {
+	var ids []uint
+	err := s.DB.Model(&models.ProjectMember{}).Where("user_id = ?", userID).Pluck("project_id", &ids).Error
+	return ids, err
+}
+
+func (s *TaskService) visibleProjectIDs(userID uint) ([]uint, error) {
+	owned, err := s.ownedProjectIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	memberIDs, err := s.memberProjectIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	return unionUint(owned, memberIDs), nil
+}
+
 func (s *TaskService) List(userID uint, role models.Role, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
 	q := preloadTaskAll(s.DB.Model(&models.Task{}))
 	if models.IsSystemRole(role) {
 		// all tasks
 	} else {
-		owned, err := s.ownedProjectIDs(userID)
+		visible, err := s.visibleProjectIDs(userID)
 		if err != nil {
 			return nil, err
 		}
-		if len(owned) > 0 {
-			q = q.Where("project_id IN ? OR assignee_id = ?", owned, userID)
+		if len(visible) > 0 {
+			q = q.Where("project_id IN ? OR assignee_id = ?", visible, userID)
 		} else {
 			q = q.Where("assignee_id = ?", userID)
 		}
@@ -71,15 +112,33 @@ func (s *TaskService) canAccessTask(task *models.Task, userID uint, role models.
 	if err := s.DB.First(&p, task.ProjectID).Error; err != nil {
 		return false
 	}
-	return p.OwnerID == userID
+	if p.OwnerID == userID {
+		return true
+	}
+	var n int64
+	if err := s.DB.Model(&models.ProjectMember{}).Where("project_id = ? AND user_id = ?", task.ProjectID, userID).Count(&n).Error; err != nil {
+		return false
+	}
+	return n > 0
 }
 
-// CanManageProjectTasks is true for admin/staff on any project, or project owner.
+// CanManageProjectTasks is true for admin/staff, project owner, or manager member.
 func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role models.Role) (bool, error) {
 	if models.IsSystemRole(role) {
 		return true, nil
 	}
-	return s.isProjectOwner(projectID, userID)
+	ok, err := s.isProjectOwner(projectID, userID)
+	if err != nil || ok {
+		return ok, err
+	}
+	var pm models.ProjectMember
+	if err := s.DB.Select("role").Where("project_id = ? AND user_id = ?", projectID, userID).First(&pm).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return pm.Role == models.ProjectRoleManager, nil
 }
 
 // IsProjectOwner reports whether userID owns the project.
@@ -167,11 +226,9 @@ type TaskUpdate struct {
 	DueDate     *string
 }
 
-func assigneeMayReopenDone(t *models.Task, userID uint, in TaskUpdate) bool {
+// executorAssigneeStatusOnly: executor member who is assignee may change status only (any transition).
+func (s *TaskService) executorAssigneeStatusOnly(t *models.Task, userID uint, in TaskUpdate) bool {
 	if in.Status == nil {
-		return false
-	}
-	if t.Status != models.StatusDone || *in.Status == models.StatusDone {
 		return false
 	}
 	if in.Title != nil || in.Description != nil || in.Priority != nil || in.DueDate != nil || in.ProjectID != nil {
@@ -180,7 +237,11 @@ func assigneeMayReopenDone(t *models.Task, userID uint, in TaskUpdate) bool {
 	if t.AssigneeID == nil || *t.AssigneeID != userID {
 		return false
 	}
-	return true
+	var pm models.ProjectMember
+	if err := s.DB.Select("role").Where("project_id = ? AND user_id = ?", t.ProjectID, userID).First(&pm).Error; err != nil {
+		return false
+	}
+	return pm.Role == models.ProjectRoleExecutor
 }
 
 func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (*models.Task, error) {
@@ -244,7 +305,7 @@ func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (
 		return t, nil
 	}
 
-	if assigneeMayReopenDone(t, userID, in) {
+	if s.executorAssigneeStatusOnly(t, userID, in) {
 		t.Status = *in.Status
 		if err := s.DB.Save(t).Error; err != nil {
 			return nil, err
@@ -298,6 +359,14 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 		}
 		return nil, err
 	}
+	ms := &ProjectMemberService{DB: s.DB}
+	allowed, err := ms.AssigneeAllowedOnProject(t.ProjectID, assigneeID)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, ErrAssigneeNotProjectMember
+	}
 	t.AssigneeID = &assigneeID
 	if err := s.DB.Save(t).Error; err != nil {
 		return nil, err
@@ -326,4 +395,36 @@ func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.T
 	}
 	preloadTaskAll(s.DB).First(t, t.ID)
 	return t, nil
+}
+
+// AttachCallerACL sets JSON-only ACL fields for the requesting user.
+func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role models.Role) error {
+	m, err := s.CanManageProjectTasks(t.ProjectID, uid, role)
+	if err != nil {
+		return err
+	}
+	t.CallerCanManage = m
+	if m {
+		t.CallerCanChangeStatus = true
+		return nil
+	}
+	if t.AssigneeID != nil && *t.AssigneeID == uid {
+		var pm models.ProjectMember
+		if err := s.DB.Select("role").Where("project_id = ? AND user_id = ?", t.ProjectID, uid).First(&pm).Error; err == nil && pm.Role == models.ProjectRoleExecutor {
+			t.CallerCanChangeStatus = true
+			return nil
+		}
+	}
+	t.CallerCanChangeStatus = false
+	return nil
+}
+
+// AttachCallerACLBatch sets ACL on each task (same caller).
+func (s *TaskService) AttachCallerACLBatch(tasks []models.Task, uid uint, role models.Role) error {
+	for i := range tasks {
+		if err := s.AttachCallerACL(&tasks[i], uid, role); err != nil {
+			return err
+		}
+	}
+	return nil
 }

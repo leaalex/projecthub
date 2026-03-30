@@ -231,7 +231,7 @@ async function submit() {
             <UiMenuButton
               v-model="formRole"
               variant="field"
-              aria-label="Global role"
+              ariaLabel="Global role"
               placeholder="Role"
               :options="roleOptions"
               class="w-full"
@@ -242,7 +242,7 @@ async function submit() {
             <UiMenuButton
               v-model="formRole"
               variant="field"
-              aria-label="Global role"
+              ariaLabel="Global role"
               placeholder="Role"
               :options="roleOptions"
               class="w-full"

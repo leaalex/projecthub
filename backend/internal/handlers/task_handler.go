@@ -67,6 +67,10 @@ func (h *TaskHandler) List(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	if err := h.Svc.AttachCallerACLBatch(tasks, uid, role); err != nil {
+		handleServiceError(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
 }
 
@@ -97,6 +101,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
 	c.JSON(http.StatusCreated, gin.H{"task": t})
 }
 
@@ -121,6 +126,7 @@ func (h *TaskHandler) Get(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
 	c.JSON(http.StatusOK, gin.H{"task": t})
 }
 
@@ -157,6 +163,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
 	c.JSON(http.StatusOK, gin.H{"task": t})
 }
 
@@ -209,6 +216,7 @@ func (h *TaskHandler) Assign(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
 	c.JSON(http.StatusOK, gin.H{"task": t})
 }
 
@@ -233,5 +241,6 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
 	c.JSON(http.StatusOK, gin.H{"task": t})
 }
