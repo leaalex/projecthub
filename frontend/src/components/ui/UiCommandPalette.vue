@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
 import { useTaskStore } from '../../stores/task.store'
@@ -12,6 +13,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const projectStore = useProjectStore()
+const { showProjectsAndTasks } = useProjectNavVisibility()
 const taskStore = useTaskStore()
 const ui = useUiStore()
 const { commandPaletteOpen } = storeToRefs(ui)
@@ -85,7 +87,7 @@ const navItems = computed<Item[]>(() => {
       },
     )
   }
-  if (auth.user?.role === 'user') {
+  if (auth.user?.role === 'user' && !showProjectsAndTasks.value) {
     return base.filter(
       (x) => x.id !== 'nav-projects' && x.id !== 'nav-tasks',
     )

@@ -1,17 +1,41 @@
 <script setup lang="ts">
 import { Bars3Icon } from '@heroicons/vue/24/outline'
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import CommandPalette from './components/ui/UiCommandPalette.vue'
 import ConfirmDialog from './components/ui/UiConfirmDialog.vue'
 import Toast from './components/ui/UiToast.vue'
+import { useAuthStore } from './stores/auth.store'
+import { useProjectStore } from './stores/project.store'
 import { useUiStore } from './stores/ui.store'
 
 const route = useRoute()
 const ui = useUiStore()
+const auth = useAuthStore()
+const projectStore = useProjectStore()
 
 const useAuthLayout = computed(() => route.meta.layout === 'auth')
+
+function refreshMemberProjects() {
+  if (auth.user?.role === 'user') {
+    void projectStore.fetchList().catch(() => {})
+  }
+}
+
+watch(() => auth.user, refreshMemberProjects, { immediate: true })
+watch(() => route.fullPath, refreshMemberProjects)
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') refreshMemberProjects()
+}
+
+onMounted(() =>
+  document.addEventListener('visibilitychange', onVisibilityChange),
+)
+onUnmounted(() =>
+  document.removeEventListener('visibilitychange', onVisibilityChange),
+)
 </script>
 
 <template>

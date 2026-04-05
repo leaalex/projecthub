@@ -14,6 +14,7 @@ import {
 import type { Component } from 'vue'
 import { computed, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUiStore } from '../../stores/ui.store'
 import Avatar from '../ui/UiAvatar.vue'
@@ -30,6 +31,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const ui = useUiStore()
+const { showProjectsAndTasks } = useProjectNavVisibility()
 
 const iconMap: Record<string, Component> = {
   home: HomeIcon,
@@ -49,7 +51,7 @@ const mainLinks = computed((): NavLink[] => {
     { to: '/tasks', label: 'Tasks', icon: 'check' },
     { to: '/reports', label: 'Reports', icon: 'chart' },
   ]
-  if (auth.user?.role === 'user') {
+  if (auth.user?.role === 'user' && !showProjectsAndTasks.value) {
     return base.filter((link) => link.to !== '/projects' && link.to !== '/tasks')
   }
   return base
