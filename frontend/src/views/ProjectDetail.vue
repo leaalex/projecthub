@@ -38,13 +38,22 @@ const taskViewModeOptions = [
 
 const toast = useToast()
 const auth = useAuthStore()
-const canCreateTasks = computed(() => auth.user?.role !== 'user')
-const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
-
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
+
+const canCreateTasks = computed(() => {
+  const u = auth.user
+  if (!u) return false
+  if (u.role === 'admin' || u.role === 'staff') return true
+  const p = projectStore.current
+  if (!p) return false
+  if (p.owner_id === u.id) return true
+  const r = p.caller_project_role
+  return r === 'manager' || r === 'owner'
+})
+const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
 const id = computed(() => {
   const raw = route.params.id
@@ -310,7 +319,11 @@ async function onReopen(taskId: number) {
       </p>
     </div>
 
-    <ProjectMembers class="mt-8" :project-id="id" />
+    <ProjectMembers
+      v-if="projectStore.current?.kind === 'team'"
+      class="mt-8"
+      :project-id="id"
+    />
 
     <div class="mt-6 space-y-4">
       <div

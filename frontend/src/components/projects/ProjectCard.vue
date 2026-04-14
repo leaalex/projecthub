@@ -19,7 +19,15 @@ const emit = defineEmits<{
     class="flex flex-col justify-between rounded-lg border border-border bg-surface p-4"
   >
     <div>
-      <h3 class="font-semibold text-foreground">{{ project.name }}</h3>
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="font-semibold text-foreground">{{ project.name }}</h3>
+        <span
+          v-if="project.kind === 'personal' || project.kind === 'team'"
+          class="inline-flex rounded-md border border-border bg-surface-muted/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted"
+        >
+          {{ project.kind === 'personal' ? 'Personal' : 'Team' }}
+        </span>
+      </div>
       <p class="mt-1 line-clamp-2 text-sm text-muted">
         {{ project.description || 'No description' }}
       </p>

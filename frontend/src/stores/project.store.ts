@@ -2,9 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type {
   Project,
+  ProjectKind,
   ProjectMember,
   ProjectMemberRole,
 } from '../types/project'
+
+function projectKindFromApi(k: unknown): ProjectKind {
+  return k === 'personal' || k === 'team' ? k : 'team'
+}
 import type { Task } from '../types/task'
 import { api } from '../utils/api'
 
@@ -33,7 +38,12 @@ export const useProjectStore = defineStore('project', () => {
     error.value = null
     try {
       const { data } = await api.get<{ projects?: Project[] | null }>('/projects')
-      projects.value = Array.isArray(data.projects) ? data.projects : []
+      projects.value = Array.isArray(data.projects)
+        ? data.projects.map((p) => ({
+            ...p,
+            kind: projectKindFromApi(p.kind),
+          }))
+        : []
     } catch (e: unknown) {
       error.value = 'Failed to load projects'
       throw e
@@ -61,6 +71,7 @@ export const useProjectStore = defineStore('project', () => {
       const p: Project = {
         ...raw,
         id: nid,
+        kind: projectKindFromApi(raw.kind),
         ...(data.caller_project_role != null
           ? { caller_project_role: data.caller_project_role }
           : {}),
@@ -133,13 +144,27 @@ export const useProjectStore = defineStore('project', () => {
     await fetchMembers(projectId)
   }
 
-  async function create(payload: { name: string; description: string }) {
-    const { data } = await api.post<{ project?: Project }>('/projects', payload)
+  async function create(payload: {
+    name: string
+    description: string
+    kind: ProjectKind
+  }) {
+    const { data } = await api.post<{
+      project?: Project
+      caller_project_role?: Project['caller_project_role']
+    }>('/projects', payload)
     const raw = data?.project
     if (raw == null || coerceProjectId(raw.id) == null) {
       throw new Error('Invalid project response')
     }
-    const project: Project = { ...raw, id: coerceProjectId(raw.id)! }
+    const project: Project = {
+      ...raw,
+      id: coerceProjectId(raw.id)!,
+      kind: projectKindFromApi(raw.kind),
+      ...(data.caller_project_role != null
+        ? { caller_project_role: data.caller_project_role }
+        : {}),
+    }
     projects.value.unshift(project)
     return project
   }
@@ -152,15 +177,19 @@ export const useProjectStore = defineStore('project', () => {
       `/projects/${id}`,
       payload,
     )
+    const updated: Project = {
+      ...data.project,
+      kind: projectKindFromApi(data.project.kind),
+    }
     const i = projects.value.findIndex((p) => p.id === id)
-    if (i >= 0) projects.value[i] = data.project
+    if (i >= 0) projects.value[i] = updated
     if (current.value?.id === id) {
       current.value = {
-        ...data.project,
+        ...updated,
         caller_project_role: current.value.caller_project_role,
       }
     }
-    return data.project
+    return updated
   }
 
   async function remove(id: number) {

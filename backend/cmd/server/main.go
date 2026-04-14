@@ -71,7 +71,7 @@ func main() {
 
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
-	projects.POST("", middleware.RequireCreatorOrAbove(), projectHandler.Create)
+	projects.POST("", projectHandler.Create)
 	// Register longer /:id/... routes before /:id so Gin never mis-matches paths like /:id/tasks.
 	projects.GET("/:id/tasks", projectHandler.Tasks)
 	projects.GET("/:id/members", memberHandler.List)
@@ -85,7 +85,7 @@ func main() {
 
 	tasks := protected.Group("/tasks")
 	tasks.GET("", taskHandler.List)
-	tasks.POST("", middleware.RequireCreatorOrAbove(), taskHandler.Create)
+	tasks.POST("", taskHandler.Create)
 	tasks.GET("/:id/subtasks", subtaskHandler.List)
 	tasks.POST("/:id/subtasks", subtaskHandler.Create)
 	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)

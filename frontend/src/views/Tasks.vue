@@ -35,7 +35,16 @@ const router = useRouter()
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
-const canCreateTasks = computed(() => auth.user?.role !== 'user')
+const canCreateTasks = computed(() => {
+  const u = auth.user
+  if (!u) return false
+  if (u.role === 'admin' || u.role === 'staff') return true
+  return projectStore.projects.some((p) => {
+    if (p.owner_id === u.id) return true
+    const r = p.caller_project_role
+    return r === 'manager' || r === 'owner'
+  })
+})
 const toast = useToast()
 const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 

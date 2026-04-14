@@ -13,6 +13,8 @@ export interface ProjectMemberUser {
   name: string
 }
 
+export type ProjectKind = 'personal' | 'team'
+
 export interface ProjectMember {
   id: number
   project_id: number
@@ -26,6 +28,7 @@ export interface Project {
   id: number
   name: string
   description: string
+  kind: ProjectKind
   owner_id: number
   owner?: ProjectOwner | null
   created_at: string

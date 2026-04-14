@@ -10,15 +10,28 @@ import (
 )
 
 var (
-	ErrAlreadyProjectMember = errors.New("user is already a project member")
-	ErrTargetUserNotFound   = errors.New("user not found")
-	ErrNotProjectMember = errors.New("user is not a member of this project")
-	ErrCannotRemoveOwner    = errors.New("cannot remove project owner")
+	ErrAlreadyProjectMember              = errors.New("user is already a project member")
+	ErrTargetUserNotFound              = errors.New("user not found")
+	ErrNotProjectMember                = errors.New("user is not a member of this project")
+	ErrCannotRemoveOwner               = errors.New("cannot remove project owner")
+	ErrPersonalProjectMembersNotAllowed = errors.New("personal projects do not support members")
 )
 
 // ProjectMemberService manages project_members rows and membership checks.
 type ProjectMemberService struct {
 	DB *gorm.DB
+}
+
+// ProjectKind returns the project's kind.
+func (m *ProjectMemberService) ProjectKind(projectID uint) (models.ProjectKind, error) {
+	var p models.Project
+	if err := m.DB.Select("kind").First(&p, projectID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", ErrProjectNotFound
+		}
+		return "", err
+	}
+	return p.Kind, nil
 }
 
 // List returns all members for a project with User preloaded.
@@ -39,6 +52,9 @@ func (m *ProjectMemberService) Add(projectID, userID uint, role models.ProjectRo
 			return nil, ErrProjectNotFound
 		}
 		return nil, err
+	}
+	if p.Kind == models.ProjectKindPersonal {
+		return nil, ErrPersonalProjectMembersNotAllowed
 	}
 	if p.OwnerID == userID {
 		return nil, ErrForbidden
@@ -76,6 +92,9 @@ func (m *ProjectMemberService) UpdateRole(projectID, userID uint, newRole models
 		}
 		return nil, err
 	}
+	if p.Kind == models.ProjectKindPersonal {
+		return nil, ErrPersonalProjectMembersNotAllowed
+	}
 	if p.OwnerID == userID {
 		return nil, ErrForbidden
 	}
@@ -104,6 +123,9 @@ func (m *ProjectMemberService) Remove(projectID, userID uint) error {
 			return ErrProjectNotFound
 		}
 		return err
+	}
+	if p.Kind == models.ProjectKindPersonal {
+		return ErrPersonalProjectMembersNotAllowed
 	}
 	if p.OwnerID == userID {
 		return ErrCannotRemoveOwner

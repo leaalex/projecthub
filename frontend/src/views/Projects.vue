@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from '../components/ui/UiButton.vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -11,17 +11,24 @@ import ProjectList from '../components/projects/ProjectList.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
+import type { ProjectKind } from '../types/project'
 
 const router = useRouter()
 const auth = useAuthStore()
 const store = useProjectStore()
-const canCreateProjects = computed(() => auth.user?.role !== 'user')
+const canCreateProjects = computed(() => auth.user != null)
+const showKindPicker = computed(
+  () =>
+    auth.user?.role === 'creator' ||
+    auth.user?.role === 'staff' ||
+    auth.user?.role === 'admin',
+)
 const projectsSubtitle = computed(() => {
   if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
     return 'All projects in the workspace'
   }
   if (auth.user?.role === 'user') {
-    return 'Projects you are a member of'
+    return 'Your personal projects and teams you belong to'
   }
   return 'Projects you own or are a member of'
 })
@@ -30,7 +37,15 @@ const { confirm } = useConfirm()
 const showModal = ref(false)
 const name = ref('')
 const description = ref('')
+const projectKind = ref<ProjectKind>('personal')
 const saving = ref(false)
+
+watch(showModal, (open) => {
+  if (open) {
+    projectKind.value =
+      auth.user?.role === 'user' ? 'personal' : 'team'
+  }
+})
 
 const editModalOpen = ref(false)
 const editId = ref(0)
@@ -45,9 +60,12 @@ onMounted(() => {
 async function createProject() {
   saving.value = true
   try {
+    const kind: ProjectKind =
+      auth.user?.role === 'user' ? 'personal' : projectKind.value
     await store.create({
       name: name.value,
       description: description.value,
+      kind,
     })
     showModal.value = false
     name.value = ''
@@ -124,11 +142,7 @@ async function removeEditProject() {
       v-else-if="!store.projects.length"
       class="mt-6"
       title="No projects yet"
-      :description="
-        canCreateProjects
-          ? 'Create your first project to start organizing tasks.'
-          : 'Ask a project owner to invite you. You cannot create projects yet.'
-      "
+      description="Create your first project to start organizing tasks."
     >
       <Button v-if="canCreateProjects" @click="showModal = true"
         >Create your first project</Button
@@ -146,6 +160,8 @@ async function removeEditProject() {
       <ProjectForm
         v-model:name="name"
         v-model:description="description"
+        v-model:kind="projectKind"
+        :show-kind-picker="showKindPicker"
         submit-label="Create"
         :loading="saving"
         @submit="createProject"

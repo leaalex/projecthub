@@ -1,19 +1,14 @@
 import { computed } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
-import { useProjectStore } from '../stores/project.store'
 
 /**
- * Global role "user" (member-only) sees Projects / Tasks in nav only when
- * they belong to at least one project (API GET /projects).
+ * Authenticated users see Projects / Tasks (including global "user" role, who
+ * can own personal projects without membership rows).
  */
 export function useProjectNavVisibility() {
   const auth = useAuthStore()
-  const projectStore = useProjectStore()
 
-  const showProjectsAndTasks = computed(
-    () =>
-      auth.user?.role !== 'user' || projectStore.projects.length > 0,
-  )
+  const showProjectsAndTasks = computed(() => auth.user != null)
 
   return { showProjectsAndTasks }
 }

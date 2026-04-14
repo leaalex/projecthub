@@ -16,7 +16,7 @@ func handleServiceError(c *gin.Context, err error) {
 		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
 		services.ErrNotProjectMember:
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-	case services.ErrForbidden:
+	case services.ErrForbidden, services.ErrPersonalProjectMembersNotAllowed:
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

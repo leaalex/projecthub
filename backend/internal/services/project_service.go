@@ -12,6 +12,9 @@ import (
 var ErrProjectNotFound = errors.New("project not found")
 var ErrForbidden = errors.New("forbidden")
 
+// ErrTeamProjectNotAllowed is returned when a global user tries to create a team project.
+var ErrTeamProjectNotAllowed = errors.New("team projects require creator role or above")
+
 type ProjectService struct {
 	DB      *gorm.DB
 	Members *ProjectMemberService
@@ -23,7 +26,7 @@ func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
 	return list, err
 }
 
-// ListForCaller returns all projects for admin/staff; for creator: owned ∪ member; for user: member-only.
+// ListForCaller returns all projects for admin/staff; for creator: owned ∪ member; for user: owned ∪ member.
 func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.Project, error) {
 	if models.IsSystemRole(role) {
 		var list []models.Project
@@ -31,9 +34,6 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 		return list, err
 	}
 	if s.Members == nil {
-		if role == models.RoleUser {
-			return []models.Project{}, nil
-		}
 		return s.ListByOwner(userID)
 	}
 	memberIDs, err := s.Members.MemberProjectIDs(userID)
@@ -43,9 +43,10 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 	var q *gorm.DB
 	if role == models.RoleUser {
 		if len(memberIDs) == 0 {
-			return []models.Project{}, nil
+			q = s.DB.Preload("Owner").Where("owner_id = ?", userID).Order("updated_at desc")
+		} else {
+			q = s.DB.Preload("Owner").Where("owner_id = ? OR id IN ?", userID, memberIDs).Order("updated_at desc")
 		}
-		q = s.DB.Preload("Owner").Where("id IN ?", memberIDs).Order("updated_at desc")
 	} else {
 		// creator and any other non-system non-user role: owned OR member
 		if len(memberIDs) == 0 {
@@ -58,15 +59,29 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 	return list, err
 }
 
-func (s *ProjectService) Create(ownerID uint, name, description string) (*models.Project, error) {
+func (s *ProjectService) Create(ownerID uint, role models.Role, name, description string, kind models.ProjectKind) (*models.Project, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrInvalidInput
+	}
+	if kind == "" {
+		if role == models.RoleUser {
+			kind = models.ProjectKindPersonal
+		} else {
+			kind = models.ProjectKindTeam
+		}
+	}
+	if !models.IsValidProjectKind(kind) {
+		return nil, ErrInvalidInput
+	}
+	if kind == models.ProjectKindTeam && role == models.RoleUser {
+		return nil, ErrTeamProjectNotAllowed
 	}
 	p := models.Project{
 		Name:        name,
 		Description: description,
 		OwnerID:     ownerID,
+		Kind:        kind,
 	}
 	if err := s.DB.Create(&p).Error; err != nil {
 		return nil, err

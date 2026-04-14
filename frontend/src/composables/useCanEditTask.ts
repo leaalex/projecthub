@@ -13,7 +13,6 @@ export function canManageTaskRecord(
 ): boolean {
   if (!task || userId == null) return false
   if (task.caller_can_manage === true) return true
-  if (task.caller_can_manage === false) return false
   if (userRole === 'admin' || userRole === 'staff') return true
   if (
     projectStore.projects.some(
@@ -21,11 +20,13 @@ export function canManageTaskRecord(
     )
   )
     return true
-  if (
-    projectStore.current?.id === task.project_id &&
-    projectStore.current.owner_id === userId
-  )
-    return true
+  const cur = projectStore.current
+  if (cur?.id === task.project_id) {
+    if (cur.owner_id === userId) return true
+    const r = cur.caller_project_role
+    if (r === 'manager' || r === 'owner') return true
+  }
+  if (task.caller_can_manage === false) return false
   return false
 }
 
@@ -37,10 +38,12 @@ export function canChangeTaskStatusRecord(
   projectStore: ReturnType<typeof useProjectStore>,
 ): boolean {
   if (!task || userId == null) return false
+  // Managers/owners must be able to change status even if API sent caller_can_change_status: false
+  // (booleans are always present on JSON responses, so the old order hid inline editing).
+  if (canManageTaskRecord(task, userId, userRole, projectStore)) return true
   if (typeof task.caller_can_change_status === 'boolean') {
     return task.caller_can_change_status
   }
-  if (canManageTaskRecord(task, userId, userRole, projectStore)) return true
   return task.assignee_id === userId
 }
 

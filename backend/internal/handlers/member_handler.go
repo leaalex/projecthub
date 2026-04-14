@@ -35,6 +35,15 @@ func (h *MemberHandler) List(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
 		return
 	}
+	kind, err := h.Svc.ProjectKind(projectID)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	if kind == models.ProjectKindPersonal {
+		c.JSON(http.StatusOK, gin.H{"members": []models.ProjectMember{}})
+		return
+	}
 	list, err := h.Svc.List(projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -36,5 +36,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 	_ = db.Model(&models.User{}).Where("role = ?", "member").Update("role", string(models.RoleUser)).Error
 	_ = db.Model(&models.User{}).Where("role = ?", "manager").Update("role", string(models.RoleCreator)).Error
 
+	_ = db.Model(&models.Project{}).Where("kind IS NULL OR kind = ?", "").Update("kind", string(models.ProjectKindTeam)).Error
+
 	return db, nil
 }

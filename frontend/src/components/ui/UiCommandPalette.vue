@@ -97,7 +97,7 @@ const navItems = computed<Item[]>(() => {
 
 const actionItems = computed<Item[]>(() => {
   const items: Item[] = []
-  if (auth.user?.role !== 'user') {
+  if (auth.user) {
     items.push(
       {
         id: 'act-new-project',

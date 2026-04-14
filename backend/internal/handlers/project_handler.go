@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,17 @@ type ProjectHandler struct {
 type projectBody struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
+}
+
+type projectCreateBody struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Kind        string `json:"kind" binding:"omitempty,oneof=personal team"`
+}
+
+type projectWithCallerRole struct {
+	models.Project
+	CallerProjectRole string `json:"caller_project_role,omitempty"`
 }
 
 func (h *ProjectHandler) List(c *gin.Context) {
@@ -36,6 +48,17 @@ func (h *ProjectHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if h.Members != nil {
+		out := make([]projectWithCallerRole, len(list))
+		for i := range list {
+			out[i] = projectWithCallerRole{
+				Project:           list[i],
+				CallerProjectRole: h.Members.CallerProjectRoleString(list[i].ID, uid, role),
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"projects": out})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"projects": list})
 }
 
@@ -45,13 +68,22 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	var body projectBody
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var body projectCreateBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	p, err := h.Svc.Create(uid, body.Name, body.Description)
+	p, err := h.Svc.Create(uid, role, body.Name, body.Description, models.ProjectKind(body.Kind))
 	if err != nil {
+		if err == services.ErrTeamProjectNotAllowed {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		if err == services.ErrInvalidInput {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -59,7 +91,11 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"project": p})
+	out := gin.H{"project": p}
+	if h.Members != nil {
+		out["caller_project_role"] = h.Members.CallerProjectRoleString(p.ID, uid, role)
+	}
+	c.JSON(http.StatusCreated, out)
 }
 
 func (h *ProjectHandler) Get(c *gin.Context) {
