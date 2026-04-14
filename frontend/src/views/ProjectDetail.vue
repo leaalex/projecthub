@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FunnelIcon } from '@heroicons/vue/24/outline'
+import { FunnelIcon, UsersIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -127,6 +127,7 @@ function resetTaskFilters() {
 
 const pageLoading = ref(true)
 const loadError = ref<string | null>(null)
+const membersModalOpen = ref(false)
 
 /** Bumps on each load so stale async work never leaves the UI stuck loading. */
 let loadGeneration = 0
@@ -209,6 +210,12 @@ watch(showModal, (open) => {
   }
 })
 
+watch(membersModalOpen, (open) => {
+  if (open && Number.isFinite(id.value) && id.value > 0) {
+    void projectStore.fetchMembers(id.value).catch(() => {})
+  }
+})
+
 function openTaskDetail(taskId: number) {
   detailTaskId.value = taskId
   detailOpen.value = true
@@ -288,18 +295,6 @@ async function onReopen(taskId: number) {
       <Skeleton variant="line" class="h-8 max-w-xs" />
       <Skeleton variant="line" :lines="2" />
     </div>
-    <div
-      class="mt-6 overflow-hidden rounded-lg border border-border bg-surface"
-    >
-      <div class="border-b border-border px-3 py-3">
-        <Skeleton variant="line" class="max-w-lg" />
-      </div>
-      <div class="divide-y divide-border px-3 py-2">
-        <div v-for="i in 4" :key="i" class="py-3">
-          <Skeleton variant="line" />
-        </div>
-      </div>
-    </div>
   </div>
   <div v-else-if="projectStore.current">
     <Breadcrumb
@@ -310,20 +305,37 @@ async function onReopen(taskId: number) {
         { label: projectStore.current.name },
       ]"
     />
-    <div>
-      <h1 class="text-2xl font-semibold text-foreground">
-        {{ projectStore.current.name }}
-      </h1>
-      <p class="mt-1 text-sm text-muted">
-        {{ projectStore.current.description || 'No description' }}
-      </p>
+    <div
+      class="flex flex-wrap items-start justify-between gap-4"
+    >
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl font-semibold text-foreground">
+          {{ projectStore.current.name }}
+        </h1>
+        <p class="mt-1 text-sm text-muted">
+          {{ projectStore.current.description || 'No description' }}
+        </p>
+      </div>
+      <Button
+        v-if="projectStore.current?.kind === 'team'"
+        type="button"
+        variant="secondary"
+        class="inline-flex shrink-0 items-center"
+        @click="membersModalOpen = true"
+      >
+        <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
+        <span class="ml-1.5">Members</span>
+      </Button>
     </div>
 
-    <ProjectMembers
+    <Modal
       v-if="projectStore.current?.kind === 'team'"
-      class="mt-8"
-      :project-id="id"
-    />
+      v-model="membersModalOpen"
+      title="Members"
+      wide
+    >
+      <ProjectMembers :project-id="id" />
+    </Modal>
 
     <div class="mt-6 space-y-4">
       <div

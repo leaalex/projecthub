@@ -8,7 +8,6 @@ import type { User } from '../../types/user'
 import { api } from '../../utils/api'
 import Avatar from '../ui/UiAvatar.vue'
 import Button from '../ui/UiButton.vue'
-import Modal from '../ui/UiModal.vue'
 import UiInput from '../ui/UiInput.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
@@ -30,6 +29,10 @@ const addRole = ref<ProjectMemberRole>('viewer')
 const adding = ref(false)
 const staffUsers = ref<User[]>([])
 const loadingUsers = ref(false)
+
+const transferOpen = ref(false)
+const transferTo = ref<string>('')
+const transferring = ref(false)
 
 const project = computed(() =>
   projectStore.current?.id === props.projectId
@@ -70,6 +73,7 @@ async function loadStaffUsers() {
 
 watch(addOpen, (o) => {
   if (o) {
+    transferOpen.value = false
     addEmail.value = ''
     addUserId.value = ''
     addRole.value = 'viewer'
@@ -78,6 +82,13 @@ watch(addOpen, (o) => {
         ? 'user'
         : 'email'
     void loadStaffUsers()
+  }
+})
+
+watch(transferOpen, (o) => {
+  if (o) {
+    addOpen.value = false
+    transferTo.value = ''
   }
 })
 
@@ -153,10 +164,6 @@ async function onRemove(userId: number) {
   }
 }
 
-const transferOpen = ref(false)
-const transferTo = ref<string>('')
-const transferring = ref(false)
-
 const memberRows = computed(() =>
   Array.isArray(projectStore.members) ? projectStore.members : [],
 )
@@ -214,202 +221,201 @@ function displayName(u: { name?: string; email: string }) {
 </script>
 
 <template>
-  <section
+  <div
     v-if="Number.isFinite(projectId) && projectId > 0"
-    class="rounded-lg border border-border bg-surface"
-    aria-labelledby="project-members-heading"
+    class="space-y-4"
   >
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <Button
+        v-if="showTransfer"
+        type="button"
+        variant="secondary"
+        class="text-xs"
+        @click="transferOpen = !transferOpen"
+      >
+        {{ transferOpen ? 'Cancel' : 'Transfer ownership' }}
+      </Button>
+      <Button
+        v-if="canManage"
+        type="button"
+        class="text-xs"
+        @click="addOpen = !addOpen"
+      >
+        {{ addOpen ? 'Cancel' : 'Add member' }}
+      </Button>
+    </div>
+
     <div
-      class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3"
+      class="max-h-[min(24rem,50vh)] overflow-y-auto rounded-md border border-border"
+      aria-label="Project members"
     >
-      <h2 id="project-members-heading" class="text-sm font-semibold text-foreground">
-        Members
-      </h2>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button
-          v-if="showTransfer"
-          type="button"
-          variant="secondary"
-          class="text-xs"
-          @click="transferOpen = true"
-        >
-          Transfer ownership
-        </Button>
-        <Button
-          v-if="canManage"
-          type="button"
-          class="text-xs"
-          @click="addOpen = true"
-        >
-          Add member
-        </Button>
-      </div>
-    </div>
-
-    <div class="divide-y divide-border">
-      <div
-        v-if="project?.owner"
-        class="flex flex-wrap items-center gap-3 px-3 py-3"
-      >
-        <Avatar
-          class="h-9 w-9 shrink-0"
-          :label="displayName(project.owner)"
-        />
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-foreground">
-            {{ displayName(project.owner) }}
-          </div>
-          <div class="truncate text-xs text-muted">
-            {{ project.owner.email }}
-          </div>
-        </div>
-        <span
-          class="shrink-0 rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
-        >
-          Owner
-        </span>
-      </div>
-
-      <div
-        v-for="m in memberRows"
-        :key="m.id"
-        class="flex flex-wrap items-center gap-3 px-3 py-3"
-      >
-        <Avatar class="h-9 w-9 shrink-0" :label="displayName(m.user)" />
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-foreground">
-            {{ displayName(m.user) }}
-          </div>
-          <div class="truncate text-xs text-muted">
-            {{ m.user.email }}
-          </div>
-        </div>
-        <span
-          class="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium capitalize"
-          :class="roleBadgeClass(m.role)"
-        >
-          {{ m.role }}
-        </span>
-        <div v-if="canManage" class="flex shrink-0 items-center gap-1">
-          <UiMenuButton
-            variant="field"
-            ariaLabel="Change role"
-            title="Change role"
-            placement="bottom-end"
-            placeholder="Role…"
-            class="min-w-[6.5rem]"
-            :options="roleMenuOptions"
-            @select="
-              onRoleChange(m.user_id, String($event) as ProjectMemberRole)
-            "
-          />
-          <Button
-            type="button"
-            variant="ghost-danger"
-            class="text-xs"
-            @click="onRemove(m.user_id)"
-          >
-            Remove
-          </Button>
-        </div>
-      </div>
-
-      <p
-        v-if="!memberRows.length && !project?.owner"
-        class="px-3 py-6 text-center text-sm text-muted"
-      >
-        No members loaded.
-      </p>
-    </div>
-
-    <Modal v-model="addOpen" title="Add project member">
-      <div class="space-y-4">
+      <div class="divide-y divide-border">
         <div
-          v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
-          class="flex gap-2 text-xs"
+          v-if="project?.owner"
+          class="flex flex-wrap items-center gap-3 px-3 py-3"
         >
-          <button
-            type="button"
-            class="rounded-md px-2 py-1"
-            :class="
-              addMode === 'user'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-surface-muted text-muted'
-            "
-            @click="addMode = 'user'"
+          <Avatar
+            class="h-9 w-9 shrink-0"
+            :label="displayName(project.owner)"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-foreground">
+              {{ displayName(project.owner) }}
+            </div>
+            <div class="truncate text-xs text-muted">
+              {{ project.owner.email }}
+            </div>
+          </div>
+          <span
+            class="shrink-0 rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
           >
-            Pick user
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2 py-1"
-            :class="
-              addMode === 'email'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-surface-muted text-muted'
-            "
-            @click="addMode = 'email'"
-          >
-            By email
-          </button>
+            Owner
+          </span>
         </div>
 
-        <UiSelect
-          v-if="addMode === 'user'"
-          v-model="addUserId"
-          label="User"
-          :options="userSelectOptions"
-          :disabled="loadingUsers"
-          placeholder="Select user…"
-        />
-
-        <UiInput
-          v-else
-          id="member-email"
-          v-model="addEmail"
-          label="Email"
-          type="email"
-          autocomplete="email"
-          placeholder="user@example.com"
-        />
-
-        <UiSelect
-          v-model="addRole"
-          label="Project role"
-          :options="roleMenuOptions"
-        />
-
-        <div class="flex justify-end gap-2">
-          <Button type="button" variant="secondary" @click="addOpen = false">
-            Cancel
-          </Button>
-          <Button type="button" :loading="adding" @click="onAdd">
-            Add
-          </Button>
+        <div
+          v-for="m in memberRows"
+          :key="m.id"
+          class="flex flex-wrap items-center gap-3 px-3 py-3"
+        >
+          <Avatar class="h-9 w-9 shrink-0" :label="displayName(m.user)" />
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-foreground">
+              {{ displayName(m.user) }}
+            </div>
+            <div class="truncate text-xs text-muted">
+              {{ m.user.email }}
+            </div>
+          </div>
+          <span
+            class="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium capitalize"
+            :class="roleBadgeClass(m.role)"
+          >
+            {{ m.role }}
+          </span>
+          <div v-if="canManage" class="flex shrink-0 items-center gap-1">
+            <UiMenuButton
+              variant="field"
+              ariaLabel="Change role"
+              title="Change role"
+              placement="bottom-end"
+              placeholder="Role…"
+              class="min-w-[6.5rem]"
+              :options="roleMenuOptions"
+              @select="
+                onRoleChange(m.user_id, String($event) as ProjectMemberRole)
+              "
+            />
+            <Button
+              type="button"
+              variant="ghost-danger"
+              class="text-xs"
+              @click="onRemove(m.user_id)"
+            >
+              Remove
+            </Button>
+          </div>
         </div>
+
+        <p
+          v-if="!memberRows.length && !project?.owner"
+          class="px-3 py-6 text-center text-sm text-muted"
+        >
+          No members loaded.
+        </p>
       </div>
-    </Modal>
+    </div>
 
-    <Modal v-model="transferOpen" title="Transfer project ownership">
+    <div
+      v-if="transferOpen && showTransfer"
+      class="space-y-4 rounded-md border border-border bg-surface-muted/40 p-4"
+    >
       <p class="text-sm text-muted">
         Admin only. The previous owner will be added as a manager if needed.
       </p>
-      <div class="mt-4 space-y-4">
-        <UiSelect
-          v-model="transferTo"
-          label="New owner"
-          :options="transferOptions"
-          placeholder="Select user…"
-        />
-        <div class="flex justify-end gap-2">
-          <Button type="button" variant="secondary" @click="transferOpen = false">
-            Cancel
-          </Button>
-          <Button type="button" :loading="transferring" @click="doTransfer">
-            Transfer
-          </Button>
-        </div>
+      <UiSelect
+        v-model="transferTo"
+        label="New owner"
+        :options="transferOptions"
+        placeholder="Select user…"
+      />
+      <div class="flex justify-end gap-2">
+        <Button type="button" variant="secondary" @click="transferOpen = false">
+          Cancel
+        </Button>
+        <Button type="button" :loading="transferring" @click="doTransfer">
+          Transfer
+        </Button>
       </div>
-    </Modal>
-  </section>
+    </div>
+
+    <div
+      v-if="addOpen && canManage"
+      class="space-y-4 rounded-md border border-border bg-surface-muted/40 p-4"
+    >
+      <div
+        v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
+        class="flex gap-2 text-xs"
+      >
+        <button
+          type="button"
+          class="rounded-md px-2 py-1"
+          :class="
+            addMode === 'user'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-surface-muted text-muted'
+          "
+          @click="addMode = 'user'"
+        >
+          Pick user
+        </button>
+        <button
+          type="button"
+          class="rounded-md px-2 py-1"
+          :class="
+            addMode === 'email'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-surface-muted text-muted'
+          "
+          @click="addMode = 'email'"
+        >
+          By email
+        </button>
+      </div>
+
+      <UiSelect
+        v-if="addMode === 'user'"
+        v-model="addUserId"
+        label="User"
+        :options="userSelectOptions"
+        :disabled="loadingUsers"
+        placeholder="Select user…"
+      />
+
+      <UiInput
+        v-else
+        id="member-email"
+        v-model="addEmail"
+        label="Email"
+        type="email"
+        autocomplete="email"
+        placeholder="user@example.com"
+      />
+
+      <UiSelect
+        v-model="addRole"
+        label="Project role"
+        :options="roleMenuOptions"
+      />
+
+      <div class="flex justify-end gap-2">
+        <Button type="button" variant="secondary" @click="addOpen = false">
+          Cancel
+        </Button>
+        <Button type="button" :loading="adding" @click="onAdd">
+          Add
+        </Button>
+      </div>
+    </div>
+  </div>
 </template>
