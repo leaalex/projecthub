@@ -345,12 +345,16 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 		return nil, err
 	}
 	if assigneeID == 0 {
-		t.AssigneeID = nil
-		if err := s.DB.Save(t).Error; err != nil {
+		// Explicitly set AssigneeID to NULL using Update (GORM doesn't zero values on Save by default)
+		if err := s.DB.Model(&models.Task{}).Where("id = ?", t.ID).Update("assignee_id", nil).Error; err != nil {
 			return nil, err
 		}
-		preloadTaskAll(s.DB).First(t, t.ID)
-		return t, nil
+		// Reload fresh data into a new variable to avoid stale associations
+		var fresh models.Task
+		if err := preloadTaskAll(s.DB).First(&fresh, t.ID).Error; err != nil {
+			return nil, err
+		}
+		return &fresh, nil
 	}
 	var u models.User
 	if err := s.DB.First(&u, assigneeID).Error; err != nil {
@@ -367,12 +371,18 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 	if !allowed {
 		return nil, ErrAssigneeNotProjectMember
 	}
+	// Clear old assignee association before saving new one
+	t.Assignee = nil
 	t.AssigneeID = &assigneeID
 	if err := s.DB.Save(t).Error; err != nil {
 		return nil, err
 	}
-	preloadTaskAll(s.DB).First(t, t.ID)
-	return t, nil
+	// Reload fresh data into a new variable to avoid stale associations
+	var fresh models.Task
+	if err := preloadTaskAll(s.DB).First(&fresh, t.ID).Error; err != nil {
+		return nil, err
+	}
+	return &fresh, nil
 }
 
 func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.Task, error) {

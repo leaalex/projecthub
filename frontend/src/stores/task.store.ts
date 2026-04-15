@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Subtask, Task, TaskPriority, TaskStatus } from '../types/task'
 import { api } from '../utils/api'
+import { useProjectStore } from './project.store'
 
 function sortSubtasks(list: Subtask[]): Subtask[] {
   return [...list].sort(
@@ -10,6 +11,7 @@ function sortSubtasks(list: Subtask[]): Subtask[] {
 }
 
 export const useTaskStore = defineStore('task', () => {
+  const projectStore = useProjectStore()
   const tasks = ref<Task[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -72,12 +74,14 @@ export const useTaskStore = defineStore('task', () => {
     const { data } = await api.put<{ task: Task }>(`/tasks/${id}`, payload)
     const i = tasks.value.findIndex((t) => t.id === id)
     if (i >= 0) tasks.value[i] = data.task
+    projectStore.patchTask(data.task)
     return data.task
   }
 
   async function remove(id: number) {
     await api.delete(`/tasks/${id}`)
     tasks.value = tasks.value.filter((t) => t.id !== id)
+    projectStore.removeTask(id)
   }
 
   async function assign(id: number, assignee_id: number) {
@@ -86,6 +90,7 @@ export const useTaskStore = defineStore('task', () => {
     })
     const i = tasks.value.findIndex((t) => t.id === id)
     if (i >= 0) tasks.value[i] = data.task
+    projectStore.patchTask(data.task)
     return data.task
   }
 
@@ -93,6 +98,7 @@ export const useTaskStore = defineStore('task', () => {
     const { data } = await api.post<{ task: Task }>(`/tasks/${id}/complete`)
     const i = tasks.value.findIndex((t) => t.id === id)
     if (i >= 0) tasks.value[i] = data.task
+    projectStore.patchTask(data.task)
     return data.task
   }
 

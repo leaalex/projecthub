@@ -39,9 +39,11 @@ export const useProjectStore = defineStore('project', () => {
   const assignableUsers = computed(() => {
     const pid = membersProjectId.value
     if (pid == null) return []
+    // Prefer `current` (GET /projects/:id preloads Owner); list rows can omit nested owner.
     const proj =
+      (current.value?.id === pid ? current.value : null) ??
       projects.value.find((p) => p.id === pid) ??
-      (current.value?.id === pid ? current.value : null)
+      null
     return mergeOwnerAndMembers(proj?.owner, members.value)
   })
 
@@ -222,6 +224,18 @@ export const useProjectStore = defineStore('project', () => {
     membersProjectId.value = null
   }
 
+  /** Keeps project detail task list in sync when taskStore mutates the same task. */
+  function patchTask(updated: Task) {
+    const i = tasks.value.findIndex((t) => t.id === updated.id)
+    if (i >= 0) {
+      tasks.value.splice(i, 1, updated)
+    }
+  }
+
+  function removeTask(taskId: number) {
+    tasks.value = tasks.value.filter((t) => t.id !== taskId)
+  }
+
   return {
     projects,
     current,
@@ -232,6 +246,8 @@ export const useProjectStore = defineStore('project', () => {
     loading,
     error,
     resetProjectDetailView,
+    patchTask,
+    removeTask,
     fetchList,
     fetchOne,
     fetchTasks,

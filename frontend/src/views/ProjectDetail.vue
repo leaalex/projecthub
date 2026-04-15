@@ -160,7 +160,8 @@ async function load() {
 
     await projectStore.fetchMembers(id.value).catch(() => {
       projectStore.members = []
-      projectStore.membersProjectId = null
+      // Keep id so assignableUsers can still use owner from `current` (e.g. members request failed).
+      projectStore.membersProjectId = id.value
     })
     if (gen !== loadGeneration) return
 

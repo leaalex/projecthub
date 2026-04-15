@@ -124,6 +124,20 @@ function dueFromTask(iso: string | null): string {
   return iso.slice(0, 10)
 }
 
+/** Stable numeric id for menus; API/JSON may use string or number. */
+function normalizeAssigneeId(raw: unknown): number {
+  if (raw === null || raw === undefined || raw === '') return 0
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** Prefer assignee_id; fall back to nested assignee.id if IDs were ever out of sync. */
+function effectiveAssigneeId(t: Task): number {
+  const fromField = normalizeAssigneeId(t.assignee_id)
+  if (fromField > 0) return fromField
+  return normalizeAssigneeId(t.assignee?.id)
+}
+
 function syncDraftsFromTask() {
   const t = props.task
   draftTitle.value = t.title
@@ -132,7 +146,8 @@ function syncDraftsFromTask() {
   draftPriority.value = t.priority
   draftProjectId.value = t.project_id
   draftDue.value = dueFromTask(t.due_date)
-  draftAssigneeId.value = t.assignee_id ?? ''
+  const eid = effectiveAssigneeId(t)
+  draftAssigneeId.value = eid > 0 ? eid : ''
 }
 
 watch(
@@ -240,8 +255,9 @@ async function saveAndCollapse() {
   const due = draftDue.value.trim()
   const duePrev = dueFromTask(t.due_date)
   const rawAssignee = draftAssigneeId.value
-  const nextAssignee = rawAssignee === '' ? 0 : Number(rawAssignee)
-  const prevAssignee = t.assignee_id ?? 0
+  const nextAssignee =
+    rawAssignee === '' ? 0 : normalizeAssigneeId(rawAssignee)
+  const prevAssignee = effectiveAssigneeId(t)
 
   const patch: Partial<{
     title: string
@@ -298,7 +314,8 @@ function onTitleKeydown(e: KeyboardEvent) {
 
 const showProjectPicker = () => props.projects.length > 0
 const showAssigneePicker = () =>
-  props.canEdit && props.assignableUsers.length > 0
+  props.canEdit &&
+  (props.assignableUsers.length > 0 || effectiveAssigneeId(props.task) > 0)
 
 const STATUS_OPTIONS = [
   { value: 'todo' as const, label: 'To do' },
@@ -318,13 +335,28 @@ const projectSelectOptions = computed(() =>
   props.projects.map((p) => ({ value: p.id, label: p.name })),
 )
 
-const assigneeSelectOptions = computed(() => [
-  { value: '', label: 'Unassigned' },
-  ...props.assignableUsers.map((u) => ({
-    value: u.id,
+const assigneeSelectOptions = computed(() => {
+  const users = props.assignableUsers.map((u) => ({
+    value: normalizeAssigneeId(u.id),
     label: u.name || u.email,
-  })),
-])
+  }))
+  const ids = new Set(
+    users.map((o) => normalizeAssigneeId(o.value)).filter((id) => id > 0),
+  )
+  const aid = effectiveAssigneeId(props.task)
+  const extra: { value: number; label: string }[] = []
+  if (aid > 0 && !ids.has(aid) && props.task.assignee) {
+    const a = props.task.assignee
+    extra.push({ value: aid, label: a.name || a.email })
+  }
+  return [{ value: '', label: 'Unassigned' }, ...extra, ...users]
+})
+
+/** Matches option `value` types so UiMenuButton selection/highlight works. */
+const collapsedAssigneeMenuValue = computed(() => {
+  const n = effectiveAssigneeId(props.task)
+  return n > 0 ? n : ''
+})
 
 const draftStatusMenuLabel = computed(
   () => STATUS_OPTIONS.find((o) => o.value === draftStatus.value)?.label ?? '',
@@ -351,8 +383,15 @@ function setDraftAssigneeFromMenu(v: string | number) {
 
 async function onAssigneeMenuSelect(v: string | number) {
   if (!props.canEdit || assigningQuick.value) return
-  const next = v === '' ? 0 : Number(v)
-  const prev = props.task.assignee_id ?? 0
+  const next =
+    v === '' || v === null || v === undefined
+      ? 0
+      : normalizeAssigneeId(v)
+  if (v !== '' && v !== null && v !== undefined && next === 0) {
+    toast.error('Invalid assignee')
+    return
+  }
+  const prev = effectiveAssigneeId(props.task)
   if (next === prev) return
   assigningQuick.value = true
   try {
@@ -707,7 +746,7 @@ async function onAssigneeMenuSelect(v: string | number) {
           <UiMenuButton
             v-if="canEdit && showAssigneePicker()"
             class="shrink-0"
-            :model-value="task.assignee_id ?? ''"
+            :model-value="collapsedAssigneeMenuValue"
             ariaLabel="Change assignee"
             title="Change assignee"
             placement="bottom-end"
