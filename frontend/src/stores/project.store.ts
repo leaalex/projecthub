@@ -1,17 +1,18 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   Project,
   ProjectKind,
   ProjectMember,
   ProjectMemberRole,
 } from '../types/project'
+import type { Task } from '../types/task'
+import { mergeOwnerAndMembers } from '../utils/assignee'
+import { api } from '../utils/api'
 
 function projectKindFromApi(k: unknown): ProjectKind {
   return k === 'personal' || k === 'team' ? k : 'team'
 }
-import type { Task } from '../types/task'
-import { api } from '../utils/api'
 
 /** Accepts JSON number or numeric string from APIs / proxies. */
 function coerceProjectId(raw: unknown): number | null {
@@ -30,8 +31,19 @@ export const useProjectStore = defineStore('project', () => {
   const current = ref<Project | null>(null)
   const tasks = ref<Task[]>([])
   const members = ref<ProjectMember[]>([])
+  /** Which project `members` belongs to; drives `assignableUsers`. */
+  const membersProjectId = ref<number | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  const assignableUsers = computed(() => {
+    const pid = membersProjectId.value
+    if (pid == null) return []
+    const proj =
+      projects.value.find((p) => p.id === pid) ??
+      (current.value?.id === pid ? current.value : null)
+    return mergeOwnerAndMembers(proj?.owner, members.value)
+  })
 
   async function fetchList() {
     loading.value = true
@@ -99,6 +111,7 @@ export const useProjectStore = defineStore('project', () => {
     const list = data.members
     const normalized = Array.isArray(list) ? list : []
     members.value = normalized
+    membersProjectId.value = projectId
     return normalized
   }
 
@@ -112,6 +125,7 @@ export const useProjectStore = defineStore('project', () => {
     )
     const prev = Array.isArray(members.value) ? members.value : []
     members.value = [...prev, data.member]
+    membersProjectId.value = projectId
     return data.member
   }
 
@@ -127,6 +141,7 @@ export const useProjectStore = defineStore('project', () => {
     if (!Array.isArray(members.value)) members.value = []
     const i = members.value.findIndex((m) => m.user_id === userId)
     if (i >= 0) members.value[i] = data.member
+    membersProjectId.value = projectId
     return data.member
   }
 
@@ -134,6 +149,7 @@ export const useProjectStore = defineStore('project', () => {
     await api.delete(`/projects/${projectId}/members/${userId}`)
     const prev = Array.isArray(members.value) ? members.value : []
     members.value = prev.filter((m) => m.user_id !== userId)
+    membersProjectId.value = projectId
   }
 
   async function transferOwnership(projectId: number, newOwnerId: number) {
@@ -203,6 +219,7 @@ export const useProjectStore = defineStore('project', () => {
     current.value = null
     tasks.value = []
     members.value = []
+    membersProjectId.value = null
   }
 
   return {
@@ -210,6 +227,8 @@ export const useProjectStore = defineStore('project', () => {
     current,
     tasks,
     members,
+    membersProjectId,
+    assignableUsers,
     loading,
     error,
     resetProjectDetailView,

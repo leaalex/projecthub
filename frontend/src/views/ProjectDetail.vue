@@ -160,6 +160,7 @@ async function load() {
 
     await projectStore.fetchMembers(id.value).catch(() => {
       projectStore.members = []
+      projectStore.membersProjectId = null
     })
     if (gen !== loadGeneration) return
 
