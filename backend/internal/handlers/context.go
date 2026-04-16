@@ -11,19 +11,36 @@ import (
 
 func handleServiceError(c *gin.Context, err error) {
 	switch err {
+	// Not Found errors (404)
 	case services.ErrTaskNotFound, services.ErrProjectNotFound,
 		services.ErrSubtaskNotFound, services.ErrUserNotFound,
 		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
 		services.ErrNotProjectMember:
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-	case services.ErrForbidden, services.ErrPersonalProjectMembersNotAllowed:
+
+	// Forbidden errors (403)
+	case services.ErrForbidden, services.ErrPersonalProjectMembersNotAllowed,
+		services.ErrTeamProjectNotAllowed:
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember:
+
+	// Bad Request errors (400)
+	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember,
+		services.ErrCannotRemoveOwner, services.ErrCannotChangeOwnRole,
+		services.ErrInvalidGlobalRole, services.ErrCannotTransferToSelf,
+		services.ErrTargetNotProjectMember, services.ErrInvalidTaskTransfer,
+		services.ErrDuplicateTaskTransfer, services.ErrCannotTransferToSameMember,
+		services.ErrInvalidAssignee, services.ErrIncompleteTaskTransfer:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	case services.ErrCannotDeleteSelf, services.ErrAlreadyProjectMember:
+
+	// Conflict errors (409)
+	case services.ErrCannotDeleteSelf, services.ErrAlreadyProjectMember,
+		services.ErrEmailTaken:
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-	case services.ErrCannotRemoveOwner:
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+	// Unauthorized errors (401)
+	case services.ErrInvalidCreds:
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}

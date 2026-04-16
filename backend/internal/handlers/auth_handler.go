@@ -32,14 +32,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	u, token, err := h.Auth.Register(body.Email, body.Password, body.Name)
 	if err != nil {
-		switch err {
-		case services.ErrEmailTaken:
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		case services.ErrInvalidInput:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "registration failed"})
-		}
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -56,12 +49,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	u, token, err := h.Auth.Login(body.Email, body.Password)
 	if err != nil {
-		switch err {
-		case services.ErrInvalidCreds, services.ErrInvalidInput:
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
-		}
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -111,14 +99,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 	if err := h.Auth.ChangePassword(userID, body.CurrentPassword, body.NewPassword); err != nil {
-		switch err {
-		case services.ErrInvalidCreds:
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
-		case services.ErrInvalidInput:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "new password must be at least 8 characters"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not change password"})
-		}
+		handleServiceError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)

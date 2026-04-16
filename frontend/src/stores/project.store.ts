@@ -5,6 +5,9 @@ import type {
   ProjectKind,
   ProjectMember,
   ProjectMemberRole,
+  RemoveMemberResult,
+  TaskTransfer,
+  TaskTransferMode,
 } from '../types/project'
 import type { Task } from '../types/task'
 import { mergeOwnerAndMembers } from '../utils/assignee'
@@ -147,11 +150,45 @@ export const useProjectStore = defineStore('project', () => {
     return data.member
   }
 
-  async function removeMember(projectId: number, userId: number) {
-    await api.delete(`/projects/${projectId}/members/${userId}`)
-    const prev = Array.isArray(members.value) ? members.value : []
-    members.value = prev.filter((m) => m.user_id !== userId)
+  async function removeMember(
+    projectId: number,
+    userId: number,
+    mode: TaskTransferMode = 'manual',
+    transferToUserId?: number,
+  ): Promise<RemoveMemberResult> {
+    const { data } = await api.delete<RemoveMemberResult>(
+      `/projects/${projectId}/members/${userId}`,
+      { data: { transfer_mode: mode, transfer_to_user_id: transferToUserId } },
+    )
+
+    // Update local members list if successful (not manual mode with pending tasks)
+    if (data.success) {
+      const prev = Array.isArray(members.value) ? members.value : []
+      members.value = prev.filter((m) => m.user_id !== userId)
+    }
     membersProjectId.value = projectId
+    return data
+  }
+
+  async function applyTaskTransfers(
+    projectId: number,
+    userId: number,
+    transfers: TaskTransfer[],
+  ): Promise<RemoveMemberResult> {
+    const { data } = await api.post<RemoveMemberResult>(
+      `/projects/${projectId}/members/${userId}/transfer-tasks`,
+      { transfers },
+    )
+
+    // Update local state
+    if (data.success) {
+      const prev = Array.isArray(members.value) ? members.value : []
+      members.value = prev.filter((m) => m.user_id !== userId)
+      // Refresh tasks to show new assignments
+      await fetchTasks(projectId)
+    }
+
+    return data
   }
 
   async function transferOwnership(projectId: number, newOwnerId: number) {
@@ -255,6 +292,7 @@ export const useProjectStore = defineStore('project', () => {
     addMember,
     updateMemberRole,
     removeMember,
+    applyTaskTransfers,
     transferOwnership,
     create,
     update,

@@ -78,6 +78,7 @@ func main() {
 	projects.POST("/:id/members", memberHandler.Add)
 	projects.PUT("/:id/members/:user_id", memberHandler.UpdateRole)
 	projects.DELETE("/:id/members/:user_id", memberHandler.Remove)
+	projects.POST("/:id/members/:user_id/transfer-tasks", memberHandler.ApplyTaskTransfers)
 	projects.PATCH("/:id/owner", middleware.RequireStaffOrAdmin(), memberHandler.TransferOwnership)
 	projects.GET("/:id", projectHandler.Get)
 	projects.PUT("/:id", projectHandler.Update)

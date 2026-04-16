@@ -42,3 +42,25 @@ export interface Project {
     | 'executor'
     | 'viewer'
 }
+
+import type { Task } from './task'
+
+export type TaskTransferMode = 'unassigned' | 'single_user' | 'manual'
+
+export interface TaskTransferRequest {
+  transfer_mode: TaskTransferMode
+  transfer_to_user_id?: number
+}
+
+export interface TaskTransfer {
+  task_id: number
+  assignee_id: number
+}
+
+export interface RemoveMemberResult {
+  success: boolean
+  member_id?: number
+  task_count?: number
+  tasks?: Task[]
+  transferred?: number
+}

@@ -83,16 +83,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Phone:      body.Phone,
 	})
 	if err != nil {
-		switch err {
-		case services.ErrForbidden:
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		case services.ErrInvalidInput, services.ErrInvalidGlobalRole:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		case services.ErrEmailTaken:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"user": userPublic(u)})
@@ -177,19 +168,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 	}
 	u, err := h.Svc.Update(uint(id), callerID, role, patch)
 	if err != nil {
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrUserNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput || err == services.ErrEmailTaken {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": userPublic(u)})
@@ -212,19 +191,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.Svc.Delete(uint(id), callerID, role); err != nil {
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrCannotDeleteSelf {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrUserNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -257,18 +224,7 @@ func (h *UserHandler) SetRole(c *gin.Context) {
 	}
 	u, err := h.Svc.SetGlobalRole(uint(id), callerID, role, models.Role(body.Role))
 	if err != nil {
-		switch err {
-		case services.ErrForbidden:
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		case services.ErrCannotChangeOwnRole:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		case services.ErrInvalidGlobalRole:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		case services.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": userPublic(u)})

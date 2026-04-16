@@ -177,11 +177,69 @@ func (h *MemberHandler) Remove(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
 		return
 	}
-	if err := h.Svc.Remove(projectID, uint(targetUID)); err != nil {
+
+	// Parse request body with transfer options
+	var body models.TaskTransferRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate single_user mode has target
+	if body.TransferMode == models.TransferSingleUser && body.TransferToUserID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "transfer_to_user_id required for single_user mode"})
+		return
+	}
+
+	result, err := h.Svc.Remove(projectID, uint(targetUID), body.TransferMode, body.TransferToUserID)
+	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *MemberHandler) ApplyTaskTransfers(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
+		return
+	}
+	targetUID, err := strconv.ParseUint(c.Param("user_id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad user id"})
+		return
+	}
+	projectID := uint(pid)
+	if !h.Svc.CanManageMembers(projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+		return
+	}
+
+	var body models.TaskTransferBatch
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := h.Svc.ApplyManualTaskTransfers(projectID, uint(targetUID), body.Transfers)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 type transferOwnerBody struct {

@@ -80,15 +80,7 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 	}
 	p, err := h.Svc.Create(uid, role, body.Name, body.Description, models.ProjectKind(body.Kind))
 	if err != nil {
-		if err == services.ErrTeamProjectNotAllowed {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	out := gin.H{"project": p}
@@ -116,15 +108,7 @@ func (h *ProjectHandler) Get(c *gin.Context) {
 	}
 	p, err := h.Svc.Get(uint(id), uid, role)
 	if err != nil {
-		if err == services.ErrProjectNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	out := gin.H{"project": p}
@@ -157,19 +141,7 @@ func (h *ProjectHandler) Update(c *gin.Context) {
 	}
 	p, err := h.Svc.Update(uint(id), uid, role, body.Name, body.Description)
 	if err != nil {
-		if err == services.ErrProjectNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrInvalidInput {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"project": p})
@@ -192,15 +164,7 @@ func (h *ProjectHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.Svc.Delete(uint(id), uid, role); err != nil {
-		if err == services.ErrProjectNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -224,15 +188,7 @@ func (h *ProjectHandler) Tasks(c *gin.Context) {
 	}
 	tasks, err := h.Svc.TasksForProject(uint(id), uid, role)
 	if err != nil {
-		if err == services.ErrProjectNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err == services.ErrForbidden {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleServiceError(c, err)
 		return
 	}
 	if h.TaskSvc != nil {

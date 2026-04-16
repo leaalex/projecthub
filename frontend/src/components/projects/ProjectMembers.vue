@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
-import type { ProjectMemberRole } from '../../types/project'
+import type { ProjectMemberRole, TaskTransfer, TaskTransferMode } from '../../types/project'
+import type { Task } from '../../types/task'
 import type { User } from '../../types/user'
 import { api } from '../../utils/api'
 import Avatar from '../ui/UiAvatar.vue'
@@ -12,6 +13,8 @@ import UiInput from '../ui/UiInput.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
 import UiSelect from '../ui/UiSelect.vue'
+import ManualTaskTransfer from './ManualTaskTransfer.vue'
+import TaskTransferModal from './TaskTransferModal.vue'
 
 const props = defineProps<{
   projectId: number
@@ -33,6 +36,12 @@ const loadingUsers = ref(false)
 const transferOpen = ref(false)
 const transferTo = ref<string>('')
 const transferring = ref(false)
+
+// Task transfer modal state
+const taskTransferOpen = ref(false)
+const manualTransferOpen = ref(false)
+const removingMemberId = ref<number | null>(null)
+const memberTasks = ref<Task[]>([])
 
 const project = computed(() =>
   projectStore.current?.id === props.projectId
@@ -156,12 +165,95 @@ async function onRoleChange(userId: number, role: ProjectMemberRole) {
 }
 
 async function onRemove(userId: number) {
+  removingMemberId.value = userId
   try {
-    await projectStore.removeMember(props.projectId, userId)
-    toast.success('Member removed')
-  } catch {
-    toast.error('Could not remove member')
+    // First, check if member has tasks by calling with manual mode
+    const checkResult = await projectStore.removeMember(props.projectId, userId, 'manual')
+
+    if (!checkResult.task_count || checkResult.task_count === 0) {
+      // No tasks - member was already removed
+      toast.success('Member removed')
+      removingMemberId.value = null
+      return
+    }
+
+    // Has tasks - show transfer dialog
+    memberTasks.value = checkResult.tasks || []
+    taskTransferOpen.value = true
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    toast.error(
+      typeof err.response?.data?.error === 'string'
+        ? err.response.data.error
+        : 'Could not remove member',
+    )
+    removingMemberId.value = null
   }
+}
+
+async function onTransferSelect(mode: TaskTransferMode, targetUserId?: number) {
+  if (!removingMemberId.value) return
+
+  try {
+    const result = await projectStore.removeMember(
+      props.projectId,
+      removingMemberId.value,
+      mode,
+      targetUserId,
+    )
+    toast.success(
+      `Member removed, ${result.task_count} tasks ${mode === 'unassigned' ? 'unassigned' : 'transferred'}`,
+    )
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    toast.error(
+      typeof err.response?.data?.error === 'string'
+        ? err.response.data.error
+        : 'Could not remove member',
+    )
+  } finally {
+    removingMemberId.value = null
+    memberTasks.value = []
+  }
+}
+
+async function onManualApply(transfers: TaskTransfer[]) {
+  if (!removingMemberId.value) return
+
+  try {
+    const result = await projectStore.applyTaskTransfers(
+      props.projectId,
+      removingMemberId.value,
+      transfers,
+    )
+    toast.success(`${result.transferred} tasks transferred, member removed`)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    toast.error(
+      typeof err.response?.data?.error === 'string'
+        ? err.response.data.error
+        : 'Could not transfer tasks and remove member',
+    )
+  } finally {
+    removingMemberId.value = null
+    memberTasks.value = []
+    manualTransferOpen.value = false
+  }
+}
+
+function onManualCancel() {
+  removingMemberId.value = null
+  memberTasks.value = []
+  manualTransferOpen.value = false
+  taskTransferOpen.value = true // Go back to initial transfer modal
+}
+
+function getMemberName(userId: number): string {
+  const member = memberRows.value.find((m) => m.user_id === userId)
+  if (member) {
+    return member.user.name || member.user.email
+  }
+  return ''
 }
 
 const memberRows = computed(() =>
@@ -417,5 +509,28 @@ function displayName(u: { name?: string; email: string }) {
         </Button>
       </div>
     </div>
+
+    <!-- Task Transfer Modal -->
+    <TaskTransferModal
+      v-model="taskTransferOpen"
+      :member-id="removingMemberId ?? 0"
+      :member-name="getMemberName(removingMemberId ?? 0)"
+      :task-count="memberTasks.length"
+      :available-assignees="projectStore.assignableUsers"
+      @select="onTransferSelect"
+      @manual="manualTransferOpen = true; taskTransferOpen = false"
+    />
+
+    <!-- Manual Task Transfer Modal -->
+    <ManualTaskTransfer
+      v-model="manualTransferOpen"
+      :project-id="props.projectId"
+      :member-id="removingMemberId ?? 0"
+      :member-name="getMemberName(removingMemberId ?? 0)"
+      :tasks="memberTasks"
+      :available-assignees="projectStore.assignableUsers"
+      @apply="onManualApply"
+      @cancel="onManualCancel"
+    />
   </div>
 </template>

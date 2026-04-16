@@ -15,6 +15,13 @@ var (
 	ErrNotProjectMember                = errors.New("user is not a member of this project")
 	ErrCannotRemoveOwner               = errors.New("cannot remove project owner")
 	ErrPersonalProjectMembersNotAllowed = errors.New("personal projects do not support members")
+	ErrCannotTransferToSelf            = errors.New("cannot transfer tasks to the member being removed")
+	ErrTargetNotProjectMember          = errors.New("transfer target must be a project member or owner")
+	ErrInvalidTaskTransfer             = errors.New("task does not belong to the member being removed")
+	ErrDuplicateTaskTransfer           = errors.New("duplicate task in transfer list")
+	ErrCannotTransferToSameMember      = errors.New("cannot assign task to the member being removed")
+	ErrInvalidAssignee                 = errors.New("assignee must be a project member or owner")
+	ErrIncompleteTaskTransfer          = errors.New("all tasks must be reassigned before removing member")
 )
 
 // ProjectMemberService manages project_members rows and membership checks.
@@ -115,29 +122,199 @@ func (m *ProjectMemberService) UpdateRole(projectID, userID uint, newRole models
 	return &pm, nil
 }
 
-// Remove deletes a membership; cannot remove the project owner.
-func (m *ProjectMemberService) Remove(projectID, userID uint) error {
+// RemoveResult contains the outcome of member removal attempt
+type RemoveResult struct {
+	Success     bool           `json:"success"`
+	MemberID    uint           `json:"member_id,omitempty"`
+	TaskCount   int            `json:"task_count,omitempty"`
+	Tasks       []models.Task  `json:"tasks,omitempty"`       // Populated for manual mode
+	Transferred int            `json:"transferred,omitempty"`   // Count of reassigned tasks
+}
+
+// Remove removes a project member with optional task transfer
+// For manual mode, returns tasks list without removing member (two-step process)
+func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTransferMode, transferToUserID *uint) (*RemoveResult, error) {
+	// 1. Check project and member exist
 	var p models.Project
 	if err := m.DB.First(&p, projectID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrProjectNotFound
+			return nil, ErrProjectNotFound
 		}
-		return err
+		return nil, err
 	}
 	if p.Kind == models.ProjectKindPersonal {
-		return ErrPersonalProjectMembersNotAllowed
+		return nil, ErrPersonalProjectMembersNotAllowed
 	}
 	if p.OwnerID == userID {
-		return ErrCannotRemoveOwner
+		return nil, ErrCannotRemoveOwner
 	}
+
+	// 2. Verify member exists
+	var pm models.ProjectMember
+	if err := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).First(&pm).Error; err != nil {
+		return nil, ErrNotProjectMember
+	}
+
+	// 3. Get member's tasks
+	var tasks []models.Task
+	if err := m.DB.Where("project_id = ? AND assignee_id = ?", projectID, userID).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+
+	// 4. No tasks - simple removal
+	if len(tasks) == 0 {
+		res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
+		if res.Error != nil {
+			return nil, res.Error
+		}
+		if res.RowsAffected == 0 {
+			return nil, ErrNotProjectMember
+		}
+		return &RemoveResult{Success: true, MemberID: userID}, nil
+	}
+
+	// 5. Has tasks - handle based on mode
+	switch mode {
+	case models.TransferManual:
+		// Return tasks without removing member (client will show UI)
+		return &RemoveResult{
+			Success:   false, // Not fully complete yet
+			MemberID:  userID,
+			TaskCount: len(tasks),
+			Tasks:     tasks,
+		}, nil
+
+	case models.TransferUnassigned:
+		// Set all tasks to NULL
+		if err := m.DB.Model(&models.Task{}).
+			Where("project_id = ? AND assignee_id = ?", projectID, userID).
+			Update("assignee_id", nil).Error; err != nil {
+			return nil, err
+		}
+
+	case models.TransferSingleUser:
+		// Validate target user
+		if transferToUserID == nil || *transferToUserID == 0 {
+			return nil, ErrInvalidInput
+		}
+		if *transferToUserID == userID {
+			return nil, ErrCannotTransferToSelf
+		}
+		// Check target is project member or owner
+		isMember := m.IsMember(projectID, *transferToUserID)
+		isOwner := p.OwnerID == *transferToUserID
+		if !isMember && !isOwner {
+			return nil, ErrTargetNotProjectMember
+		}
+		// Update all tasks
+		if err := m.DB.Model(&models.Task{}).
+			Where("project_id = ? AND assignee_id = ?", projectID, userID).
+			Update("assignee_id", *transferToUserID).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	// 6. Remove member after successful transfer
 	res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
 	if res.Error != nil {
-		return res.Error
+		return nil, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return ErrNotProjectMember
+		return nil, ErrNotProjectMember
 	}
-	return nil
+
+	return &RemoveResult{
+		Success:     true,
+		MemberID:    userID,
+		TaskCount:   len(tasks),
+		Transferred: len(tasks),
+	}, nil
+}
+
+// ApplyManualTaskTransfers applies task reassignments and removes member
+// Validation: all tasks must be reassigned, new assignees must be valid members
+func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, transfers []models.TaskTransfer) (*RemoveResult, error) {
+	// 1. Get all tasks currently assigned to this member
+	var memberTasks []models.Task
+	if err := m.DB.Where("project_id = ? AND assignee_id = ?", projectID, userID).Find(&memberTasks).Error; err != nil {
+		return nil, err
+	}
+	if len(memberTasks) == 0 {
+		// No tasks, just remove member
+		res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
+		if res.Error != nil {
+			return nil, res.Error
+		}
+		return &RemoveResult{Success: true}, nil
+	}
+
+	// 2. Build map of expected task IDs
+	expectedTaskIDs := make(map[uint]bool)
+	for _, t := range memberTasks {
+		expectedTaskIDs[t.ID] = true
+	}
+
+	// 3. Validate transfers
+	transferTaskIDs := make(map[uint]bool)
+	for _, tr := range transfers {
+		// Check task belongs to member
+		if !expectedTaskIDs[tr.TaskID] {
+			return nil, ErrInvalidTaskTransfer
+		}
+		// Check for duplicates
+		if transferTaskIDs[tr.TaskID] {
+			return nil, ErrDuplicateTaskTransfer
+		}
+		transferTaskIDs[tr.TaskID] = true
+
+		// Validate new assignee
+		if tr.AssigneeID == userID {
+			return nil, ErrCannotTransferToSameMember
+		}
+		// Check assignee is valid project member or owner
+		var p models.Project
+		m.DB.First(&p, projectID)
+		isMember := m.IsMember(projectID, tr.AssigneeID)
+		isOwner := p.OwnerID == tr.AssigneeID
+		if !isMember && !isOwner {
+			return nil, ErrInvalidAssignee
+		}
+	}
+
+	// 4. Check ALL tasks are covered
+	if len(transfers) != len(memberTasks) {
+		return nil, ErrIncompleteTaskTransfer
+	}
+
+	// 5. Apply updates in transaction
+	tx := m.DB.Begin()
+	for _, tr := range transfers {
+		if err := tx.Model(&models.Task{}).
+			Where("id = ? AND project_id = ?", tr.TaskID, projectID).
+			Update("assignee_id", tr.AssigneeID).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// 6. Remove member
+	res := tx.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
+	if res.Error != nil {
+		tx.Rollback()
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		tx.Rollback()
+		return nil, ErrNotProjectMember
+	}
+
+	tx.Commit()
+	return &RemoveResult{
+		Success:     true,
+		MemberID:    userID,
+		TaskCount:   len(memberTasks),
+		Transferred: len(transfers),
+	}, nil
 }
 
 // GetMemberRole returns the member's role and true if they have a row in project_members.
