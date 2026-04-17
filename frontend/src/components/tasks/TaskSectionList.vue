@@ -27,6 +27,8 @@ const emit = defineEmits<{
 
 const dragTaskId = ref<number | null>(null)
 const dragOver = ref<string | null>(null)
+/** Task ids with inline editor expanded — no drag on those rows. */
+const expandedTaskIds = ref<Set<number>>(new Set())
 
 const allTasks = computed(() => props.groups.flatMap((g) => g.tasks))
 
@@ -40,7 +42,16 @@ function parseSectionId(groupKey: string): number | null {
 }
 
 function canDragTask(task: Task): boolean {
-  return props.canEditTask?.(task) ?? false
+  if (!(props.canEditTask?.(task) ?? false)) return false
+  if (expandedTaskIds.value.has(task.id)) return false
+  return true
+}
+
+function onTaskExpandedChange(taskId: number, open: boolean) {
+  const next = new Set(expandedTaskIds.value)
+  if (open) next.add(taskId)
+  else next.delete(taskId)
+  expandedTaskIds.value = next
 }
 
 function onDragStart(e: DragEvent, task: Task) {
@@ -120,6 +131,7 @@ function onDropAt(sectionKey: string, position: number) {
                 @reopen="emit('reopen', $event)"
                 @info="emit('info', $event)"
                 @updated="emit('taskUpdated')"
+                @expanded-change="onTaskExpandedChange(t.id, $event)"
               />
             </div>
           </div>

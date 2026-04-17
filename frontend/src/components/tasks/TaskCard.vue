@@ -52,6 +52,8 @@ const emit = defineEmits<{
   reopen: [id: number]
   info: [id: number]
   updated: []
+  /** Inline editor open/closed; parent may disable drag while expanded. */
+  expandedChange: [expanded: boolean]
 }>()
 
 const authStore = useAuthStore()
@@ -113,6 +115,7 @@ const canToggleSubtasks = computed(() => {
 })
 
 watch(expanded, (v) => {
+  emit('expandedChange', v)
   if (v) {
     subtasksExpanded.value = false
     subtasksBlockVisible.value = (props.task.subtasks?.length ?? 0) > 0
