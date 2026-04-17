@@ -13,6 +13,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import type { Component } from 'vue'
 import { computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
 import { useAuthStore } from '../../stores/auth.store'
@@ -31,6 +32,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const ui = useUiStore()
+const { t } = useI18n()
 const { showProjectsAndTasks } = useProjectNavVisibility()
 
 const iconMap: Record<string, Component> = {
@@ -46,10 +48,10 @@ type NavLink = { to: string; label: string; icon: string }
 
 const mainLinks = computed((): NavLink[] => {
   const base: NavLink[] = [
-    { to: '/dashboard', label: 'Dashboard', icon: 'home' },
-    { to: '/projects', label: 'Projects', icon: 'folder' },
-    { to: '/tasks', label: 'Tasks', icon: 'check' },
-    { to: '/reports', label: 'Reports', icon: 'chart' },
+    { to: '/dashboard', label: t('nav.dashboard'), icon: 'home' },
+    { to: '/projects', label: t('nav.projects'), icon: 'folder' },
+    { to: '/tasks', label: t('nav.tasks'), icon: 'check' },
+    { to: '/reports', label: t('nav.reports'), icon: 'chart' },
   ]
   if (auth.user?.role === 'user' && !showProjectsAndTasks.value) {
     return base.filter((link) => link.to !== '/projects' && link.to !== '/tasks')
@@ -60,8 +62,8 @@ const mainLinks = computed((): NavLink[] => {
 const adminLinks = computed((): NavLink[] => {
   if (auth.user?.role !== 'admin' && auth.user?.role !== 'staff') return []
   return [
-    { to: '/admin/users', label: 'Users', icon: 'users' },
-    { to: '/ui-kit', label: 'UI kit', icon: 'swatch' },
+    { to: '/admin/users', label: t('nav.users'), icon: 'users' },
+    { to: '/ui-kit', label: t('nav.uiKit'), icon: 'swatch' },
   ]
 })
 
@@ -104,7 +106,7 @@ function openCommandPaletteFromSidebar() {
         class="flex min-w-0 flex-1 items-center font-semibold text-primary md:justify-start"
         @click="onNavigate"
       >
-        <span class="truncate text-lg">Project Hub</span>
+        <span class="truncate text-lg">{{ t('common.brand') }}</span>
       </RouterLink>
       <button
         type="button"
@@ -114,9 +116,9 @@ function openCommandPaletteFromSidebar() {
             ? 'w-full py-2'
             : 'shrink-0 p-1.5'
         "
-        :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :title="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
         :aria-expanded="!collapsed"
-        aria-label="Toggle sidebar width"
+        :aria-label="t('nav.toggleSidebar')"
         @click="ui.toggleSidebarCollapsed()"
       >
         <ChevronLeftIcon
@@ -137,18 +139,18 @@ function openCommandPaletteFromSidebar() {
         type="button"
         class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
         :class="collapsed ? 'justify-center px-2' : ''"
-        title="Command palette — ⌘K or Ctrl+K"
-        aria-label="Open command palette"
+        :title="t('nav.commandPaletteShortcut')"
+        :aria-label="t('nav.commandPalette')"
         @click="openCommandPaletteFromSidebar"
       >
         <MagnifyingGlassIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span v-show="!collapsed" class="truncate">Command palette</span>
+        <span v-show="!collapsed" class="truncate">{{ t('nav.commandPalette') }}</span>
       </button>
     </div>
 
     <nav
       class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
-      aria-label="Main"
+      :aria-label="t('nav.mainNavigation')"
     >
       <RouterLink
         v-for="l in mainLinks"
@@ -182,12 +184,12 @@ function openCommandPaletteFromSidebar() {
           v-show="!collapsed"
           class="mb-0.5 mt-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted"
         >
-          Admin
+          {{ t('nav.admin') }}
         </p>
         <div
           class="flex flex-col gap-0.5"
           role="group"
-          aria-label="Admin"
+          :aria-label="t('nav.admin')"
         >
           <RouterLink
             v-for="l in adminLinks"
@@ -232,7 +234,7 @@ function openCommandPaletteFromSidebar() {
               ? 'bg-primary/10 text-primary'
               : 'text-foreground hover:bg-surface-muted',
           ]"
-          :title="collapsed ? 'Profile' : undefined"
+          :title="collapsed ? t('nav.profile') : undefined"
           :aria-current="isActive('/profile') ? 'page' : undefined"
           @click="onNavigate"
         >
@@ -259,8 +261,8 @@ function openCommandPaletteFromSidebar() {
           type="button"
           class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
           :class="collapsed ? 'w-full' : ''"
-          title="Sign out"
-          aria-label="Sign out"
+          :title="t('nav.signOut')"
+          :aria-label="t('nav.signOut')"
           @click="logout"
         >
           <ArrowRightStartOnRectangleIcon class="h-5 w-5" aria-hidden="true" />

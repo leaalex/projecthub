@@ -6,6 +6,7 @@ import {
   TrashIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminUserModal from '../../components/admin/AdminUserModal.vue'
 import Avatar from '../../components/ui/UiAvatar.vue'
 import Breadcrumb from '../../components/ui/UiBreadcrumb.vue'
@@ -20,6 +21,7 @@ import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth.store'
 import { api } from '../../utils/api'
 
+const { t } = useI18n()
 const { confirm } = useConfirm()
 const toast = useToast()
 const auth = useAuthStore()
@@ -31,19 +33,19 @@ const roleSavingId = ref<number | null>(null)
 const isAdmin = computed(() => auth.user?.role === 'admin')
 const isStaff = computed(() => auth.user?.role === 'staff')
 
-const roleMenuOptions: UiSelectOption<string>[] = [
-  { value: 'user', label: 'User' },
-  { value: 'creator', label: 'Creator' },
-  { value: 'staff', label: 'Staff' },
-]
+const roleMenuOptions = computed<UiSelectOption<string>[]>(() => [
+  { value: 'user', label: t('admin.users.roleOptions.user') },
+  { value: 'creator', label: t('admin.users.roleOptions.creator') },
+  { value: 'staff', label: t('admin.users.roleOptions.staff') },
+])
 
 const modalOpen = ref(false)
 const modalMode = ref<'create' | 'edit' | 'view'>('create')
 const modalUser = ref<User | null>(null)
 
-function dashOr(s?: string | null) {
-  const t = s?.trim()
-  return t || '—'
+function trimOrDash(s?: string | null) {
+  const x = s?.trim()
+  return x || t('common.dash')
 }
 
 function primaryLine(u: User): string {
@@ -82,7 +84,7 @@ async function load() {
     const { data } = await api.get<{ users: User[] }>('/users')
     users.value = data.users
   } catch {
-    error.value = 'Failed to load users (staff or admin only).'
+    error.value = t('admin.users.errors.loadFailed')
   } finally {
     loading.value = false
   }
@@ -110,18 +112,18 @@ function openView(u: User) {
 
 async function remove(u: User) {
   const ok = await confirm({
-    title: 'Delete user',
-    message: `Delete user ${u.email}?`,
-    confirmLabel: 'Delete',
+    title: t('admin.users.confirm.deleteTitle'),
+    message: t('admin.users.confirm.deleteMessage', { email: u.email }),
+    confirmLabel: t('admin.users.confirm.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
   try {
     await api.delete(`/users/${u.id}`)
     await load()
-    toast.success('User deleted')
+    toast.success(t('admin.users.toasts.userDeleted'))
   } catch {
-    const msg = 'Could not delete user.'
+    const msg = t('admin.users.errors.deleteFailed')
     error.value = msg
     toast.error(msg)
   }
@@ -133,9 +135,9 @@ async function applyRole(u: User, newRole: string) {
   try {
     await api.patch(`/users/${u.id}/role`, { role: newRole })
     await load()
-    toast.success('Role updated')
+    toast.success(t('admin.users.toasts.roleUpdated'))
   } catch {
-    toast.error('Could not update role')
+    toast.error(t('admin.users.errors.roleFailed'))
   } finally {
     roleSavingId.value = null
   }
@@ -151,24 +153,26 @@ function isSelf(u: User) {
     <Breadcrumb
       class="mb-4"
       :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Users' },
+        { label: t('common.home'), to: '/dashboard' },
+        { label: t('admin.users.title') },
       ]"
     />
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold text-foreground">Users</h1>
+        <h1 class="text-2xl font-semibold text-foreground">{{ t('admin.users.title') }}</h1>
         <p class="mt-1 text-sm text-muted">
           {{
             isAdmin
-              ? 'Manage accounts and global roles'
+              ? t('admin.users.subtitleAdmin')
               : isStaff
-                ? 'Directory — view all users (editing is admin-only)'
-                : 'Directory (read-only)'
+                ? t('admin.users.subtitleStaff')
+                : t('admin.users.subtitleReadonly')
           }}
         </p>
       </div>
-      <Button v-if="isAdmin" type="button" @click="openCreate">New user</Button>
+      <Button v-if="isAdmin" type="button" @click="openCreate">{{
+        t('admin.users.newUser')
+      }}</Button>
     </div>
 
     <AdminUserModal
@@ -200,8 +204,8 @@ function isSelf(u: User) {
     <EmptyState
       v-else-if="!users.length"
       class="mt-8"
-      title="No users"
-      description="No user accounts are visible in this environment."
+      :title="t('admin.users.empty.title')"
+      :description="t('admin.users.empty.description')"
     />
 
     <!-- Mobile -->
@@ -221,15 +225,15 @@ function isSelf(u: User) {
 
         <div class="min-w-0 space-y-1.5">
           <p class="break-words text-sm font-medium leading-snug text-foreground">
-            {{ dashOr(u.job_title) }}
+            {{ trimOrDash(u.job_title) }}
           </p>
           <p
             class="truncate text-xs text-muted"
             :title="u.department?.trim() ? u.department : undefined"
           >
-            {{ dashOr(u.department) }}
+            {{ trimOrDash(u.department) }}
           </p>
-          <p class="truncate text-xs text-muted">{{ dashOr(u.phone) }}</p>
+          <p class="truncate text-xs text-muted">{{ trimOrDash(u.phone) }}</p>
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -244,8 +248,8 @@ function isSelf(u: User) {
                 type="button"
                 variant="secondary"
                 class="h-8 min-h-8 w-8 min-w-8 !px-0"
-                :aria-label="`Edit ${u.email}`"
-                :title="`Edit ${u.email}`"
+                :aria-label="t('admin.users.aria.edit', { email: u.email })"
+                :title="t('admin.users.aria.edit', { email: u.email })"
                 @click.stop="openEdit(u)"
               >
                 <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -255,8 +259,12 @@ function isSelf(u: User) {
                 variant="ghost-danger"
                 class="h-8 min-h-8 w-8 min-w-8 !px-0"
                 :disabled="isSelf(u)"
-                :aria-label="`Delete ${u.email}`"
-                :title="isSelf(u) ? 'Cannot delete your own account' : `Delete ${u.email}`"
+                :aria-label="t('admin.users.aria.delete', { email: u.email })"
+                :title="
+                  isSelf(u)
+                    ? t('admin.users.cannotDeleteSelf')
+                    : t('admin.users.aria.delete', { email: u.email })
+                "
                 @click.stop="remove(u)"
               >
                 <TrashIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -267,8 +275,8 @@ function isSelf(u: User) {
               type="button"
               variant="secondary"
               class="h-8 min-h-8 w-8 min-w-8 !px-0"
-              :aria-label="`View ${u.email}`"
-              :title="`View ${u.email}`"
+              :aria-label="t('admin.users.aria.view', { email: u.email })"
+              :title="t('admin.users.aria.view', { email: u.email })"
               @click.stop="openView(u)"
             >
               <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -277,12 +285,18 @@ function isSelf(u: User) {
         </div>
 
         <div v-if="isAdmin && u.role !== 'admin'" class="flex items-center gap-2">
-          <span class="text-xs font-medium text-muted">Change role</span>
+          <span class="text-xs font-medium text-muted">{{
+            t('admin.users.changeRole')
+          }}</span>
           <UiMenuButton
             :key="`${u.id}-${u.role}`"
             :model-value="u.role"
-            :ariaLabel="`Change role for ${u.email}, current ${u.role}`"
-            :title="`Change role (now ${u.role})`"
+            :ariaLabel="
+              t('admin.users.aria.changeRole', { email: u.email, role: u.role })
+            "
+            :title="
+              t('admin.users.aria.changeRoleTitle', { role: u.role })
+            "
             :options="roleMenuOptions"
             :disabled="roleSavingId === u.id"
             :min-panel-width="180"
@@ -302,11 +316,11 @@ function isSelf(u: User) {
       <table class="w-full min-w-[42rem] border-collapse text-left text-sm">
         <thead>
           <tr class="border-b border-border bg-surface-muted">
-            <th class="px-4 py-3 font-semibold text-foreground">User</th>
-            <th class="px-4 py-3 font-semibold text-foreground">Info</th>
-            <th class="px-4 py-3 font-semibold text-foreground">Phone</th>
-            <th class="px-4 py-3 font-semibold text-foreground">Role</th>
-            <th class="px-4 py-3 text-right font-semibold text-foreground">Actions</th>
+            <th class="px-4 py-3 font-semibold text-foreground">{{ t('admin.users.table.user') }}</th>
+            <th class="px-4 py-3 font-semibold text-foreground">{{ t('admin.users.table.info') }}</th>
+            <th class="px-4 py-3 font-semibold text-foreground">{{ t('admin.users.table.phone') }}</th>
+            <th class="px-4 py-3 font-semibold text-foreground">{{ t('admin.users.table.role') }}</th>
+            <th class="px-4 py-3 text-right font-semibold text-foreground">{{ t('admin.users.table.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border bg-surface">
@@ -324,17 +338,17 @@ function isSelf(u: User) {
             </td>
             <td class="min-w-[11rem] max-w-[22rem] overflow-hidden px-4 py-3 align-middle">
               <p class="break-words text-sm font-medium leading-snug text-foreground">
-                {{ dashOr(u.job_title) }}
+                {{ trimOrDash(u.job_title) }}
               </p>
               <p
                 class="mt-1 truncate text-xs text-muted"
                 :title="u.department?.trim() ? u.department : undefined"
               >
-                {{ dashOr(u.department) }}
+                {{ trimOrDash(u.department) }}
               </p>
             </td>
             <td class="max-w-[10rem] min-w-[6rem] px-4 py-3 align-middle text-xs text-muted">
-              <span class="block truncate">{{ dashOr(u.phone) }}</span>
+              <span class="block truncate">{{ trimOrDash(u.phone) }}</span>
             </td>
             <td class="px-4 py-3 align-middle">
               <div class="flex max-w-[14rem] flex-wrap items-center gap-2">
@@ -347,8 +361,13 @@ function isSelf(u: User) {
                   v-if="isAdmin && u.role !== 'admin'"
                   :key="`${u.id}-${u.role}`"
                   :model-value="u.role"
-                  :ariaLabel="`Change role for ${u.email}, current ${u.role}`"
-                  :title="`Change role (now ${u.role})`"
+                  :ariaLabel="
+                    t('admin.users.aria.changeRole', {
+                      email: u.email,
+                      role: u.role,
+                    })
+                  "
+                  :title="t('admin.users.aria.changeRoleTitle', { role: u.role })"
                   :options="roleMenuOptions"
                   :disabled="roleSavingId === u.id"
                   :min-panel-width="180"
@@ -365,8 +384,8 @@ function isSelf(u: User) {
                     type="button"
                     variant="secondary"
                     class="h-8 min-h-8 w-8 min-w-8 !px-0"
-                    :aria-label="`Edit ${u.email}`"
-                    :title="`Edit ${u.email}`"
+                    :aria-label="t('admin.users.aria.edit', { email: u.email })"
+                    :title="t('admin.users.aria.edit', { email: u.email })"
                     @click.stop="openEdit(u)"
                   >
                     <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -376,9 +395,11 @@ function isSelf(u: User) {
                     variant="ghost-danger"
                     class="h-8 min-h-8 w-8 min-w-8 !px-0"
                     :disabled="isSelf(u)"
-                    :aria-label="`Delete ${u.email}`"
+                    :aria-label="t('admin.users.aria.delete', { email: u.email })"
                     :title="
-                      isSelf(u) ? 'Cannot delete your own account' : `Delete ${u.email}`
+                      isSelf(u)
+                        ? t('admin.users.cannotDeleteSelf')
+                        : t('admin.users.aria.delete', { email: u.email })
                     "
                     @click.stop="remove(u)"
                   >
@@ -390,8 +411,8 @@ function isSelf(u: User) {
                   type="button"
                   variant="secondary"
                   class="h-8 min-h-8 w-8 min-w-8 !px-0"
-                  :aria-label="`View ${u.email}`"
-                  :title="`View ${u.email}`"
+                  :aria-label="t('admin.users.aria.view', { email: u.email })"
+                  :title="t('admin.users.aria.view', { email: u.email })"
                   @click.stop="openView(u)"
                 >
                   <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />

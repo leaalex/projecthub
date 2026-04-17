@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Task } from '../../types/task'
 import type { TaskTransfer } from '../../types/project'
 import type { AssignableUserOption } from '../../utils/assignee'
@@ -8,6 +9,8 @@ import Button from '../ui/UiButton.vue'
 import Modal from '../ui/UiModal.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -51,14 +54,14 @@ const progressText = computed(() => `${validCount.value}/${props.tasks.length}`)
 
 function validateTransfer(assigneeId: number | undefined): string | undefined {
   if (!assigneeId) {
-    return 'Required'
+    return t('manualTaskTransfer.validation.required')
   }
   if (assigneeId === props.memberId) {
-    return 'Cannot assign to member being removed'
+    return t('manualTaskTransfer.validation.cannotAssignRemoved')
   }
   const isValidAssignee = props.availableAssignees.some((u) => u.id === assigneeId)
   if (!isValidAssignee) {
-    return 'Invalid assignee'
+    return t('manualTaskTransfer.validation.invalidAssignee')
   }
   return undefined
 }
@@ -67,7 +70,9 @@ function onAssigneeChange(taskId: number, raw: string | number | null | undefine
   const value = raw == null || raw === '' ? undefined : Number(raw)
   if (!value || !Number.isFinite(value)) {
     delete transfers.value[taskId]
-    validationErrors.value[taskId] = 'Required'
+    validationErrors.value[taskId] = t(
+      'manualTaskTransfer.validation.required',
+    )
     return
   }
   transfers.value[taskId] = value
@@ -112,7 +117,12 @@ function onCancel() {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="`Reassign ${tasks.length} tasks from ${memberName}`"
+    :title="
+      t('manualTaskTransfer.title', {
+        count: tasks.length,
+        name: memberName,
+      })
+    "
     size="large"
     @update:model-value="$emit('update:modelValue', $event)"
   >
@@ -121,25 +131,30 @@ function onCancel() {
         v-if="pendingCount > 0"
         class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
       >
-        <p class="font-medium">Deletion blocked</p>
-        <p>{{ pendingCount }} of {{ tasks.length }} tasks pending reassignment</p>
+        <p class="font-medium">{{ t('manualTaskTransfer.banners.deletionBlocked') }}</p>
+        <p>{{
+          t('manualTaskTransfer.banners.pending', {
+            pending: pendingCount,
+            total: tasks.length,
+          })
+        }}</p>
       </div>
       <div
         v-else
         class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
       >
-        <p class="font-medium">All tasks reassigned</p>
-        <p>You can now remove {{ memberName }} from the project.</p>
+        <p class="font-medium">{{ t('manualTaskTransfer.banners.allReassigned') }}</p>
+        <p>{{ t('manualTaskTransfer.banners.canRemove', { name: memberName }) }}</p>
       </div>
 
       <div class="max-h-[60vh] overflow-auto">
         <table class="w-full text-sm">
           <thead class="bg-surface-muted text-left">
             <tr>
-              <th class="px-3 py-2 font-medium">Task</th>
-              <th class="px-3 py-2 font-medium">Status</th>
-              <th class="px-3 py-2 font-medium">New Assignee</th>
-              <th class="px-3 py-2 font-medium text-center">Valid</th>
+              <th class="px-3 py-2 font-medium">{{ t('manualTaskTransfer.table.task') }}</th>
+              <th class="px-3 py-2 font-medium">{{ t('manualTaskTransfer.table.status') }}</th>
+              <th class="px-3 py-2 font-medium">{{ t('manualTaskTransfer.table.newAssignee') }}</th>
+              <th class="px-3 py-2 font-medium text-center">{{ t('manualTaskTransfer.table.valid') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-border">
@@ -157,14 +172,16 @@ function onCancel() {
                 <UiSelect
                   :model-value="transfers[task.id]"
                   :options="assigneeOptions"
-                  placeholder="Select assignee..."
+                  :placeholder="t('manualTaskTransfer.placeholderAssignee')"
                   :error="getValidationError(task.id)"
                   @update:model-value="onAssigneeChange(task.id, $event as string | number | null | undefined)"
                 />
               </td>
               <td class="px-3 py-2 text-center">
                 <span v-if="isValid(task.id)" class="text-emerald-600 font-medium">✓</span>
-                <span v-else class="text-red-600 text-xs">Required</span>
+                <span v-else class="text-red-600 text-xs">{{
+                  t('manualTaskTransfer.validation.required')
+                }}</span>
               </td>
             </tr>
           </tbody>
@@ -173,12 +190,15 @@ function onCancel() {
 
       <div class="flex items-center justify-between pt-2 border-t border-border">
         <div class="text-sm text-muted">
-          Progress: <span class="font-medium" :class="allValid ? 'text-emerald-600' : 'text-amber-600'">{{ progressText }}</span>
+          {{ t('manualTaskTransfer.progress') }}
+          <span class="font-medium" :class="allValid ? 'text-emerald-600' : 'text-amber-600'">{{ progressText }}</span>
         </div>
         <div class="flex gap-2">
-          <Button variant="secondary" @click="onCancel">Cancel</Button>
+          <Button variant="secondary" @click="onCancel">{{
+            t('manualTaskTransfer.cancel')
+          }}</Button>
           <Button :disabled="!allValid" @click="onApply">
-            Apply Transfers and Remove Member
+            {{ t('manualTaskTransfer.apply') }}
           </Button>
         </div>
       </div>

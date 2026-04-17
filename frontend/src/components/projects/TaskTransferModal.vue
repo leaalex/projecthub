@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TaskTransferMode } from '../../types/project'
 import type { AssignableUserOption } from '../../utils/assignee'
 import Button from '../ui/UiButton.vue'
 import Modal from '../ui/UiModal.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -24,11 +27,11 @@ const emit = defineEmits<{
 const selectedMode = ref<TaskTransferMode>('unassigned')
 const selectedTarget = ref<string>('')
 
-const modeOptions: UiSelectOption<TaskTransferMode>[] = [
-  { value: 'unassigned', label: 'Leave tasks unassigned' },
-  { value: 'single_user', label: 'Assign all tasks to one user' },
-  { value: 'manual', label: 'Configure per task manually' },
-]
+const modeOptions = computed<UiSelectOption<TaskTransferMode>[]>(() => [
+  { value: 'unassigned', label: t('taskTransferModal.mode.unassigned') },
+  { value: 'single_user', label: t('taskTransferModal.mode.single_user') },
+  { value: 'manual', label: t('taskTransferModal.mode.manual') },
+])
 
 const targetOptions = computed<UiSelectOption<string>[]>(() =>
   props.availableAssignees.map((u) => ({
@@ -45,13 +48,14 @@ const canProceed = computed(() => {
 })
 
 const proceedLabel = computed(() => {
+  const count = props.taskCount
   switch (selectedMode.value) {
     case 'unassigned':
-      return `Remove member and unassign ${props.taskCount} tasks`
+      return t('taskTransferModal.primary.unassigned', { count })
     case 'single_user':
-      return `Remove member and transfer ${props.taskCount} tasks`
+      return t('taskTransferModal.primary.single_user', { count })
     case 'manual':
-      return 'Configure task assignments'
+      return t('taskTransferModal.primary.manual')
   }
 })
 
@@ -76,17 +80,26 @@ function onCancel() {
 <template>
   <Modal
     :model-value="modelValue"
-    title="Remove Project Member"
+    :title="t('taskTransferModal.title')"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <div class="space-y-4">
       <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        <p class="font-medium">Warning: {{ memberName }} has {{ taskCount }} assigned task(s)</p>
-        <p class="mt-1">Choose how to handle these tasks before removing the member.</p>
+        <p class="font-medium">
+          {{
+            t('taskTransferModal.warning', {
+              name: memberName,
+              count: taskCount,
+            })
+          }}
+        </p>
+        <p class="mt-1">{{ t('taskTransferModal.chooseHandling') }}</p>
       </div>
 
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">Transfer mode</label>
+        <label class="block text-sm font-medium text-foreground">{{
+          t('taskTransferModal.transferMode')
+        }}</label>
         <UiSelect
           v-model="selectedMode"
           :options="modeOptions"
@@ -94,16 +107,20 @@ function onCancel() {
       </div>
 
       <div v-if="selectedMode === 'single_user'" class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">Assign all tasks to</label>
+        <label class="block text-sm font-medium text-foreground">{{
+          t('taskTransferModal.assignAllTo')
+        }}</label>
         <UiSelect
           v-model="selectedTarget"
           :options="targetOptions"
-          placeholder="Select team member..."
+          :placeholder="t('taskTransferModal.selectTeamMember')"
         />
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" @click="onCancel">Cancel</Button>
+        <Button variant="secondary" @click="onCancel">{{
+          t('taskTransferModal.cancel')
+        }}</Button>
         <Button :disabled="!canProceed" @click="onProceed">
           {{ proceedLabel }}
         </Button>

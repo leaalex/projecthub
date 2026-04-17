@@ -12,6 +12,8 @@ export interface User {
   department?: string
   job_title?: string
   phone?: string
+  /** UI locale from API; persisted with profile */
+  locale?: 'ru' | 'en'
   created_at?: string
   updated_at?: string
 }

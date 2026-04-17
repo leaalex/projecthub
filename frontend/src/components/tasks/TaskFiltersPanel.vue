@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import UiCard from '../ui/UiCard.vue'
 import UiSegmentedControl from '../ui/UiSegmentedControl.vue'
 import UiSelect from '../ui/UiSelect.vue'
@@ -13,6 +14,9 @@ import type {
   TaskSortKey,
 } from '../../composables/useTaskListPresentation'
 import type { TaskPriority, TaskStatus } from '../../types/task'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -55,56 +59,72 @@ watch(
   { immediate: true },
 )
 
-const statusOptionsMulti = [
-  { value: 'todo' as const, label: 'To do' },
-  { value: 'in_progress' as const, label: 'In progress' },
-  { value: 'review' as const, label: 'Review' },
-  { value: 'done' as const, label: 'Done' },
-]
+const statusOptionsMulti = computed(() =>
+  (['todo', 'in_progress', 'review', 'done'] as const).map((value) => ({
+    value,
+    label: taskStatusLabel(t, value),
+  })),
+)
 
-const priorityOptionsMulti = [
-  { value: 'low' as const, label: 'Low' },
-  { value: 'medium' as const, label: 'Medium' },
-  { value: 'high' as const, label: 'High' },
-  { value: 'critical' as const, label: 'Critical' },
-]
+const priorityOptionsMulti = computed(() =>
+  (['low', 'medium', 'high', 'critical'] as const).map((value) => ({
+    value,
+    label: taskPriorityLabel(t, value),
+  })),
+)
 
-const sortKeySegmented: { value: TaskSortKey; label: string }[] = [
-  { value: 'updated_at', label: 'Updated' },
-  { value: 'created_at', label: 'Created' },
-  { value: 'title', label: 'Title' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'due_date', label: 'Due date' },
-]
+const sortKeySegmented = computed<{ value: TaskSortKey; label: string }[]>(() =>
+  (
+    [
+      'updated_at',
+      'created_at',
+      'title',
+      'priority',
+      'due_date',
+    ] as const
+  ).map((value) => ({
+    value,
+    label: t(`enums.sortKeys.${value}`),
+  })),
+)
 
-const sortDirSegmented: { value: SortDir; label: string }[] = [
-  { value: 'asc', label: 'Ascending' },
-  { value: 'desc', label: 'Descending' },
-]
+const sortDirSegmented = computed<{ value: SortDir; label: string }[]>(() =>
+  (['asc', 'desc'] as const).map((value) => ({
+    value,
+    label: t(`enums.sortDir.${value}`),
+  })),
+)
 
-const groupByOptionsAll: { value: TaskGroupBy; label: string }[] = [
-  { value: 'none', label: 'No grouping' },
-  { value: 'project', label: 'By project' },
-  { value: 'section', label: 'By section' },
-  { value: 'status', label: 'By status' },
-  { value: 'priority', label: 'By priority' },
-  { value: 'assignee', label: 'By assignee' },
-]
+const groupByOptionsAll = computed<{ value: TaskGroupBy; label: string }[]>(() =>
+  (
+    [
+      'none',
+      'project',
+      'section',
+      'status',
+      'priority',
+      'assignee',
+    ] as const
+  ).map((value) => ({
+    value,
+    label: t(`enums.groupBy.${value}`),
+  })),
+)
 
 const groupByOptions = computed(() =>
   props.hideProjectFilter
-    ? groupByOptionsAll.filter((o) => o.value !== 'project')
-    : groupByOptionsAll,
+    ? groupByOptionsAll.value.filter((o) => o.value !== 'project')
+    : groupByOptionsAll.value,
 )
 
 const projectSelectOptions = computed(() => [
-  { value: '' as const, label: 'All projects' },
+  { value: '' as const, label: t('taskFiltersPanel.placeholders.allProjects') },
   ...props.projects.map((p) => ({ value: p.id, label: p.name })),
 ])
 
 const assigneeSelectOptions = computed(() => {
   const base: { value: string | number; label: string }[] = [
-    { value: 'unassigned', label: 'Unassigned' },
+    { value: 'unassigned', label: t('common.unassigned') },
   ]
   for (const u of props.assignableUsers) {
     base.push({
@@ -132,14 +152,16 @@ const clearBtnClass =
     <div class="space-y-4">
       <div :class="filterGridClass">
         <div v-if="!hideProjectFilter">
-          <label class="mb-1 block text-xs font-medium text-foreground">Project</label>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.project')
+          }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
               <UiSelect
                 v-model="filterProject"
                 filterable
-                placeholder="All projects"
-                aria-label="Filter by project"
+                :placeholder="t('taskFiltersPanel.placeholders.allProjects')"
+                :aria-label="t('taskFiltersPanel.aria.filterByProject')"
                 :options="projectSelectOptions"
               />
             </div>
@@ -147,7 +169,7 @@ const clearBtnClass =
               v-if="filterProject !== ''"
               type="button"
               :class="clearBtnClass"
-              aria-label="Clear project filter"
+              :aria-label="t('taskFiltersPanel.aria.clearProject')"
               @click="filterProject = ''"
             >
               <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -155,15 +177,17 @@ const clearBtnClass =
           </div>
         </div>
         <div>
-          <label class="mb-1 block text-xs font-medium text-foreground">Status</label>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.status')
+          }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
               <UiSelect
                 v-model="filterStatus"
                 filterable
                 multiple
-                placeholder="All statuses"
-                aria-label="Filter by status"
+                :placeholder="t('taskFiltersPanel.placeholders.allStatuses')"
+                :aria-label="t('taskFiltersPanel.aria.filterByStatus')"
                 :options="statusOptionsMulti"
               />
             </div>
@@ -171,7 +195,7 @@ const clearBtnClass =
               v-if="filterStatus.length > 0"
               type="button"
               :class="clearBtnClass"
-              aria-label="Clear status filter"
+              :aria-label="t('taskFiltersPanel.aria.clearStatus')"
               @click="filterStatus = []"
             >
               <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -179,15 +203,17 @@ const clearBtnClass =
           </div>
         </div>
         <div>
-          <label class="mb-1 block text-xs font-medium text-foreground">Priority</label>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.priority')
+          }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
               <UiSelect
                 v-model="clientPriority"
                 filterable
                 multiple
-                placeholder="All priorities"
-                aria-label="Filter by priority"
+                :placeholder="t('taskFiltersPanel.placeholders.allPriorities')"
+                :aria-label="t('taskFiltersPanel.aria.filterByPriority')"
                 :options="priorityOptionsMulti"
               />
             </div>
@@ -195,7 +221,7 @@ const clearBtnClass =
               v-if="clientPriority.length > 0"
               type="button"
               :class="clearBtnClass"
-              aria-label="Clear priority filter"
+              :aria-label="t('taskFiltersPanel.aria.clearPriority')"
               @click="clientPriority = []"
             >
               <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -203,15 +229,17 @@ const clearBtnClass =
           </div>
         </div>
         <div v-if="showAssigneeFilter">
-          <label class="mb-1 block text-xs font-medium text-foreground">Assignee</label>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.assignee')
+          }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
               <UiSelect
                 v-model="assigneeFilter"
                 filterable
                 multiple
-                placeholder="All assignees"
-                aria-label="Filter by assignee"
+                :placeholder="t('taskFiltersPanel.placeholders.allAssignees')"
+                :aria-label="t('taskFiltersPanel.aria.filterByAssignee')"
                 :options="assigneeSelectOptions"
               />
             </div>
@@ -219,7 +247,7 @@ const clearBtnClass =
               v-if="assigneeFilter.length > 0"
               type="button"
               :class="clearBtnClass"
-              aria-label="Clear assignee filter"
+              :aria-label="t('taskFiltersPanel.aria.clearAssignee')"
               @click="assigneeFilter = []"
             >
               <XMarkIcon class="h-3.5 w-3.5" aria-hidden="true" />
@@ -231,31 +259,37 @@ const clearBtnClass =
       <div
         class="-mx-1 flex max-w-full flex-nowrap items-end gap-4 overflow-x-auto px-1 pb-0.5"
         role="group"
-        aria-label="Sort, order, and grouping"
+        :aria-label="t('taskFiltersPanel.aria.sortOrderGrouping')"
       >
         <div class="flex shrink-0 flex-col gap-1.5">
-          <label class="block text-xs font-medium text-foreground">Sort by</label>
+          <label class="block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.sortBy')
+          }}</label>
           <UiSegmentedControl
             v-model="sortKey"
             class="min-w-max"
-            aria-label="Sort tasks by"
+            :aria-label="t('taskFiltersPanel.aria.sortTasksBy')"
             :options="sortKeySegmented"
           />
         </div>
         <div class="flex shrink-0 flex-col gap-1.5">
-          <label class="block text-xs font-medium text-foreground">Order</label>
+          <label class="block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.order')
+          }}</label>
           <UiSegmentedControl
             v-model="sortDir"
-            aria-label="Sort order"
+            :aria-label="t('taskFiltersPanel.aria.sortOrder')"
             :options="sortDirSegmented"
           />
         </div>
         <div class="flex shrink-0 flex-col gap-1.5">
-          <label class="block text-xs font-medium text-foreground">Group (list only)</label>
+          <label class="block text-xs font-medium text-foreground">{{
+            t('taskFiltersPanel.labels.groupListOnly')
+          }}</label>
           <UiSegmentedControl
             v-model="groupBy"
             class="min-w-max"
-            aria-label="Group tasks"
+            :aria-label="t('taskFiltersPanel.aria.groupTasks')"
             :options="groupByOptions"
           />
         </div>
@@ -263,7 +297,7 @@ const clearBtnClass =
 
       <div class="flex justify-start pt-1">
         <UiTextAction type="button" @click="emit('reset')">
-          Reset filters
+          {{ t('taskFiltersPanel.reset') }}
         </UiTextAction>
       </div>
     </div>

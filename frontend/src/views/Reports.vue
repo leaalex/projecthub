@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
 import EmptyState from '../components/ui/UiEmptyState.vue'
@@ -14,6 +15,8 @@ import { useToast } from '../composables/useToast'
 import { api } from '../utils/api'
 import { formatDateShort } from '../utils/formatters'
 import type { ReportConfig, SavedReport, WeeklyReport } from '../types/report'
+
+const { t } = useI18n()
 
 const report = ref<WeeklyReport | null>(null)
 const loading = ref(true)
@@ -35,7 +38,7 @@ async function loadWeekly() {
     const { data } = await api.get<WeeklyReport>('/reports/weekly')
     report.value = data
   } catch {
-    msg.value = 'Could not load report.'
+    msg.value = t('reports.toasts.loadFailed')
   } finally {
     loading.value = false
   }
@@ -68,9 +71,10 @@ function parseFilename(cd: string | undefined, fallback: string) {
 }
 
 function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+  if (n < 1024) return t('common.bytes.b', { n })
+  if (n < 1024 * 1024)
+    return t('common.bytes.kb', { n: (n / 1024).toFixed(1) })
+  return t('common.bytes.mb', { n: (n / (1024 * 1024)).toFixed(1) })
 }
 
 async function onCreateReport(cfg: ReportConfig) {
@@ -82,7 +86,7 @@ async function onCreateReport(cfg: ReportConfig) {
     await loadExports()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
-    msg.value = err.response?.data?.error ?? 'Could not create report.'
+    msg.value = err.response?.data?.error ?? t('reports.toasts.createFailed')
   } finally {
     generating.value = false
   }
@@ -101,9 +105,9 @@ async function downloadSaved(r: SavedReport) {
       const text = await resp.data.text()
       try {
         const j = JSON.parse(text) as { error?: string }
-        msg.value = j.error ?? 'Download failed.'
+        msg.value = j.error ?? t('reports.toasts.downloadFailed')
       } catch {
-        msg.value = 'Download failed.'
+        msg.value = t('reports.toasts.downloadFailed')
       }
       return
     }
@@ -126,21 +130,21 @@ async function downloadSaved(r: SavedReport) {
       const text = await blob.text()
       try {
         const j = JSON.parse(text) as { error?: string }
-        msg.value = j.error ?? 'Download failed.'
+        msg.value = j.error ?? t('reports.toasts.downloadFailed')
       } catch {
-        msg.value = 'Download failed.'
+        msg.value = t('reports.toasts.downloadFailed')
       }
     } else {
-      msg.value = 'Download failed.'
+      msg.value = t('reports.toasts.downloadFailed')
     }
   }
 }
 
 async function deleteSaved(r: SavedReport) {
   const ok = await confirm({
-    title: 'Delete report',
-    message: `Remove “${r.display_name}” from the server? This cannot be undone.`,
-    confirmLabel: 'Delete',
+    title: t('reports.confirm.deleteTitle'),
+    message: t('reports.confirm.deleteMessage', { name: r.display_name }),
+    confirmLabel: t('reports.confirm.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
@@ -149,14 +153,22 @@ async function deleteSaved(r: SavedReport) {
   try {
     await api.delete(`/reports/exports/${r.id}`)
     await loadExports()
-    toast.success('Report deleted')
+    toast.success(t('reports.toasts.deleted'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
-    msg.value = err.response?.data?.error ?? 'Could not delete report.'
+    msg.value = err.response?.data?.error ?? t('reports.toasts.deleteFailed')
   } finally {
     deletingId.value = null
   }
 }
+
+const tableHeaders = computed(() => [
+  t('reports.table.name'),
+  t('reports.table.format'),
+  t('reports.table.size'),
+  t('reports.table.created'),
+  t('reports.table.actions'),
+])
 </script>
 
 <template>
@@ -164,18 +176,18 @@ async function deleteSaved(r: SavedReport) {
     <Breadcrumb
       class="mb-4"
       :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Reports' },
+        { label: t('common.home'), to: '/dashboard' },
+        { label: t('reports.title') },
       ]"
     />
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold text-foreground">Reports</h1>
+        <h1 class="text-2xl font-semibold text-foreground">{{ t('reports.title') }}</h1>
         <p class="mt-1 text-sm text-muted">
-          Weekly overview and saved exports
+          {{ t('reports.subtitle') }}
         </p>
       </div>
-      <Button type="button" @click="modalOpen = true">New report</Button>
+      <Button type="button" @click="modalOpen = true">{{ t('reports.newReport') }}</Button>
     </div>
 
     <p
@@ -189,9 +201,9 @@ async function deleteSaved(r: SavedReport) {
       <ReportViewer :report="report" :loading="loading" />
 
       <Card padding="p-4">
-        <h2 class="text-lg font-semibold text-foreground">Saved reports</h2>
+        <h2 class="text-lg font-semibold text-foreground">{{ t('reports.saved.title') }}</h2>
         <p class="mt-1 text-sm text-muted">
-          Files on the server; download anytime.
+          {{ t('reports.saved.subtitle') }}
         </p>
 
         <div v-if="loadingExports" class="mt-4 space-y-3">
@@ -200,13 +212,13 @@ async function deleteSaved(r: SavedReport) {
         <EmptyState
           v-else-if="!savedReports.length"
           class="mt-4"
-          title="No saved reports yet"
-          description="Generate a report with New report to save a file on the server."
+          :title="t('reports.empty.title')"
+          :description="t('reports.empty.description')"
         />
         <Table
           v-else
           class="mt-4"
-          :headers="['Name', 'Format', 'Size', 'Created', 'Actions']"
+          :headers="tableHeaders"
         >
           <tr
             v-for="r in savedReports"
@@ -228,7 +240,7 @@ async function deleteSaved(r: SavedReport) {
                   variant="secondary"
                   @click="downloadSaved(r)"
                 >
-                  Download
+                  {{ t('reports.download') }}
                 </Button>
                 <Button
                   type="button"
@@ -237,7 +249,7 @@ async function deleteSaved(r: SavedReport) {
                   :disabled="deletingId !== null && deletingId !== r.id"
                   @click="deleteSaved(r)"
                 >
-                  Delete
+                  {{ t('reports.delete') }}
                 </Button>
               </div>
             </td>
@@ -246,7 +258,7 @@ async function deleteSaved(r: SavedReport) {
       </Card>
     </div>
 
-    <Modal v-model="modalOpen" title="New report" wide>
+    <Modal v-model="modalOpen" :title="t('reports.modal.newTitle')" wide>
       <ReportSettings :generating="generating" @generate="onCreateReport" />
     </Modal>
   </div>

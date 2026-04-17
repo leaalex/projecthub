@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import UiAvatar from '../components/ui/UiAvatar.vue'
 import UiBadge from '../components/ui/UiBadge.vue'
 import UiBreadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -22,6 +23,7 @@ import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 
+const { t } = useI18n()
 const { confirm } = useConfirm()
 const toast = useToast()
 
@@ -93,15 +95,15 @@ const buttonLoading = ref(false)
 
 const demoSegment = ref('list')
 const demoSegmentThree = ref('b')
-const segmentedTwo = [
-  { value: 'list', label: 'List' },
-  { value: 'grid', label: 'Grid' },
-]
-const segmentedThree = [
-  { value: 'a', label: 'Alpha' },
-  { value: 'b', label: 'Beta' },
-  { value: 'c', label: 'Gamma' },
-]
+const segmentedTwo = computed(() => [
+  { value: 'list', label: t('uiKit.segmentedTwo.list') },
+  { value: 'grid', label: t('uiKit.segmentedTwo.grid') },
+])
+const segmentedThree = computed(() => [
+  { value: 'a', label: t('uiKit.segmentedThree.alpha') },
+  { value: 'b', label: t('uiKit.segmentedThree.beta') },
+  { value: 'c', label: t('uiKit.segmentedThree.gamma') },
+])
 
 const statuses: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
 const priorities: TaskPriority[] = ['low', 'medium', 'high', 'critical']
@@ -115,16 +117,18 @@ function flashLoading() {
 
 async function runConfirmDemo() {
   const ok = await confirm({
-    title: 'Confirm dialog',
-    message: 'This is a demo of UiConfirmDialog (global).',
-    confirmLabel: 'OK',
+    title: t('uiKit.demo.confirm.title'),
+    message: t('uiKit.demo.confirm.message'),
+    confirmLabel: t('uiKit.demo.confirm.ok'),
   })
-  toast.info(ok ? 'Confirmed' : 'Cancelled')
+  toast.info(
+    ok ? t('uiKit.demo.toasts.confirmed') : t('uiKit.demo.toasts.cancelled'),
+  )
 }
 
 function onDemoMenuSelect(v: string | number) {
   demoMenuActionLog.value = String(v)
-  toast.info(`Action: ${v}`)
+  toast.info(t('uiKit.demo.toasts.action', { action: String(v) }))
 }
 </script>
 
@@ -133,43 +137,22 @@ function onDemoMenuSelect(v: string | number) {
     <UiBreadcrumb
       class="mb-4"
       :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'UI kit' },
+        { label: t('common.home'), to: '/dashboard' },
+        { label: t('uiKit.intro.title') },
       ]"
     />
     <div class="mb-8">
-      <h1 class="text-2xl font-semibold text-foreground">UI kit</h1>
+      <h1 class="text-2xl font-semibold text-foreground">{{ t('uiKit.intro.title') }}</h1>
       <p class="mt-1 text-sm text-muted">
-        Project UI primitives from <code class="text-foreground">components/ui</code>
+        {{ t('uiKit.intro.subtitle') }}
       </p>
       <p class="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
-        On this page:
-        <span class="text-foreground/90">UiButton</span>,
-        <span class="text-foreground/90">UiSegmentedControl</span>,
-        <span class="text-foreground/90">UiInput</span>,
-        <span class="text-foreground/90">UiSelect</span>,
-        <span class="text-foreground/90">UiBadge</span>,
-        <span class="text-foreground/90">UiAvatar</span>,
-        <span class="text-foreground/90">UiCard</span>,
-        <span class="text-foreground/90">UiTable</span>,
-        <span class="text-foreground/90">UiBreadcrumb</span>,
-        <span class="text-foreground/90">UiEmptyState</span>,
-        <span class="text-foreground/90">UiSkeleton</span>,
-        <span class="text-foreground/90">UiModal</span>,
-        <span class="text-foreground/90">UiFormSection</span>,
-        <span class="text-foreground/90">UiScrollPanel</span>,
-        <span class="text-foreground/90">UiTextAction</span>,
-        <span class="text-foreground/90">UiCheckboxRow</span>,
-        <span class="text-foreground/90">UiFilterChip</span>.
-        Globally in the app shell:
-        <span class="text-foreground/90">UiToast</span>,
-        <span class="text-foreground/90">UiConfirmDialog</span>,
-        <span class="text-foreground/90">UiCommandPalette</span>.
+        {{ t('uiKit.intro.onThisPage') }}
       </p>
     </div>
 
     <div class="space-y-8">
-      <UiCard title="Buttons">
+      <UiCard :title="t('uiKit.sections.buttons')">
         <div class="flex flex-wrap items-center gap-3">
           <UiButton variant="primary">Primary</UiButton>
           <UiButton variant="secondary">Secondary</UiButton>
@@ -189,7 +172,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Segmented control (UiSegmentedControl)">
+      <UiCard :title="t('uiKit.sections.segmented')">
         <p class="mb-4 text-sm text-muted">
           Same pattern as List / Board on the Tasks page. Uses
           <code class="text-foreground">v-model</code> with string values.
@@ -217,7 +200,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Inputs (UiInput)">
+      <UiCard :title="t('uiKit.sections.inputs')">
         <div class="grid max-w-md gap-4">
           <UiInput
             id="ui-demo-1"
@@ -247,7 +230,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Form sections & filters">
+      <UiCard :title="t('uiKit.sections.formSections')">
         <p class="mb-4 text-sm text-muted">
           Primitives used in dense forms (e.g.
           <code class="text-foreground">ReportSettings</code>).
@@ -294,7 +277,7 @@ function onDemoMenuSelect(v: string | number) {
         </UiFormSection>
       </UiCard>
 
-      <UiCard title="Select (UiSelect)">
+      <UiCard :title="t('uiKit.sections.select')">
         <div class="grid max-w-md gap-6">
           <UiSelect
             id="ui-sel-1"
@@ -367,7 +350,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Menu button (UiMenuButton)">
+      <UiCard :title="t('uiKit.sections.menuButton')">
         <p class="mb-4 text-sm text-muted">
           Dropdown like
           <code class="text-foreground">UiSelect</code>: icon trigger or
@@ -411,7 +394,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Badges & avatars">
+      <UiCard :title="t('uiKit.sections.badges')">
         <p class="mb-3 text-sm font-medium text-muted">Status</p>
         <div class="flex flex-wrap gap-2">
           <UiBadge
@@ -441,7 +424,7 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Cards & table">
+      <UiCard :title="t('uiKit.sections.cards')">
         <UiCard class="mb-6 border-dashed bg-surface-muted/30 p-4">
           <p class="text-sm text-foreground">
             Nested card (no title) for nested content.
@@ -456,7 +439,7 @@ function onDemoMenuSelect(v: string | number) {
         </UiTable>
       </UiCard>
 
-      <UiCard title="Breadcrumb (sample)">
+      <UiCard :title="t('uiKit.sections.breadcrumb')">
         <UiBreadcrumb
           :items="[
             { label: 'Projects', to: '/projects' },
@@ -466,7 +449,7 @@ function onDemoMenuSelect(v: string | number) {
         />
       </UiCard>
 
-      <UiCard title="Empty state & skeletons">
+      <UiCard :title="t('uiKit.sections.empty')">
         <UiEmptyState
           class="mb-8"
           title="Nothing here"
@@ -490,16 +473,16 @@ function onDemoMenuSelect(v: string | number) {
         </div>
       </UiCard>
 
-      <UiCard title="Modal & global overlays">
+      <UiCard :title="t('uiKit.sections.modal')">
         <div class="flex flex-wrap gap-3">
           <UiButton @click="modalOpen = true">Open modal</UiButton>
-          <UiButton variant="secondary" @click="toast.success('Saved successfully')">
+          <UiButton variant="secondary" @click="toast.success(t('uiKit.demo.toasts.saved'))">
             Toast success
           </UiButton>
-          <UiButton variant="secondary" @click="toast.error('Something went wrong')">
+          <UiButton variant="secondary" @click="toast.error(t('uiKit.demo.toasts.error'))">
             Toast error
           </UiButton>
-          <UiButton variant="secondary" @click="toast.info('FYI: demo info toast')">
+          <UiButton variant="secondary" @click="toast.info(t('uiKit.demo.toasts.info'))">
             Toast info
           </UiButton>
           <UiButton variant="ghost" @click="runConfirmDemo">Confirm dialog</UiButton>

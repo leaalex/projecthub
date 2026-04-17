@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
@@ -11,6 +12,8 @@ import UiInput from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
 import UiSelect from '../ui/UiSelect.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   projectId: number
@@ -34,11 +37,11 @@ const adding = ref(false)
 const staffUsers = ref<User[]>([])
 const loadingUsers = ref(false)
 
-const roleMenuOptions: UiSelectOption<ProjectMemberRole>[] = [
-  { value: 'manager', label: 'Manager' },
-  { value: 'executor', label: 'Executor' },
-  { value: 'viewer', label: 'Viewer' },
-]
+const roleMenuOptions = computed<UiSelectOption<ProjectMemberRole>[]>(() => [
+  { value: 'manager', label: t('enums.projectRole.manager') },
+  { value: 'executor', label: t('enums.projectRole.executor') },
+  { value: 'viewer', label: t('enums.projectRole.viewer') },
+])
 
 async function loadStaffUsers() {
   if (auth.user?.role !== 'admin' && auth.user?.role !== 'staff') return
@@ -79,7 +82,7 @@ async function onAdd() {
     if (addMode.value === 'email') {
       const e = addEmail.value.trim()
       if (!e) {
-        toast.error('Enter an email')
+        toast.error(t('addMemberModal.toasts.enterEmail'))
         return
       }
       await projectStore.addMember(props.projectId, {
@@ -89,7 +92,7 @@ async function onAdd() {
     } else {
       const id = Number(addUserId.value)
       if (!id) {
-        toast.error('Select a user')
+        toast.error(t('addMemberModal.toasts.selectUser'))
         return
       }
       await projectStore.addMember(props.projectId, {
@@ -97,7 +100,7 @@ async function onAdd() {
         role: addRole.value,
       })
     }
-    toast.success('Member added')
+    toast.success(t('addMemberModal.toasts.added'))
     open.value = false
     emit('added')
   } catch (e: unknown) {
@@ -105,7 +108,7 @@ async function onAdd() {
     toast.error(
       typeof err.response?.data?.error === 'string'
         ? err.response.data.error
-        : 'Could not add member',
+        : t('addMemberModal.toasts.addFailed'),
     )
   } finally {
     adding.value = false
@@ -114,7 +117,7 @@ async function onAdd() {
 </script>
 
 <template>
-  <Modal v-model="open" title="Add member" wide>
+  <Modal v-model="open" :title="t('addMemberModal.title')" wide>
     <div class="space-y-4">
       <div
         v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
@@ -130,7 +133,7 @@ async function onAdd() {
           "
           @click="addMode = 'user'"
         >
-          Pick user
+          {{ t('addMemberModal.tabs.pickUser') }}
         </button>
         <button
           type="button"
@@ -142,41 +145,41 @@ async function onAdd() {
           "
           @click="addMode = 'email'"
         >
-          By email
+          {{ t('addMemberModal.tabs.byEmail') }}
         </button>
       </div>
 
       <UiSelect
         v-if="addMode === 'user'"
         v-model="addUserId"
-        label="User"
+        :label="t('addMemberModal.labels.user')"
         :options="userSelectOptions"
         :disabled="loadingUsers"
-        placeholder="Select user…"
+        :placeholder="t('addMemberModal.placeholders.selectUser')"
       />
 
       <UiInput
         v-else
         id="member-email-modal"
         v-model="addEmail"
-        label="Email"
+        :label="t('addMemberModal.labels.email')"
         type="email"
         autocomplete="email"
-        placeholder="user@example.com"
+        :placeholder="t('addMemberModal.placeholders.emailExample')"
       />
 
       <UiSelect
         v-model="addRole"
-        label="Project role"
+        :label="t('addMemberModal.labels.projectRole')"
         :options="roleMenuOptions"
       />
 
       <div class="flex justify-end gap-2">
         <Button type="button" variant="secondary" @click="open = false">
-          Cancel
+          {{ t('addMemberModal.cancel') }}
         </Button>
         <Button type="button" :loading="adding" @click="onAdd">
-          Add
+          {{ t('addMemberModal.add') }}
         </Button>
       </div>
     </div>

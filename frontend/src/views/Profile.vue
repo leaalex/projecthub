@@ -5,27 +5,41 @@ import {
   SunIcon,
 } from '@heroicons/vue/24/outline'
 import axios from 'axios'
-import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
 import Card from '../components/ui/UiCard.vue'
 import Input from '../components/ui/UiInput.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
+import { useToast } from '../composables/useToast'
 import { useAuthStore } from '../stores/auth.store'
 import { useUiStore, type ThemeMode } from '../stores/ui.store'
+import type { AppLocale } from '../utils/appLocale'
 
 const auth = useAuthStore()
 const ui = useUiStore()
+const { t } = useI18n()
+const toast = useToast()
 
-const themeOptions: {
-  mode: ThemeMode
-  label: string
-  icon: typeof SunIcon
-}[] = [
-  { mode: 'light', label: 'Light', icon: SunIcon },
-  { mode: 'dark', label: 'Dark', icon: MoonIcon },
-  { mode: 'system', label: 'System', icon: ComputerDesktopIcon },
-]
+const themeOptions = computed(() => {
+  const opts: { mode: ThemeMode; label: string; icon: typeof SunIcon }[] = [
+    { mode: 'light', label: t('appearance.themeLight'), icon: SunIcon },
+    { mode: 'dark', label: t('appearance.themeDark'), icon: MoonIcon },
+    { mode: 'system', label: t('appearance.themeSystem'), icon: ComputerDesktopIcon },
+  ]
+  return opts
+})
+
+const breadcrumbItems = computed(() => [
+  { label: t('common.home'), to: '/dashboard' },
+  { label: t('profile.title') },
+])
+
+const localeSegOptions = computed(() => [
+  { value: 'ru', label: 'Русский' },
+  { value: 'en', label: 'English' },
+])
 
 const lastName = ref('')
 const firstName = ref('')
@@ -71,6 +85,21 @@ onMounted(async () => {
   fillFromUser()
 })
 
+watch(
+  () => ui.locale,
+  async (loc) => {
+    if (!auth.user) return
+    const serverLoc: AppLocale = auth.user.locale === 'en' ? 'en' : 'ru'
+    if (loc === serverLoc) return
+    try {
+      await auth.updateProfile({ locale: loc })
+    } catch {
+      ui.setLocale(serverLoc)
+      toast.error(t('profile.feedbackLocaleSaveFailed'))
+    }
+  },
+)
+
 async function save() {
   saving.value = true
   profileFeedback.value = null
@@ -85,12 +114,12 @@ async function save() {
       phone: phone.value,
     })
     profileFeedback.value = {
-      text: 'Данные сохранены.',
+      text: t('profile.feedbackSaved'),
       kind: 'success',
     }
   } catch {
     profileFeedback.value = {
-      text: 'Не удалось сохранить (возможно, email уже занят).',
+      text: t('profile.feedbackSaveFailed'),
       kind: 'error',
     }
   } finally {
@@ -102,14 +131,14 @@ async function savePassword() {
   passwordFeedback.value = null
   if (newPassword.value !== confirmPassword.value) {
     passwordFeedback.value = {
-      text: 'Новый пароль и подтверждение не совпадают.',
+      text: t('profile.feedbackPasswordMismatch'),
       kind: 'error',
     }
     return
   }
   if (newPassword.value.length < 8) {
     passwordFeedback.value = {
-      text: 'Новый пароль — не менее 8 символов.',
+      text: t('profile.feedbackPasswordShort'),
       kind: 'error',
     }
     return
@@ -121,7 +150,7 @@ async function savePassword() {
     newPassword.value = ''
     confirmPassword.value = ''
     passwordFeedback.value = {
-      text: 'Пароль изменён.',
+      text: t('profile.feedbackPasswordChanged'),
       kind: 'success',
     }
   } catch (e) {
@@ -129,20 +158,20 @@ async function savePassword() {
       const err = (e.response?.data as { error?: string } | undefined)?.error
       if (e.response?.status === 401) {
         passwordFeedback.value = {
-          text: 'Неверный текущий пароль.',
+          text: t('profile.feedbackWrongCurrent'),
           kind: 'error',
         }
       } else if (err) {
         passwordFeedback.value = { text: err, kind: 'error' }
       } else {
         passwordFeedback.value = {
-          text: 'Не удалось сменить пароль.',
+          text: t('profile.feedbackPasswordFailed'),
           kind: 'error',
         }
       }
     } else {
       passwordFeedback.value = {
-        text: 'Не удалось сменить пароль.',
+        text: t('profile.feedbackPasswordFailed'),
         kind: 'error',
       }
     }
@@ -154,69 +183,64 @@ async function savePassword() {
 
 <template>
   <div>
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Profile' },
-      ]"
-    />
-    <h1 class="text-2xl font-semibold text-foreground">Профиль</h1>
+    <Breadcrumb class="mb-4" :items="breadcrumbItems" />
+    <h1 class="text-2xl font-semibold text-foreground">
+      {{ t('profile.title') }}
+    </h1>
     <p class="mt-1 text-sm text-muted">
-      Личные данные и безопасность
+      {{ t('profile.subtitle') }}
     </p>
-    
 
     <div
       class="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start"
     >
       <div class="flex min-w-0 flex-col gap-6">
-        <Card class="min-w-0" title="Персональные данные">
+        <Card class="min-w-0" :title="t('profile.personalData')">
           <form class="space-y-4" @submit.prevent="save">
             <div class="grid gap-4 sm:grid-cols-2">
               <Input
                 id="pf-last-name"
                 v-model="lastName"
-                label="Фамилия"
+                :label="t('profile.lastName')"
                 autocomplete="family-name"
               />
               <Input
                 id="pf-first-name"
                 v-model="firstName"
-                label="Имя"
+                :label="t('profile.firstName')"
                 autocomplete="given-name"
               />
             </div>
             <Input
               id="pf-patronymic"
               v-model="patronymic"
-              label="Отчество"
+              :label="t('profile.patronymic')"
               autocomplete="additional-name"
             />
             <Input
               id="pf-department"
               v-model="department"
-              label="Название подразделения"
+              :label="t('profile.department')"
               autocomplete="organization"
             />
             <Input
               id="pf-job"
               v-model="jobTitle"
-              label="Должность"
+              :label="t('profile.jobTitle')"
               autocomplete="organization-title"
             />
             <div class="grid gap-4 sm:grid-cols-2">
               <Input
                 id="pf-phone"
                 v-model="phone"
-                label="Телефон"
+                :label="t('profile.phone')"
                 type="tel"
                 autocomplete="tel"
               />
               <Input
                 id="pf-email"
                 v-model="email"
-                label="Email"
+                :label="t('profile.email')"
                 type="email"
                 required
                 autocomplete="email"
@@ -234,14 +258,14 @@ async function savePassword() {
               {{ profileFeedback.text }}
             </p>
             <Button type="submit" :disabled="saving">
-              {{ saving ? 'Сохранение…' : 'Сохранить' }}
+              {{ saving ? t('profile.saving') : t('profile.save') }}
             </Button>
           </form>
         </Card>
 
-        <Card class="min-w-0" title="Appearance">
+        <Card class="min-w-0" :title="t('appearance.title')">
           <p class="mb-3 text-sm text-muted">
-            Color theme for this device
+            {{ t('appearance.themeHint') }}
           </p>
           <div class="flex flex-wrap gap-2">
             <button
@@ -261,29 +285,40 @@ async function savePassword() {
               {{ opt.label }}
             </button>
           </div>
+          <p class="mb-2 mt-5 text-sm font-medium text-foreground">
+            {{ t('appearance.language') }}
+          </p>
+          <p class="mb-3 text-sm text-muted">
+            {{ t('appearance.languageHint') }}
+          </p>
+          <UiSegmentedControl
+            v-model="ui.locale"
+            :aria-label="t('appearance.language')"
+            :options="localeSegOptions"
+          />
         </Card>
       </div>
 
-      <Card class="min-w-0" title="Смена пароля">
+      <Card class="min-w-0" :title="t('profile.changePassword')">
         <form class="space-y-4" @submit.prevent="savePassword">
           <Input
             id="pf-cur-pw"
             v-model="currentPassword"
-            label="Текущий пароль"
+            :label="t('profile.currentPassword')"
             type="password"
             autocomplete="current-password"
           />
           <Input
             id="pf-new-pw"
             v-model="newPassword"
-            label="Новый пароль"
+            :label="t('profile.newPassword')"
             type="password"
             autocomplete="new-password"
           />
           <Input
             id="pf-confirm-pw"
             v-model="confirmPassword"
-            label="Подтверждение нового пароля"
+            :label="t('profile.confirmPassword')"
             type="password"
             autocomplete="new-password"
           />
@@ -299,7 +334,9 @@ async function savePassword() {
             {{ passwordFeedback.text }}
           </p>
           <Button type="submit" :disabled="savingPassword">
-            {{ savingPassword ? 'Сохранение…' : 'Сменить пароль' }}
+            {{
+              savingPassword ? t('profile.saving') : t('profile.changePasswordButton')
+            }}
           </Button>
         </form>
       </Card>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { UsersIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AddMemberModal from '../components/projects/AddMemberModal.vue'
 import ProjectMembers from '../components/projects/ProjectMembers.vue'
@@ -16,6 +17,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const projectStore = useProjectStore()
+const { t } = useI18n()
 
 const id = computed(() => {
   const raw = route.params.id
@@ -84,7 +86,7 @@ async function load() {
     }
     const status = ax.response?.status
     const apiMsg = ax.response?.data?.error
-    let msg = 'Could not load project'
+    let msg = t('projectSettings.loadProjectFailed')
     if (typeof apiMsg === 'string') msg = apiMsg
     else if (e instanceof Error && e.message) msg = e.message
 
@@ -117,6 +119,23 @@ async function refreshAfterTransfer() {
   await projectStore.fetchOne(id.value).catch(() => {})
   await projectStore.fetchMembers(id.value).catch(() => {})
 }
+
+const settingsBreadcrumbItems = computed(() => {
+  const p = projectStore.current
+  if (!p) {
+    return [
+      { label: t('common.home'), to: '/dashboard' },
+      { label: t('nav.projects'), to: '/projects' },
+      { label: t('projectSettings.breadcrumb') },
+    ]
+  }
+  return [
+    { label: t('common.home'), to: '/dashboard' },
+    { label: t('nav.projects'), to: '/projects' },
+    { label: p.name, to: `/projects/${id.value}` },
+    { label: t('projectSettings.breadcrumb') },
+  ]
+})
 </script>
 
 <template>
@@ -129,33 +148,25 @@ async function refreshAfterTransfer() {
   </div>
   <div v-else-if="loadError">
     <EmptyState
-      title="Could not load settings"
+      :title="t('projectSettings.loadErrorTitle')"
       :description="loadError"
     >
       <Button type="button" variant="secondary" @click="void load()">
-        Retry
+        {{ t('common.retry') }}
       </Button>
     </EmptyState>
   </div>
   <div v-else-if="projectStore.current && projectStore.current.kind === 'team'">
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Projects', to: '/projects' },
-        { label: projectStore.current.name, to: `/projects/${id}` },
-        { label: 'Settings' },
-      ]"
-    />
+    <Breadcrumb class="mb-4" :items="settingsBreadcrumbItems" />
 
-    <h1 class="text-2xl font-semibold text-foreground">Settings</h1>
+    <h1 class="text-2xl font-semibold text-foreground">{{ t('projectSettings.title') }}</h1>
     <p class="mt-1 text-sm text-muted">
       {{ projectStore.current.name }}
     </p>
 
     <section class="mt-8 border-t border-border pt-8">
       <div class="flex flex-wrap items-start justify-between gap-4">
-        <h2 class="text-lg font-semibold text-foreground">Members</h2>
+        <h2 class="text-lg font-semibold text-foreground">{{ t('projectSettings.membersHeading') }}</h2>
         <div class="flex flex-wrap items-center gap-2">
           <Button
             v-if="showTransfer"
@@ -164,7 +175,7 @@ async function refreshAfterTransfer() {
             class="text-xs"
             @click="transferModalOpen = true"
           >
-            Transfer ownership
+            {{ t('projectSettings.transferOwnership') }}
           </Button>
           <Button
             v-if="canManage"
@@ -173,7 +184,7 @@ async function refreshAfterTransfer() {
             @click="addModalOpen = true"
           >
             <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
-            <span class="ml-1.5">Add member</span>
+            <span class="ml-1.5">{{ t('projectSettings.addMember') }}</span>
           </Button>
         </div>
       </div>

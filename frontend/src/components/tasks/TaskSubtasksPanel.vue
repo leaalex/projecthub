@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Subtask, Task } from '../../types/task'
 import { useTaskStore } from '../../stores/task.store'
 import { useToast } from '../../composables/useToast'
 import UiInput from '../ui/UiInput.vue'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -70,11 +73,13 @@ async function addSubtask() {
     await taskStore.createSubtask(props.task.id, title)
     newTitle.value = ''
     emit('updated')
-    toast.success('Subtask added')
+    toast.success(t('taskSubtasks.toasts.added'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not add subtask')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.addFailed'),
+    )
   } finally {
     busyAdd.value = false
   }
@@ -89,7 +94,9 @@ async function toggle(st: Subtask) {
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update subtask')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.updateFailed'),
+    )
   } finally {
     busyId.value = null
   }
@@ -101,11 +108,13 @@ async function remove(st: Subtask) {
   try {
     await taskStore.deleteSubtask(props.task.id, st.id)
     emit('updated')
-    toast.success('Subtask removed')
+    toast.success(t('taskSubtasks.toasts.removed'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not remove subtask')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.removeFailed'),
+    )
   } finally {
     busyId.value = null
   }
@@ -133,7 +142,7 @@ async function commitEdit(s: Subtask) {
   if (editingId.value !== s.id) return
   const title = editDraft.value.trim()
   if (!title) {
-    toast.error('Enter a subtask title')
+    toast.error(t('taskSubtasks.toasts.enterTitle'))
     editDraft.value = s.title
     return
   }
@@ -149,7 +158,9 @@ async function commitEdit(s: Subtask) {
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update subtask')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.updateFailed'),
+    )
   } finally {
     busyId.value = null
   }
@@ -182,7 +193,9 @@ defineExpose({ focusNewInput })
         class="h-px w-1.5 shrink-0 bg-border sm:w-2"
         aria-hidden="true"
       />
-      <span class="shrink-0 text-xs font-medium text-muted">Subtasks</span>
+      <span class="shrink-0 text-xs font-medium text-muted">{{
+        t('taskSubtasks.heading')
+      }}</span>
       <div
         class="h-px min-h-px flex-1 bg-border"
         aria-hidden="true"
@@ -224,7 +237,7 @@ defineExpose({ focusNewInput })
             class="h-3.5 w-3.5 shrink-0 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring sm:h-4 sm:w-4"
             :checked="s.done"
             :disabled="busyId === s.id || editingId === s.id"
-            :aria-label="`Done: ${s.title}`"
+            :aria-label="t('taskSubtasks.aria.done', { title: s.title })"
             @change="toggle(s)"
           />
           <div class="flex min-w-0 flex-1 items-center gap-0.5">
@@ -235,7 +248,7 @@ defineExpose({ focusNewInput })
               class="w-full min-w-0"
               :class="compact ? 'text-xs' : ''"
               :disabled="busyId === s.id"
-              :aria-label="`Edit subtask: ${s.title}`"
+              :aria-label="t('taskSubtasks.aria.editSubtask', { title: s.title })"
               autofocus
               @keydown="onEditKeydown(s, $event)"
               @blur="commitEdit(s)"
@@ -249,7 +262,7 @@ defineExpose({ focusNewInput })
                   'pt-0.5 text-sm',
                   s.done ? 'text-muted line-through' : 'text-foreground',
                 ]"
-                title="Click to edit title"
+                :title="t('taskSubtasks.clickToEdit')"
                 :disabled="busyId === s.id"
                 @click="startEdit(s)"
               >
@@ -268,8 +281,8 @@ defineExpose({ focusNewInput })
                 <button
                   type="button"
                   class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                  aria-label="Edit subtask title"
-                  title="Edit title"
+                  :aria-label="t('taskSubtasks.aria.editSubtaskTitle')"
+                  :title="t('taskSubtasks.editTitle')"
                   :disabled="busyId === s.id"
                   @mousedown.prevent
                   @click.stop="startEdit(s)"
@@ -293,7 +306,7 @@ defineExpose({ focusNewInput })
             v-if="!compact"
             type="button"
             class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-            aria-label="Remove subtask"
+            :aria-label="t('taskSubtasks.aria.removeSubtask')"
             :disabled="busyId === s.id || editingId === s.id"
             @mousedown.prevent
             @click="remove(s)"
@@ -308,7 +321,7 @@ defineExpose({ focusNewInput })
       v-else-if="readonly"
       class="text-xs text-muted"
     >
-      No subtasks.
+      {{ t('taskSubtasks.emptyReadonly') }}
     </p>
 
     <div
@@ -324,12 +337,14 @@ defineExpose({ focusNewInput })
         title=""
       />
       <div class="flex min-w-0 flex-1 items-center">
-        <label class="sr-only" :for="`subtask-new-${task.id}`">New subtask</label>
+        <label class="sr-only" :for="`subtask-new-${task.id}`">{{
+          t('taskSubtasks.srNew')
+        }}</label>
         <UiInput
           ref="newInputRef"
           :id="`subtask-new-${task.id}`"
           v-model="newTitle"
-          placeholder="New subtask… (Enter)"
+          :placeholder="t('taskSubtasks.placeholder')"
           :disabled="busyAdd"
           class="w-full min-w-0"
           @keydown="onNewKeydown"

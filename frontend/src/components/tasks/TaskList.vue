@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { Task } from '../../types/task'
+
+const { t } = useI18n()
 import TaskCard from './TaskCard.vue'
 
 withDefaults(
@@ -58,7 +61,7 @@ const emit = defineEmits<{
         v-if="tasks.length === 0"
         class="px-3 py-8 text-center text-sm text-muted"
       >
-        {{ emptyMessage || 'No tasks yet.' }}
+        {{ emptyMessage || t('taskList.emptyDefault') }}
       </p>
     </div>
   </div>

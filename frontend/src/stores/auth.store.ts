@@ -13,6 +13,7 @@ export type UserProfilePayload = {
   department?: string
   job_title?: string
   phone?: string
+  locale?: 'ru' | 'en'
 }
 
 export const useAuthStore = defineStore('auth', () => {

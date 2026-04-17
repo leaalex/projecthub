@@ -21,6 +21,11 @@ type UserService struct {
 
 const minAdminPasswordLen = 8
 
+var allowedUserLocales = map[string]struct{}{
+	"ru": {},
+	"en": {},
+}
+
 // UserProfilePatch is a partial update for PUT /users/:id.
 type UserProfilePatch struct {
 	Name        *string
@@ -31,6 +36,7 @@ type UserProfilePatch struct {
 	Department  *string
 	JobTitle    *string
 	Phone       *string
+	Locale      *string
 	// Password: only applied when caller is admin; empty string ignored.
 	Password *string
 }
@@ -183,6 +189,13 @@ func (s *UserService) Update(id, callerID uint, callerRole models.Role, patch Us
 	}
 	if patch.Phone != nil {
 		u.Phone = strings.TrimSpace(*patch.Phone)
+	}
+	if patch.Locale != nil {
+		v := strings.ToLower(strings.TrimSpace(*patch.Locale))
+		if _, ok := allowedUserLocales[v]; !ok {
+			return nil, ErrInvalidInput
+		}
+		u.Locale = v
 	}
 	models.SyncNameFromFIO(u)
 	if err := s.DB.Save(u).Error; err != nil {

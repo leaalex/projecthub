@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import { FunnelIcon } from '@heroicons/vue/24/outline'
@@ -32,6 +33,7 @@ import { taskSectionHeaderStats } from '../utils/taskSectionStats'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
@@ -135,7 +137,7 @@ const sectionGroupsForList = computed(() => {
   >()
   map.set('unsectioned', {
     key: 'unsectioned',
-    label: 'Unsectioned',
+    label: t('tasks.unsectioned'),
     order: -1,
     tasks: [],
   })
@@ -169,6 +171,11 @@ const sectionGroupsForList = computed(() => {
       ),
     }))
 })
+
+const tasksBreadcrumbItems = computed(() => [
+  { label: t('common.home'), to: '/dashboard' },
+  { label: t('tasks.breadcrumb') },
+])
 
 function openTaskDetail(taskId: number) {
   detailTaskId.value = taskId
@@ -255,19 +262,19 @@ function resetToolbar() {
 
 async function createTask() {
   const pid = Math.trunc(Number(projectId.value))
-  const t = title.value.trim()
-  if (!t) {
-    toast.error('Enter a task title')
+  const trimmedTitle = title.value.trim()
+  if (!trimmedTitle) {
+    toast.error(t('tasks.toasts.enterTitle'))
     return
   }
   if (!pid) {
-    toast.error('Select a project')
+    toast.error(t('tasks.toasts.selectProject'))
     return
   }
   saving.value = true
   try {
     await taskStore.create({
-      title: t,
+      title: trimmedTitle,
       description: description.value.trim(),
       project_id: pid,
       status: status.value,
@@ -278,11 +285,11 @@ async function createTask() {
     description.value = ''
     projectId.value = projectStore.projects[0]?.id ?? 0
     await load()
-    toast.success('Task created')
+    toast.success(t('tasks.toasts.created'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not create task')
+    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.createFailed'))
   } finally {
     saving.value = false
   }
@@ -297,11 +304,11 @@ async function onReopen(id: number) {
   try {
     await taskStore.update(id, { status: 'todo' })
     await load()
-    toast.success('Task marked as not done')
+    toast.success(t('tasks.toasts.reopened'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.updateFailed'))
   }
 }
 
@@ -321,27 +328,21 @@ async function onSectionMove(payload: {
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not move task')
+    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.moveFailed'))
   }
 }
 </script>
 
 <template>
   <div>
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Tasks' },
-      ]"
-    />
+    <Breadcrumb class="mb-4" :items="tasksBreadcrumbItems" />
     <div class="min-w-0">
-      <h1 class="text-2xl font-semibold text-foreground">Tasks</h1>
+      <h1 class="text-2xl font-semibold text-foreground">{{ t('tasks.title') }}</h1>
       <p class="mt-1 text-sm text-muted">
         {{
           auth.user?.role === 'admin' || auth.user?.role === 'staff'
-            ? 'All tasks in the workspace'
-            : 'Tasks in your projects or assigned to you'
+            ? t('tasks.subtitleAdmin')
+            : t('tasks.subtitleDefault')
         }}
       </p>
     </div>
@@ -354,9 +355,9 @@ async function onSectionMove(payload: {
           <UiInput
             id="tasks-search"
             v-model="searchQuery"
-            placeholder="Search title or description…"
+            :placeholder="t('tasks.searchPlaceholder')"
             autocomplete="off"
-            aria-label="Search"
+            :aria-label="t('common.search')"
           />
         </div>
         <Button
@@ -368,7 +369,7 @@ async function onSectionMove(payload: {
           @click="filtersOpen = !filtersOpen"
         >
           <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-          <span class="sr-only">Filters</span>
+          <span class="sr-only">{{ t('common.filters') }}</span>
         </Button>
       </div>
       <Button
@@ -377,7 +378,7 @@ async function onSectionMove(payload: {
         :disabled="!projectStore.projects.length"
         @click="showListComposer = true"
       >
-        New task
+        {{ t('tasks.newTask') }}
       </Button>
     </div>
 
@@ -386,7 +387,7 @@ async function onSectionMove(payload: {
       id="task-filters-panel"
       class="mt-4"
       role="region"
-      aria-label="Task filters and sort"
+      :aria-label="t('tasks.taskFiltersRegion')"
     >
       <TaskFiltersPanel
         v-model:filter-project="filterProject"
@@ -410,21 +411,21 @@ async function onSectionMove(payload: {
       <EmptyState
         v-if="!displayFlat.length && taskStore.tasks.length > 0"
         class="mt-6"
-        title="No tasks match filters"
-        description="Try clearing search, assignee, or priority filters, or reset the toolbar."
+        :title="t('tasks.emptyNoMatchTitle')"
+        :description="t('tasks.emptyNoMatchDescription')"
       >
         <Button variant="secondary" type="button" @click="resetToolbar">
-          Reset filters
+          {{ t('tasks.resetFilters') }}
         </Button>
       </EmptyState>
       <EmptyState
         v-else-if="!displayFlat.length"
         class="mt-6"
-        title="No tasks found"
+        :title="t('tasks.emptyNoTasksTitle')"
         :description="
           canCreateTasks
-            ? 'Create a task or adjust filters to see more.'
-            : 'No tasks yet. You will see tasks when assigned to a project.'
+            ? t('tasks.emptyNoTasksCanCreate')
+            : t('tasks.emptyNoTasksGuest')
         "
       >
         <Button
@@ -432,7 +433,7 @@ async function onSectionMove(payload: {
           :disabled="!projectStore.projects.length"
           @click="showModal = true"
         >
-          Create a task
+          {{ t('tasks.createTask') }}
         </Button>
       </EmptyState>
       <div v-else class="mt-6 space-y-4">
@@ -458,7 +459,7 @@ async function onSectionMove(payload: {
           :can-change-status-task="canChangeTaskStatus"
           :projects="inlineComposerProjects"
           :assignable-users="assignableUsers"
-          empty-message="No tasks in this section."
+          :empty-message="t('tasks.emptySection')"
           @complete="onComplete"
           @reopen="onReopen"
           @info="openTaskDetail"
@@ -483,7 +484,7 @@ async function onSectionMove(payload: {
               :can-change-status-task="canChangeTaskStatus"
               :projects="inlineComposerProjects"
               :assignable-users="assignableUsers"
-              empty-message="No tasks in this group."
+              :empty-message="t('tasks.emptyGroup')"
               @complete="onComplete"
               @reopen="onReopen"
               @info="openTaskDetail"
@@ -494,7 +495,7 @@ async function onSectionMove(payload: {
       </div>
     </template>
 
-    <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
+    <Modal v-if="canCreateTasks" v-model="showModal" :title="t('tasks.modalNewTitle')">
       <TaskForm
         v-model:title="title"
         v-model:description="description"
@@ -503,7 +504,7 @@ async function onSectionMove(payload: {
         v-model:priority="priority"
         :projects="projectStore.projects.map((p) => ({ id: p.id, name: p.name }))"
         :loading="saving"
-        submit-label="Create"
+        :submit-label="t('tasks.submitCreate')"
         @submit="createTask"
         @cancel="showModal = false"
       />

@@ -1,6 +1,6 @@
 import type { TaskSection } from '../types/project'
 import type { Task, TaskPriority, TaskStatus } from '../types/task'
-import { formatTaskStatus } from '../utils/formatters'
+import { i18n } from '../i18n'
 
 export type TaskSortKey =
   | 'updated_at'
@@ -159,18 +159,21 @@ export function sortTasks(
   return out
 }
 
-function projectLabel(t: Task): string {
-  return t.project?.name ?? `Project #${t.project_id}`
+function projectLabel(task: Task): string {
+  return (
+    task.project?.name ??
+    i18n.global.t('taskCard.meta.projectNum', { n: task.project_id })
+  )
 }
 
 function assigneeLabel(t: Task): string {
-  if (!t.assignee_id || !t.assignee) return 'Unassigned'
+  if (!t.assignee_id || !t.assignee) return i18n.global.t('common.unassigned')
   const u = t.assignee
   return u.name || u.email
 }
 
 function sectionLabel(t: Task): string {
-  return t.section?.name || 'Unsectioned'
+  return t.section?.name || i18n.global.t('projectDetail.unsectioned')
 }
 
 export function groupTasks(
@@ -186,7 +189,7 @@ export function groupTasks(
       const groupTasksList = tasks.filter((t) => t.status === st)
       return {
         key: st,
-        label: formatTaskStatus(st),
+        label: i18n.global.t(`enums.taskStatus.${st}`),
         tasks: groupTasksList,
       }
     })
@@ -197,7 +200,7 @@ export function groupTasks(
       const groupTasksList = tasks.filter((t) => t.priority === pr)
       return {
         key: pr,
-        label: pr,
+        label: i18n.global.t(`enums.taskPriority.${pr}`),
         tasks: groupTasksList,
       }
     })
@@ -240,9 +243,9 @@ export function groupTasks(
       }
       map.get(key)!.tasks.push(t)
     }
-    const entries = [...map.entries()].sort(([, a], [, b]) => {
-      if (a.label === 'Unassigned') return -1
-      if (b.label === 'Unassigned') return 1
+    const entries = [...map.entries()].sort(([keyA, a], [keyB, b]) => {
+      if (keyA === 'unassigned') return -1
+      if (keyB === 'unassigned') return 1
       return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
     })
     return entries.map(([key, { label, tasks: groupTasksList }]) => ({
@@ -254,7 +257,11 @@ export function groupTasks(
 
   if (by === 'section') {
     const map = new Map<string, { label: string; tasks: Task[]; order: number }>()
-    map.set('unsectioned', { label: 'Unsectioned', tasks: [], order: -1 })
+    map.set('unsectioned', {
+      label: i18n.global.t('projectDetail.unsectioned'),
+      tasks: [],
+      order: -1,
+    })
     for (const s of sections) {
       map.set(`s-${s.id}`, { label: s.name, tasks: [], order: s.position })
     }
@@ -269,9 +276,9 @@ export function groupTasks(
       }
       map.get(key)!.tasks.push(t)
     }
-    const entries = [...map.entries()].sort(([, a], [, b]) => {
-      if (a.label === 'Unsectioned') return -1
-      if (b.label === 'Unsectioned') return 1
+    const entries = [...map.entries()].sort(([keyA, a], [keyB, b]) => {
+      if (keyA === 'unsectioned') return -1
+      if (keyB === 'unsectioned') return 1
       return a.order - b.order || a.label.localeCompare(b.label)
     })
     return entries.map(([key, data]) => ({

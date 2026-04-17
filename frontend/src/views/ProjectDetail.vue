@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FunnelIcon, PencilSquareIcon, UsersIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
@@ -33,6 +34,7 @@ import type { TaskPriority, TaskStatus } from '../types/task'
 import { taskSectionHeaderStats } from '../utils/taskSectionStats'
 
 const toast = useToast()
+const { t } = useI18n()
 const { confirm } = useConfirm()
 const auth = useAuthStore()
 const route = useRoute()
@@ -130,7 +132,7 @@ const sectionGroupsForList = computed(() => {
   >()
   map.set('unsectioned', {
     key: 'unsectioned',
-    label: 'Unsectioned',
+    label: t('projectDetail.unsectioned'),
     order: -1,
     tasks: [],
   })
@@ -164,6 +166,22 @@ const sectionGroupsForList = computed(() => {
       ),
     }))
 })
+
+const projectBreadcrumbItems = computed(() => {
+  const p = projectStore.current
+  if (!p) return []
+  return [
+    { label: t('common.home'), to: '/dashboard' },
+    { label: t('nav.projects'), to: '/projects' },
+    { label: p.name },
+  ]
+})
+
+const projectErrorBreadcrumbItems = computed(() => [
+  { label: t('common.home'), to: '/dashboard' },
+  { label: t('nav.projects'), to: '/projects' },
+  { label: t('projectDetail.errorBreadcrumbProject') },
+])
 
 function resetTaskFilters() {
   filtersOpen.value = false
@@ -217,7 +235,7 @@ async function load() {
 
     await projectStore.fetchTasks(id.value).catch(() => {
       projectStore.tasks = []
-      toast.error('Could not load tasks for this project')
+      toast.error(t('projectDetail.loadTasksFailed'))
     })
     await projectStore.fetchSections(id.value).catch(() => {
       projectStore.sections = []
@@ -230,7 +248,7 @@ async function load() {
     }
     const status = ax.response?.status
     const apiMsg = ax.response?.data?.error
-    let msg = 'Could not load project'
+    let msg = t('projectDetail.loadProjectFailed')
     if (typeof apiMsg === 'string') msg = apiMsg
     else if (e instanceof Error && e.message) msg = e.message
 
@@ -278,11 +296,11 @@ async function saveEditProject() {
       description: editDescription.value,
     })
     editProjectModalOpen.value = false
-    toast.success('Project updated')
+    toast.success(t('projectDetail.projectUpdated'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update project')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.updateProjectFailed'))
   } finally {
     editSaving.value = false
   }
@@ -291,21 +309,21 @@ async function saveEditProject() {
 async function removeProjectFromEdit() {
   if (!Number.isFinite(id.value) || id.value <= 0) return
   const ok = await confirm({
-    title: 'Delete project',
-    message: 'Delete this project and its task links?',
-    confirmLabel: 'Delete',
+    title: t('projects.deleteTitle'),
+    message: t('projects.deleteMessage'),
+    confirmLabel: t('projects.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
   try {
     await projectStore.remove(id.value)
     editProjectModalOpen.value = false
-    toast.success('Project deleted')
+    toast.success(t('projectDetail.projectDeleted'))
     await router.push('/projects')
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not delete project')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.deleteProjectFailed'))
   }
 }
 
@@ -328,20 +346,20 @@ async function onInlineComposerCreated() {
 }
 
 async function createTaskFromModal() {
-  const t = modalTitle.value.trim()
-  if (!t) {
-    toast.error('Enter a task title')
+  const trimmedTitle = modalTitle.value.trim()
+  if (!trimmedTitle) {
+    toast.error(t('projectDetail.enterTaskTitle'))
     return
   }
   const pid = Math.trunc(Number(modalProjectId.value))
   if (!pid) {
-    toast.error('Invalid project')
+    toast.error(t('projectDetail.invalidProject'))
     return
   }
   modalSaving.value = true
   try {
     await taskStore.create({
-      title: t,
+      title: trimmedTitle,
       description: modalDescription.value.trim(),
       project_id: pid,
       status: modalStatus.value,
@@ -353,11 +371,11 @@ async function createTaskFromModal() {
     modalStatus.value = 'todo'
     modalPriority.value = 'medium'
     await refreshProjectTasks()
-    toast.success('Task created')
+    toast.success(t('projectDetail.taskCreated'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not create task')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.createTaskFailed'))
   } finally {
     modalSaving.value = false
   }
@@ -372,11 +390,11 @@ async function onReopen(taskId: number) {
   try {
     await taskStore.update(taskId, { status: 'todo' })
     await projectStore.fetchTasks(id.value)
-    toast.success('Task marked as not done')
+    toast.success(t('projectDetail.taskReopened'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.updateTaskFailed'))
   }
 }
 
@@ -394,14 +412,14 @@ async function onSectionMove(payload: {
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not move task')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.moveTaskFailed'))
   }
 }
 
 async function createSection() {
   const name = newSectionName.value.trim()
   if (!name) {
-    toast.error('Enter section name')
+    toast.error(t('projectDetail.enterSectionName'))
     return
   }
   savingSection.value = true
@@ -409,11 +427,11 @@ async function createSection() {
     await projectStore.createSection(id.value, name)
     newSectionName.value = ''
     addingSection.value = false
-    toast.success('Section created')
+    toast.success(t('projectDetail.sectionCreated'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not create section')
+    toast.error(typeof msg === 'string' ? msg : t('projectDetail.createSectionFailed'))
   } finally {
     savingSection.value = false
   }
@@ -429,14 +447,7 @@ async function createSection() {
     </div>
   </div>
   <div v-else-if="projectStore.current">
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Projects', to: '/projects' },
-        { label: projectStore.current.name },
-      ]"
-    />
+    <Breadcrumb class="mb-4" :items="projectBreadcrumbItems" />
     <div
       class="flex flex-wrap items-start justify-between gap-4"
     >
@@ -445,7 +456,7 @@ async function createSection() {
           {{ projectStore.current.name }}
         </h1>
         <p class="mt-1 text-sm text-muted">
-          {{ projectStore.current.description || 'No description' }}
+          {{ projectStore.current.description || t('common.noDescription') }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -455,7 +466,7 @@ async function createSection() {
           class="box-border inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/65 bg-surface-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
-          <span class="ml-1.5">Members</span>
+          <span class="ml-1.5">{{ t('projectDetail.members') }}</span>
         </router-link>
         <Button
           v-if="canEditProject"
@@ -465,7 +476,7 @@ async function createSection() {
           @click="editProjectModalOpen = true"
         >
           <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span class="ml-1.5">Edit project</span>
+          <span class="ml-1.5">{{ t('projectDetail.editProject') }}</span>
         </Button>
       </div>
     </div>
@@ -479,9 +490,9 @@ async function createSection() {
             <UiInput
               id="project-tasks-search"
               v-model="searchQuery"
-              placeholder="Search title or description…"
+              :placeholder="t('projectDetail.searchPlaceholder')"
               autocomplete="off"
-              aria-label="Search"
+              :aria-label="t('common.search')"
             />
           </div>
           <Button
@@ -493,7 +504,7 @@ async function createSection() {
             @click="filtersOpen = !filtersOpen"
           >
             <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span class="sr-only">Filters</span>
+            <span class="sr-only">{{ t('common.filters') }}</span>
           </Button>
         </div>
         <Button
@@ -503,7 +514,7 @@ async function createSection() {
           :disabled="!Number.isFinite(id) || id <= 0"
           @click="showTaskComposer = true"
         >
-          New task
+          {{ t('projectDetail.newTask') }}
         </Button>
         <Button
           v-if="canCreateTasks"
@@ -512,7 +523,7 @@ async function createSection() {
           class="shrink-0"
           @click="addingSection = !addingSection"
         >
-          {{ addingSection ? 'Cancel' : 'Add section' }}
+          {{ addingSection ? t('common.cancel') : t('projectDetail.addSection') }}
         </Button>
       </div>
 
@@ -524,10 +535,10 @@ async function createSection() {
           id="new-section-name"
           v-model="newSectionName"
           class="min-w-[14rem] flex-1"
-          placeholder="Section name..."
+          :placeholder="t('projectDetail.sectionNamePlaceholder')"
         />
         <Button type="button" :loading="savingSection" @click="createSection">
-          Create
+          {{ t('common.create') }}
         </Button>
       </div>
 
@@ -535,7 +546,7 @@ async function createSection() {
         v-show="filtersOpen"
         id="project-task-filters-panel"
         role="region"
-        aria-label="Task filters and sort"
+        :aria-label="t('projectDetail.taskFiltersRegion')"
       >
         <TaskFiltersPanel
           v-model:filter-project="filterProject"
@@ -556,22 +567,22 @@ async function createSection() {
       <template v-if="!displayFlat.length && projectStore.tasks.length > 0">
         <EmptyState
           class="mt-6"
-          title="No tasks match filters"
-          description="Try clearing search or filters, or reset."
+          :title="t('projectDetail.emptyNoMatchTitle')"
+          :description="t('projectDetail.emptyNoMatchDescription')"
         >
           <Button variant="secondary" type="button" @click="resetTaskFilters">
-            Reset filters
+            {{ t('projectDetail.resetFilters') }}
           </Button>
         </EmptyState>
       </template>
       <template v-else-if="!displayFlat.length">
         <EmptyState
           class="mt-6"
-          title="No tasks yet"
+          :title="t('projectDetail.emptyNoTasksTitle')"
           :description="
             canCreateTasks
-              ? 'Create a task to get started.'
-              : 'No tasks in this project yet.'
+              ? t('projectDetail.emptyNoTasksCanCreate')
+              : t('projectDetail.emptyNoTasksGuest')
           "
         >
           <Button
@@ -580,7 +591,7 @@ async function createSection() {
             :disabled="!Number.isFinite(id) || id <= 0"
             @click="showModal = true"
           >
-            New task
+            {{ t('projectDetail.newTask') }}
           </Button>
         </EmptyState>
       </template>
@@ -607,7 +618,7 @@ async function createSection() {
           :can-change-status-task="canChangeTaskStatus"
           :projects="projectOptions"
           :assignable-users="assignableUsers"
-          empty-message="No tasks in this section."
+          :empty-message="t('projectDetail.emptySection')"
           @complete="onComplete"
           @reopen="onReopen"
           @info="openTaskDetail"
@@ -632,7 +643,7 @@ async function createSection() {
                 :can-change-status-task="canChangeTaskStatus"
                 :projects="projectOptions"
                 :assignable-users="assignableUsers"
-                empty-message="No tasks in this group."
+                :empty-message="t('projectDetail.emptyGroup')"
                 @complete="onComplete"
                 @reopen="onReopen"
                 @info="openTaskDetail"
@@ -650,11 +661,11 @@ async function createSection() {
       @saved="refreshProjectTasks"
     />
 
-    <Modal v-model="editProjectModalOpen" title="Edit project">
+    <Modal v-model="editProjectModalOpen" :title="t('projectDetail.modalEditTitle')">
       <ProjectForm
         v-model:name="editName"
         v-model:description="editDescription"
-        submit-label="Save"
+        :submit-label="t('common.save')"
         :loading="editSaving"
         @submit="saveEditProject"
         @cancel="editProjectModalOpen = false"
@@ -665,13 +676,13 @@ async function createSection() {
             type="button"
             @click="removeProjectFromEdit"
           >
-            Delete project
+            {{ t('projects.deleteButton') }}
           </Button>
         </template>
       </ProjectForm>
     </Modal>
 
-    <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
+    <Modal v-if="canCreateTasks" v-model="showModal" :title="t('projectDetail.modalNewTaskTitle')">
       <TaskForm
         v-model:title="modalTitle"
         v-model:description="modalDescription"
@@ -681,33 +692,26 @@ async function createSection() {
         hide-project-select
         :projects="projectOptions"
         :loading="modalSaving"
-        submit-label="Create"
+        :submit-label="t('projectDetail.submitCreate')"
         @submit="createTaskFromModal"
         @cancel="showModal = false"
       />
     </Modal>
   </div>
   <div v-else-if="loadError" class="space-y-4">
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Projects', to: '/projects' },
-        { label: 'Project' },
-      ]"
-    />
+    <Breadcrumb class="mb-4" :items="projectErrorBreadcrumbItems" />
     <EmptyState
-      title="Project unavailable"
+      :title="t('projectDetail.unavailableTitle')"
       :description="loadError"
     >
       <div class="mt-4 flex flex-wrap gap-2">
-        <Button type="button" @click="load">Retry</Button>
+        <Button type="button" @click="load">{{ t('common.retry') }}</Button>
         <Button
           type="button"
           variant="secondary"
           @click="router.push('/projects')"
         >
-          All projects
+          {{ t('projectDetail.allProjects') }}
         </Button>
       </div>
     </EmptyState>

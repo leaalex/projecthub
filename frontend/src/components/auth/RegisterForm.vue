@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
+
+const { t } = useI18n()
 
 const name = defineModel<string>('name', { default: '' })
 const email = defineModel<string>('email', { default: '' })
@@ -18,11 +21,11 @@ const emit = defineEmits<{
 
 <template>
   <form class="space-y-4" @submit.prevent="emit('submit')">
-    <Input id="reg-name" v-model="name" label="Name" type="text" autocomplete="name" />
+    <Input id="reg-name" v-model="name" :label="t('auth.fields.name')" type="text" autocomplete="name" />
     <Input
       id="reg-email"
       v-model="email"
-      label="Email"
+      :label="t('auth.fields.email')"
       type="email"
       required
       autocomplete="email"
@@ -30,13 +33,13 @@ const emit = defineEmits<{
     <Input
       id="reg-password"
       v-model="password"
-      label="Password"
+      :label="t('auth.fields.password')"
       type="password"
       required
       minlength="6"
       autocomplete="new-password"
     />
     <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-    <Button type="submit" block :loading="loading">Register</Button>
+    <Button type="submit" block :loading="loading">{{ t('auth.register') }}</Button>
   </form>
 </template>

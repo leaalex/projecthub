@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
+
+const { t } = useI18n()
 
 const email = defineModel<string>('email', { default: '' })
 const password = defineModel<string>('password', { default: '' })
@@ -20,7 +23,7 @@ const emit = defineEmits<{
     <Input
       id="login-email"
       v-model="email"
-      label="Email"
+      :label="t('auth.fields.email')"
       type="email"
       required
       autocomplete="email"
@@ -28,12 +31,12 @@ const emit = defineEmits<{
     <Input
       id="login-password"
       v-model="password"
-      label="Password"
+      :label="t('auth.fields.password')"
       type="password"
       required
       autocomplete="current-password"
     />
     <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-    <Button type="submit" block :loading="loading">Sign in</Button>
+    <Button type="submit" block :loading="loading">{{ t('auth.signIn') }}</Button>
   </form>
 </template>

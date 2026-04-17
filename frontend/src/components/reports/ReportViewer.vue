@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Card from '../ui/UiCard.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import type { WeeklyReport } from '../../types/report'
 import { formatDateShort } from '../../utils/formatters'
 import WeeklyChart from './Charts/WeeklyChart.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   report: WeeklyReport | null
@@ -17,6 +20,15 @@ const chartLabels = computed(() =>
 const chartValues = computed(() =>
   props.report ? Object.values(props.report.by_status) : [],
 )
+
+const weekLine = computed(() => {
+  const r = props.report
+  if (!r) return ''
+  return t('reportViewer.weekRange', {
+    start: formatDateShort(r.week_start),
+    end: formatDateShort(r.week_end),
+  })
+})
 </script>
 
 <template>
@@ -31,20 +43,20 @@ const chartValues = computed(() =>
     <template v-else-if="report">
       <div class="grid gap-4 sm:grid-cols-3">
         <Card padding="p-4">
-          <p class="text-sm text-muted">Total tasks (visible)</p>
+          <p class="text-sm text-muted">{{ t('reportViewer.totalTasks') }}</p>
           <p class="text-2xl font-semibold text-foreground">{{ report.total_tasks }}</p>
         </Card>
         <Card padding="p-4">
-          <p class="text-sm text-muted">Completed this week</p>
+          <p class="text-sm text-muted">{{ t('reportViewer.completedWeek') }}</p>
           <p class="text-2xl font-semibold text-foreground">{{ report.completed_in_week }}</p>
         </Card>
         <Card padding="p-4">
-          <p class="text-sm text-muted">Your projects</p>
+          <p class="text-sm text-muted">{{ t('reportViewer.yourProjects') }}</p>
           <p class="text-2xl font-semibold text-foreground">{{ report.projects_count }}</p>
         </Card>
       </div>
       <p class="text-sm text-muted">
-        Week: {{ formatDateShort(report.week_start) }} — {{ formatDateShort(report.week_end) }}
+        {{ weekLine }}
       </p>
       <Card padding="p-4">
         <WeeklyChart :labels="chartLabels" :values="chartValues" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
@@ -10,7 +11,10 @@ import { useCanEditTask } from '../../composables/useCanEditTask'
 import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
-import { formatDate, formatTaskStatus } from '../../utils/formatters'
+import { formatDate } from '../../utils/formatters'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -54,7 +58,7 @@ watch(
     try {
       task.value = await taskStore.fetchOne(id)
     } catch {
-      loadError.value = 'Could not load task.'
+      loadError.value = t('taskDetailModal.loadError')
     } finally {
       loading.value = false
     }
@@ -63,40 +67,42 @@ watch(
 
 watch(
   () => [task.value, canEdit.value] as const,
-  ([t, edit]) => {
-    if (!t || !edit) return
-    formTitle.value = t.title
-    formDescription.value = t.description ?? ''
-    formProjectId.value = t.project_id
-    formStatus.value = t.status
-    formPriority.value = t.priority
+  ([cur, edit]) => {
+    if (!cur || !edit) return
+    formTitle.value = cur.title
+    formDescription.value = cur.description ?? ''
+    formProjectId.value = cur.project_id
+    formStatus.value = cur.status
+    formPriority.value = cur.priority
   },
   { immediate: true },
 )
 
 async function save() {
-  const t = task.value
-  if (!t) return
-  const title = formTitle.value.trim()
-  if (!title) {
-    toast.error('Enter a task title')
+  const cur = task.value
+  if (!cur) return
+  const trimmedTitle = formTitle.value.trim()
+  if (!trimmedTitle) {
+    toast.error(t('taskDetailModal.toasts.enterTitle'))
     return
   }
   saving.value = true
   try {
-    const updated = await taskStore.update(t.id, {
-      title,
+    const updated = await taskStore.update(cur.id, {
+      title: trimmedTitle,
       description: formDescription.value.trim(),
       status: formStatus.value,
       priority: formPriority.value,
     })
     task.value = updated
-    toast.success('Task updated')
+    toast.success(t('taskDetailModal.toasts.updated'))
     emit('saved')
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskDetailModal.toasts.updateFailed'),
+    )
   } finally {
     saving.value = false
   }
@@ -117,23 +123,23 @@ async function refreshTask() {
 }
 
 async function removeTask() {
-  const t = task.value
-  if (!t) return
+  const cur = task.value
+  if (!cur) return
   const ok = await confirm({
-    title: 'Delete task',
-    message: `Remove “${t.title}”? This cannot be undone.`,
-    confirmLabel: 'Delete',
+    title: t('taskCard.confirm.deleteTitle'),
+    message: t('taskCard.confirm.deleteMessage', { title: cur.title }),
+    confirmLabel: t('taskCard.confirm.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
   removing.value = true
   try {
-    await taskStore.remove(t.id)
-    toast.success('Task deleted')
+    await taskStore.remove(cur.id)
+    toast.success(t('taskDetailModal.toasts.deleted'))
     close()
     emit('saved')
   } catch {
-    toast.error('Could not delete task')
+    toast.error(t('taskDetailModal.toasts.deleteFailed'))
   } finally {
     removing.value = false
   }
@@ -143,7 +149,7 @@ async function removeTask() {
 <template>
   <Modal
     :model-value="modelValue"
-    title="Task details"
+    :title="t('taskDetailModal.title')"
     wide
     @update:model-value="emit('update:modelValue', $event)"
   >
@@ -158,62 +164,81 @@ async function removeTask() {
         class="space-y-4 text-sm"
       >
         <div>
-          <dt class="font-medium text-muted">Title</dt>
+          <dt class="font-medium text-muted">{{ t('taskDetailModal.labels.title') }}</dt>
           <dd class="mt-1 text-foreground">{{ task.title }}</dd>
         </div>
         <div>
-          <dt class="font-medium text-muted">Description</dt>
+          <dt class="font-medium text-muted">{{
+            t('taskDetailModal.labels.description')
+          }}</dt>
           <dd class="mt-1 whitespace-pre-wrap text-foreground">
-            {{ task.description || '—' }}
+            {{ task.description || t('common.dash') }}
           </dd>
         </div>
         <div>
-          <dt class="font-medium text-muted">Subtasks</dt>
+          <dt class="font-medium text-muted">{{
+            t('taskDetailModal.labels.subtasks')
+          }}</dt>
           <dd class="mt-1">
             <TaskSubtasksPanel :task="task" hide-heading readonly />
           </dd>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <dt class="font-medium text-muted">Status</dt>
-            <dd class="mt-1 capitalize text-foreground">
-              {{ formatTaskStatus(task.status) }}
+            <dt class="font-medium text-muted">{{ t('taskDetailModal.labels.status') }}</dt>
+            <dd class="mt-1 text-foreground">
+              {{ taskStatusLabel(t, task.status) }}
             </dd>
           </div>
           <div>
-            <dt class="font-medium text-muted">Priority</dt>
-            <dd class="mt-1 capitalize text-foreground">{{ task.priority }}</dd>
+            <dt class="font-medium text-muted">{{
+              t('taskDetailModal.labels.priority')
+            }}</dt>
+            <dd class="mt-1 text-foreground">{{
+              taskPriorityLabel(t, task.priority)
+            }}</dd>
           </div>
         </div>
         <div>
-          <dt class="font-medium text-muted">Project</dt>
+          <dt class="font-medium text-muted">{{ t('taskDetailModal.labels.project') }}</dt>
           <dd class="mt-1 text-foreground">
-            {{ task.project?.name ?? `Project #${task.project_id}` }}
+            {{
+              task.project?.name ??
+              t('taskCard.meta.projectNum', { n: task.project_id })
+            }}
           </dd>
         </div>
         <div>
-          <dt class="font-medium text-muted">Assignee</dt>
+          <dt class="font-medium text-muted">{{
+            t('taskDetailModal.labels.assignee')
+          }}</dt>
           <dd class="mt-1 text-foreground">
             <template v-if="task.assignee">
               {{ task.assignee.name || task.assignee.email }}
               <span class="text-muted">({{ task.assignee.email }})</span>
             </template>
-            <template v-else>Unassigned</template>
+            <template v-else>{{ t('common.unassigned') }}</template>
           </dd>
         </div>
         <div>
-          <dt class="font-medium text-muted">Due date</dt>
+          <dt class="font-medium text-muted">{{
+            t('taskDetailModal.labels.dueDate')
+          }}</dt>
           <dd class="mt-1 text-foreground">
-            {{ task.due_date ? formatDate(task.due_date) : '—' }}
+            {{ task.due_date ? formatDate(task.due_date) : t('common.dash') }}
           </dd>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <dt class="font-medium text-muted">Created</dt>
+            <dt class="font-medium text-muted">{{
+              t('taskDetailModal.labels.created')
+            }}</dt>
             <dd class="mt-1 text-foreground">{{ formatDate(task.created_at) }}</dd>
           </div>
           <div>
-            <dt class="font-medium text-muted">Updated</dt>
+            <dt class="font-medium text-muted">{{
+              t('taskDetailModal.labels.updated')
+            }}</dt>
             <dd class="mt-1 text-foreground">{{ formatDate(task.updated_at) }}</dd>
           </div>
         </div>
@@ -221,22 +246,37 @@ async function removeTask() {
 
       <div v-else class="space-y-4">
         <div class="rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-sm">
-          <div class="text-muted">Project</div>
+          <div class="text-muted">{{ t('taskDetailModal.labels.project') }}</div>
           <div class="font-medium text-foreground">
-            {{ task.project?.name ?? `Project #${task.project_id}` }}
+            {{
+              task.project?.name ??
+              t('taskCard.meta.projectNum', { n: task.project_id })
+            }}
           </div>
-          <div class="mt-2 text-muted">Assignee</div>
+          <div class="mt-2 text-muted">{{ t('taskDetailModal.labels.assignee') }}</div>
           <div class="text-foreground">
             <template v-if="task.assignee">
               {{ task.assignee.name || task.assignee.email }}
               <span class="text-muted">({{ task.assignee.email }})</span>
             </template>
-            <template v-else>Unassigned</template>
+            <template v-else>{{ t('common.unassigned') }}</template>
           </div>
           <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-            <span>Created {{ formatDate(task.created_at) }}</span>
-            <span>Updated {{ formatDate(task.updated_at) }}</span>
-            <span v-if="task.due_date">Due {{ formatDate(task.due_date) }}</span>
+            <span>{{
+              t('taskDetailModal.meta.created', {
+                date: formatDate(task.created_at),
+              })
+            }}</span>
+            <span>{{
+              t('taskDetailModal.meta.updated', {
+                date: formatDate(task.updated_at),
+              })
+            }}</span>
+            <span v-if="task.due_date">{{
+              t('taskDetailModal.meta.due', {
+                date: formatDate(task.due_date),
+              })
+            }}</span>
           </div>
         </div>
 
@@ -247,7 +287,7 @@ async function removeTask() {
           v-model:status="formStatus"
           v-model:priority="formPriority"
           hide-project-select
-          submit-label="Save"
+          :submit-label="t('common.save')"
           :loading="saving"
           @submit="save"
           @cancel="close"
@@ -260,7 +300,7 @@ async function removeTask() {
               :disabled="saving"
               @click="removeTask"
             >
-              Delete task
+              {{ t('taskDetailModal.buttons.deleteTask') }}
             </Button>
           </template>
         </TaskForm>

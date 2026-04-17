@@ -1,0 +1,815 @@
+{
+  "common": {
+    "home": "Главная",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "open": "Открыть",
+    "remove": "Удалить",
+    "loading": "Загрузка…",
+    "noDescription": "Нет описания",
+    "owner": "Владелец",
+    "updatedAt": "Обновлено {time}",
+    "retry": "Повторить",
+    "create": "Создать",
+    "search": "Поиск",
+    "filters": "Фильтры",
+    "brand": "Project Hub",
+    "confirm": "Подтвердить",
+    "unassigned": "Не назначен",
+    "optional": "Необязательно",
+    "dash": "—",
+    "add": "Добавить",
+    "apply": "Применить",
+    "select": "Выбрать",
+    "selectAll": "Выбрать все",
+    "clear": "Сбросить",
+    "saving": "Сохранение…",
+    "bytes": {
+      "b": "{n} Б",
+      "kb": "{n} КБ",
+      "mb": "{n} МБ"
+    },
+    "created": "Создано",
+    "noData": "Нет данных"
+  },
+  "nav": {
+    "dashboard": "Обзор",
+    "projects": "Проекты",
+    "tasks": "Задачи",
+    "reports": "Отчёты",
+    "users": "Пользователи",
+    "uiKit": "UI kit",
+    "admin": "Админ",
+    "profile": "Профиль",
+    "signOut": "Выйти",
+    "commandPalette": "Командная палитра",
+    "commandPaletteShortcut": "Командная палитра — ⌘K или Ctrl+K",
+    "expandSidebar": "Развернуть боковую панель",
+    "collapseSidebar": "Свернуть боковую панель",
+    "toggleSidebar": "Переключить ширину боковой панели",
+    "mainNavigation": "Основная навигация"
+  },
+  "commandPalette": {
+    "ariaLabel": "Командная палитра",
+    "placeholder": "Поиск по навигации, проектам, задачам…",
+    "noMatches": "Ничего не найдено",
+    "hintNavigate": "навигация",
+    "hintOpen": "открыть",
+    "hintClose": "закрыть",
+    "kind": {
+      "nav": "навигация",
+      "project": "проект",
+      "task": "задача",
+      "action": "действие"
+    },
+    "nav": {
+      "dashboard": "Обзор",
+      "dashboardSub": "Перейти на главную",
+      "projects": "Проекты",
+      "projectsSub": "Все проекты",
+      "tasks": "Задачи",
+      "tasksSub": "Список задач",
+      "reports": "Отчёты",
+      "reportsSub": "Еженедельные отчёты",
+      "profile": "Профиль",
+      "profileSub": "Ваш профиль",
+      "users": "Пользователи",
+      "usersSub": "Админ",
+      "uiKit": "UI kit",
+      "uiKitSub": "Галерея компонентов"
+    },
+    "action": {
+      "newProject": "Новый проект",
+      "newProjectSub": "Открыть проекты",
+      "newTask": "Новая задача",
+      "newTaskSub": "Открыть задачи",
+      "signOut": "Выйти",
+      "signOutSub": "Завершить сессию"
+    },
+    "projectSub": "Проект"
+  },
+  "auth": {
+    "signInTitle": "Вход",
+    "createAccount": "Создать аккаунт",
+    "forgotPassword": "Забыли пароль?",
+    "forgotPasswordBody": "Восстановление пароля в этой версии недоступно. Обратитесь к администратору для восстановления доступа к аккаунту.",
+    "backToSignIn": "Назад ко входу",
+    "noAccount": "Нет аккаунта?",
+    "alreadyHaveAccount": "Уже есть аккаунт?",
+    "register": "Регистрация",
+    "signIn": "Войти",
+    "fields": {
+      "email": "Email",
+      "password": "Пароль",
+      "name": "Имя"
+    },
+    "errors": {
+      "invalidCredentials": "Неверный email или пароль.",
+      "registrationFailed": "Не удалось зарегистрироваться."
+    }
+  },
+  "dashboard": {
+    "title": "Обзор",
+    "subtitle": "Сводка по рабочему пространству",
+    "breadcrumb": "Обзор",
+    "stats": {
+      "api": "API",
+      "apiHint": "Проверка работоспособности",
+      "projects": "Проекты",
+      "projectsHint": "Ваши проекты",
+      "tasksScope": "Задачи (в зоне видимости)",
+      "tasksScopeHint": "Видимые задачи",
+      "doneThisWeek": "Сделано за неделю",
+      "doneThisWeekHint": "Завершено на текущей неделе",
+      "ok": "OK"
+    },
+    "activity": {
+      "totalTasks": "Всего задач в зоне: {count}",
+      "projectsOwned": "Проектов у вас: {count}",
+      "dash": "—"
+    },
+    "activityTitle": "Активность",
+    "activityEmptyTitle": "Нет недавней активности",
+    "activityEmptyDescription": "Здесь появятся сводные пункты, когда они будут доступны.",
+    "quickLinks": {
+      "title": "Быстрые ссылки",
+      "projects": "Проекты",
+      "tasks": "Задачи",
+      "reports": "Отчёты"
+    }
+  },
+  "projects": {
+    "title": "Проекты",
+    "breadcrumb": "Проекты",
+    "subtitleAdmin": "Все проекты в рабочем пространстве",
+    "subtitleUser": "Личные проекты и команды, в которых вы состоите",
+    "subtitleDefault": "Проекты, которыми вы владеете или в которых участвуете",
+    "newProject": "Новый проект",
+    "createFirst": "Создать первый проект",
+    "emptyTitle": "Пока нет проектов",
+    "emptyDescription": "Создайте первый проект, чтобы начать организовать задачи.",
+    "modalNewTitle": "Новый проект",
+    "modalEditTitle": "Редактировать проект",
+    "deleteTitle": "Удалить проект",
+    "deleteMessage": "Удалить этот проект и связи с задачами?",
+    "deleteConfirm": "Удалить",
+    "deleteButton": "Удалить проект"
+  },
+  "projectForm": {
+    "nameLabel": "Название",
+    "descriptionLabel": "Описание",
+    "typeLabel": "Тип проекта",
+    "typeAria": "Тип проекта",
+    "typeHint": "Личные проекты видны только вам. Командные проекты поддерживают участников и совместную работу.",
+    "typePersonal": "Личный",
+    "typeTeam": "Команда",
+    "cancel": "Отмена",
+    "saveDefault": "Сохранить"
+  },
+  "projectCard": {
+    "personal": "Личный",
+    "team": "Команда",
+    "owner": "Владелец",
+    "updatedAt": "Обновлено {time}",
+    "open": "Открыть",
+    "editAria": "Редактировать проект {name}",
+    "editSr": "Редактировать проект"
+  },
+  "projectDetail": {
+    "members": "Участники",
+    "editProject": "Редактировать проект",
+    "searchPlaceholder": "Поиск по названию или описанию…",
+    "newTask": "Новая задача",
+    "addSection": "Добавить раздел",
+    "sectionNamePlaceholder": "Название раздела…",
+    "taskFiltersRegion": "Фильтры и сортировка задач",
+    "emptyNoMatchTitle": "Нет задач по фильтрам",
+    "emptyNoMatchDescription": "Очистите поиск или фильтры либо сбросьте панель.",
+    "resetFilters": "Сбросить фильтры",
+    "emptyNoTasksTitle": "Пока нет задач",
+    "emptyNoTasksCanCreate": "Создайте задачу, чтобы начать.",
+    "emptyNoTasksGuest": "В этом проекте пока нет задач.",
+    "modalEditTitle": "Редактировать проект",
+    "modalNewTaskTitle": "Новая задача",
+    "submitCreate": "Создать",
+    "errorBreadcrumbProject": "Проект",
+    "unavailableTitle": "Проект недоступен",
+    "allProjects": "Все проекты",
+    "loadTasksFailed": "Не удалось загрузить задачи проекта",
+    "loadProjectFailed": "Не удалось загрузить проект",
+    "projectUpdated": "Проект обновлён",
+    "updateProjectFailed": "Не удалось обновить проект",
+    "projectDeleted": "Проект удалён",
+    "deleteProjectFailed": "Не удалось удалить проект",
+    "enterTaskTitle": "Введите название задачи",
+    "invalidProject": "Некорректный проект",
+    "taskCreated": "Задача создана",
+    "createTaskFailed": "Не удалось создать задачу",
+    "taskReopened": "Задача снова отмечена как невыполненная",
+    "updateTaskFailed": "Не удалось обновить задачу",
+    "moveTaskFailed": "Не удалось переместить задачу",
+    "enterSectionName": "Введите название раздела",
+    "sectionCreated": "Раздел создан",
+    "createSectionFailed": "Не удалось создать раздел",
+    "unsectioned": "Без раздела",
+    "emptySection": "В этом разделе нет задач.",
+    "emptyGroup": "В этой группе нет задач."
+  },
+  "tasks": {
+    "title": "Задачи",
+    "breadcrumb": "Задачи",
+    "subtitleAdmin": "Все задачи в рабочем пространстве",
+    "subtitleDefault": "Задачи в ваших проектах или назначенные вам",
+    "searchPlaceholder": "Поиск по названию или описанию…",
+    "newTask": "Новая задача",
+    "createTask": "Создать задачу",
+    "resetFilters": "Сбросить фильтры",
+    "taskFiltersRegion": "Фильтры и сортировка задач",
+    "emptyNoMatchTitle": "Нет задач по фильтрам",
+    "emptyNoMatchDescription": "Очистите поиск, исполнителя или приоритет либо сбросьте панель.",
+    "emptyNoTasksTitle": "Задач не найдено",
+    "emptyNoTasksCanCreate": "Создайте задачу или измените фильтры.",
+    "emptyNoTasksGuest": "Пока нет задач. Они появятся при назначении на проект.",
+    "modalNewTitle": "Новая задача",
+    "submitCreate": "Создать",
+    "unsectioned": "Без раздела",
+    "emptySection": "В этом разделе нет задач.",
+    "emptyGroup": "В этой группе нет задач.",
+    "toasts": {
+      "enterTitle": "Введите название задачи",
+      "selectProject": "Выберите проект",
+      "created": "Задача создана",
+      "createFailed": "Не удалось создать задачу",
+      "reopened": "Задача снова отмечена как невыполненная",
+      "updateFailed": "Не удалось обновить задачу",
+      "moveFailed": "Не удалось переместить задачу"
+    }
+  },
+  "projectSettings": {
+    "title": "Настройки",
+    "breadcrumb": "Настройки",
+    "loadErrorTitle": "Не удалось загрузить настройки",
+    "loadProjectFailed": "Не удалось загрузить проект",
+    "membersHeading": "Участники",
+    "addMember": "Добавить участника",
+    "transferOwnership": "Передать владение"
+  },
+  "members": {
+    "owner": "Владелец",
+    "remove": "Исключить",
+    "noMembers": "Участники не загружены.",
+    "ariaList": "Участники проекта",
+    "changeRole": "Изменить роль",
+    "rolePlaceholder": "Роль…",
+    "role": {
+      "owner": "Владелец",
+      "manager": "Менеджер",
+      "executor": "Исполнитель",
+      "viewer": "Наблюдатель"
+    },
+    "toasts": {
+      "roleUpdated": "Роль обновлена",
+      "roleFailed": "Не удалось обновить роль",
+      "memberRemoved": "Участник удалён",
+      "removeFailed": "Не удалось удалить участника",
+      "memberRemovedTasksUnassigned": "Участник удалён, с {count} задач снято назначение",
+      "memberRemovedTasksTransferred": "Участник удалён, {count} задач передано",
+      "tasksTransferredMemberRemoved": "Передано задач: {count}, участник удалён",
+      "transferRemoveFailed": "Не удалось передать задачи и удалить участника"
+    }
+  },
+  "enums": {
+    "taskStatus": {
+      "todo": "К выполнению",
+      "in_progress": "В работе",
+      "review": "На проверке",
+      "done": "Готово"
+    },
+    "taskPriority": {
+      "low": "Низкий",
+      "medium": "Средний",
+      "high": "Высокий",
+      "critical": "Критический"
+    },
+    "projectRole": {
+      "manager": "Менеджер",
+      "executor": "Исполнитель",
+      "viewer": "Наблюдатель"
+    },
+    "sortKeys": {
+      "updated_at": "Обновлено",
+      "created_at": "Создано",
+      "title": "Название",
+      "priority": "Приоритет",
+      "due_date": "Срок"
+    },
+    "sortDir": {
+      "asc": "По возрастанию",
+      "desc": "По убыванию"
+    },
+    "groupBy": {
+      "none": "Без группировки",
+      "project": "По проекту",
+      "section": "По разделу",
+      "status": "По статусу",
+      "priority": "По приоритету",
+      "assignee": "По исполнителю"
+    },
+    "reportField": {
+      "title": "Название",
+      "description": "Описание",
+      "status": "Статус",
+      "priority": "Приоритет",
+      "project": "Проект",
+      "assignee": "Исполнитель",
+      "due_date": "Срок",
+      "created_at": "Создано",
+      "updated_at": "Обновлено"
+    },
+    "reportFormat": {
+      "csv": "CSV",
+      "xlsx": "XLSX",
+      "pdf": "PDF",
+      "txt": "TXT"
+    },
+    "reportPdfLayout": {
+      "table": "Таблица",
+      "list": "Список"
+    },
+    "reportGroupBy": {
+      "none": "Нет",
+      "project": "По проекту",
+      "status": "По статусу",
+      "priority": "По приоритету",
+      "assignee": "По исполнителю"
+    }
+  },
+  "confirmDefaults": {
+    "confirm": "Подтвердить",
+    "cancel": "Отмена"
+  },
+  "reports": {
+    "title": "Отчёты",
+    "subtitle": "Еженедельный обзор и сохранённые выгрузки",
+    "newReport": "Новый отчёт",
+    "saved": {
+      "title": "Сохранённые отчёты",
+      "subtitle": "Файлы на сервере — можно скачать в любое время."
+    },
+    "empty": {
+      "title": "Пока нет сохранённых отчётов",
+      "description": "Создайте отчёт через «Новый отчёт», чтобы сохранить файл на сервере."
+    },
+    "table": {
+      "name": "Название",
+      "format": "Формат",
+      "size": "Размер",
+      "created": "Создано",
+      "actions": "Действия"
+    },
+    "download": "Скачать",
+    "delete": "Удалить",
+    "toasts": {
+      "loadFailed": "Не удалось загрузить отчёт.",
+      "createFailed": "Не удалось создать отчёт.",
+      "downloadFailed": "Не удалось скачать.",
+      "deleteFailed": "Не удалось удалить отчёт.",
+      "deleted": "Отчёт удалён"
+    },
+    "confirm": {
+      "deleteTitle": "Удалить отчёт",
+      "deleteMessage": "Удалить «{name}» с сервера? Это действие нельзя отменить.",
+      "deleteConfirm": "Удалить"
+    },
+    "modal": {
+      "newTitle": "Новый отчёт"
+    }
+  },
+  "reportSettings": {
+    "intro": "Выберите формат, фильтры, столбцы и группировку. Файл сохраняется на сервере и отображается в разделе «Сохранённые отчёты» на этой странице.",
+    "format": "Формат",
+    "formatAria": "Формат отчёта",
+    "pdfLayout": "Макет PDF",
+    "pdfLayoutAria": "Макет PDF",
+    "pdfHint": "Таблица: столбцы как в электронной таблице. Список: каждая задача отдельными строками с подписями. В PDF встроены шрифты Unicode (UTF-8, в т.ч. кириллица).",
+    "createdFrom": "Создано с",
+    "createdTo": "Создано по",
+    "projects": "Проекты (пусто = все доступные)",
+    "noProjects": "Проекты не загружены.",
+    "users": "Пользователи (пусто = все задачи; иначе исполнитель или владелец проекта из списка)",
+    "loadingUsers": "Загрузка пользователей…",
+    "statuses": "Статусы",
+    "priorities": "Приоритеты",
+    "columns": "Столбцы",
+    "selectOneColumn": "Выберите хотя бы один столбец.",
+    "groupBy": "Группировать по",
+    "groupByPlaceholder": "Нет",
+    "generate": "Сформировать отчёт",
+    "generating": "Сохранение…"
+  },
+  "reportViewer": {
+    "totalTasks": "Всего задач (в области видимости)",
+    "completedWeek": "Завершено на этой неделе",
+    "yourProjects": "Ваши проекты",
+    "weekRange": "Неделя: {start} — {end}"
+  },
+  "admin": {
+    "users": {
+      "title": "Пользователи",
+      "subtitleAdmin": "Управление учётными записями и глобальными ролями",
+      "subtitleStaff": "Справочник — просмотр всех пользователей (редактирование только у администратора)",
+      "subtitleReadonly": "Справочник (только просмотр)",
+      "newUser": "Новый пользователь",
+      "empty": {
+        "title": "Нет пользователей",
+        "description": "В этой среде нет видимых учётных записей."
+      },
+      "errors": {
+        "loadFailed": "Не удалось загрузить пользователей (только staff или admin).",
+        "deleteFailed": "Не удалось удалить пользователя.",
+        "roleFailed": "Не удалось обновить роль"
+      },
+      "toasts": {
+        "userDeleted": "Пользователь удалён",
+        "roleUpdated": "Роль обновлена"
+      },
+      "table": {
+        "user": "Пользователь",
+        "info": "Инфо",
+        "phone": "Телефон",
+        "role": "Роль",
+        "actions": "Действия"
+      },
+      "changeRole": "Сменить роль",
+      "aria": {
+        "edit": "Редактировать {email}",
+        "delete": "Удалить {email}",
+        "view": "Просмотр {email}",
+        "changeRole": "Сменить роль для {email}, сейчас {role}",
+        "changeRoleTitle": "Сменить роль (сейчас {role})"
+      },
+      "cannotDeleteSelf": "Нельзя удалить собственную учётную запись",
+      "confirm": {
+        "deleteTitle": "Удалить пользователя",
+        "deleteMessage": "Удалить пользователя {email}?",
+        "deleteConfirm": "Удалить"
+      },
+      "roleOptions": {
+        "user": "Пользователь",
+        "creator": "Создатель",
+        "staff": "Сотрудник"
+      }
+    }
+  },
+  "uiKit": {
+    "intro": {
+      "title": "UI kit",
+      "subtitle": "Примитивы интерфейса из папки components/ui.",
+      "onThisPage": "На этой странице: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Глобально в оболочке: UiToast, UiConfirmDialog, UiCommandPalette."
+    },
+    "sections": {
+      "buttons": "Кнопки",
+      "segmented": "Сегментированный переключатель (UiSegmentedControl)",
+      "inputs": "Поля ввода (UiInput)",
+      "formSections": "Секции формы и фильтры",
+      "select": "Выпадающий список (UiSelect)",
+      "menuButton": "Кнопка-меню (UiMenuButton)",
+      "badges": "Бейджи и аватары",
+      "cards": "Карточки и таблица",
+      "breadcrumb": "Хлебные крошки (пример)",
+      "empty": "Пустое состояние и скелетоны",
+      "modal": "Модальное окно и глобальные оверлеи"
+    },
+    "segmentedTwo": {
+      "list": "Список",
+      "grid": "Сетка"
+    },
+    "segmentedThree": {
+      "alpha": "Альфа",
+      "beta": "Бета",
+      "gamma": "Гамма"
+    },
+    "demo": {
+      "confirm": {
+        "title": "Диалог подтверждения",
+        "message": "Демонстрация UiConfirmDialog (глобальный компонент).",
+        "ok": "OK"
+      },
+      "toasts": {
+        "confirmed": "Подтверждено",
+        "cancelled": "Отменено",
+        "action": "Действие: {action}",
+        "saved": "Успешно сохранено",
+        "error": "Что-то пошло не так",
+        "info": "Справка: демо toast"
+      }
+    }
+  },
+  "taskCard": {
+    "unassigned": "Не назначен",
+    "noAssignee": "Без исполнителя",
+    "placeholders": {
+      "title": "Название",
+      "description": "Описание (необязательно)"
+    },
+    "meta": {
+      "updated": "Обновлено {time}",
+      "due": "Срок {date}",
+      "projectNum": "Проект №{n}"
+    },
+    "sections": {
+      "subtasks": "Подзадачи"
+    },
+    "aria": {
+      "markDone": "Отметить выполненной",
+      "markNotDone": "Отметить невыполненной",
+      "addSubtask": "Добавить подзадачу",
+      "addSubtaskTitle": "Добавить подзадачу",
+      "taskDetails": "Детали задачи",
+      "deleteTask": "Удалить задачу",
+      "changeAssignee": "Сменить исполнителя",
+      "removeAssignee": "Снять исполнителя",
+      "dueDate": "Срок",
+      "dueDateWith": "Срок {date}"
+    },
+    "toasts": {
+      "statusFailed": "Не удалось обновить статус",
+      "enterTitle": "Введите название задачи",
+      "updateFailed": "Не удалось обновить задачу",
+      "invalidAssignee": "Недопустимый исполнитель",
+      "assigneeUpdated": "Исполнитель обновлён",
+      "assigneeFailed": "Не удалось обновить исполнителя",
+      "deleteFailed": "Не удалось удалить задачу",
+      "deleted": "Задача удалена"
+    },
+    "confirm": {
+      "deleteTitle": "Удалить задачу",
+      "deleteMessage": "Удалить «{title}»? Это действие нельзя отменить.",
+      "deleteConfirm": "Удалить"
+    },
+    "buttons": {
+      "deleteTask": "Удалить задачу",
+      "cancel": "Отмена",
+      "save": "Сохранить"
+    }
+  },
+  "taskList": {
+    "emptyDefault": "Пока нет задач."
+  },
+  "taskSectionList": {
+    "emptyDefault": "Пока нет задач."
+  },
+  "taskInlineComposer": {
+    "srTitle": "Название задачи",
+    "srDescription": "Описание",
+    "srProject": "Проект",
+    "titlePlaceholder": "Название новой задачи…",
+    "descriptionPlaceholder": "Описание (необязательно)",
+    "projectFallback": "Проект",
+    "cancel": "Отмена",
+    "add": "Добавить",
+    "projectForNewTask": "Проект для новой задачи: {name}",
+    "projectLabel": "Проект: {name}",
+    "statusLabel": "Статус: {name}",
+    "priorityLabel": "Приоритет: {name}",
+    "toasts": {
+      "enterTitle": "Введите название задачи",
+      "selectProject": "Выберите проект",
+      "created": "Задача создана",
+      "createFailed": "Не удалось создать задачу"
+    }
+  },
+  "taskFiltersPanel": {
+    "labels": {
+      "project": "Проект",
+      "status": "Статус",
+      "priority": "Приоритет",
+      "assignee": "Исполнитель",
+      "sortBy": "Сортировать по",
+      "order": "Порядок",
+      "groupListOnly": "Группировка (только список)"
+    },
+    "placeholders": {
+      "allProjects": "Все проекты",
+      "allStatuses": "Все статусы",
+      "allPriorities": "Все приоритеты",
+      "allAssignees": "Все исполнители"
+    },
+    "aria": {
+      "filterByProject": "Фильтр по проекту",
+      "clearProject": "Сбросить фильтр проекта",
+      "filterByStatus": "Фильтр по статусу",
+      "clearStatus": "Сбросить фильтр статуса",
+      "filterByPriority": "Фильтр по приоритету",
+      "clearPriority": "Сбросить фильтр приоритета",
+      "filterByAssignee": "Фильтр по исполнителю",
+      "clearAssignee": "Сбросить фильтр исполнителя",
+      "sortOrderGrouping": "Сортировка, порядок и группировка",
+      "sortTasksBy": "Сортировать задачи по",
+      "sortOrder": "Порядок сортировки",
+      "groupTasks": "Группировать задачи"
+    },
+    "reset": "Сбросить фильтры"
+  },
+  "taskDetailModal": {
+    "title": "Детали задачи",
+    "loadError": "Не удалось загрузить задачу.",
+    "labels": {
+      "title": "Название",
+      "description": "Описание",
+      "subtasks": "Подзадачи",
+      "status": "Статус",
+      "priority": "Приоритет",
+      "project": "Проект",
+      "assignee": "Исполнитель",
+      "dueDate": "Срок",
+      "created": "Создано",
+      "updated": "Обновлено"
+    },
+    "meta": {
+      "created": "Создано {date}",
+      "updated": "Обновлено {date}",
+      "due": "Срок {date}"
+    },
+    "buttons": {
+      "deleteTask": "Удалить задачу"
+    },
+    "toasts": {
+      "enterTitle": "Введите название задачи",
+      "updated": "Задача обновлена",
+      "updateFailed": "Не удалось обновить задачу",
+      "deleted": "Задача удалена",
+      "deleteFailed": "Не удалось удалить задачу"
+    }
+  },
+  "taskForm": {
+    "labels": {
+      "title": "Название",
+      "description": "Описание",
+      "project": "Проект",
+      "status": "Статус",
+      "priority": "Приоритет"
+    },
+    "placeholders": {
+      "optional": "Необязательно",
+      "selectProject": "Выберите проект"
+    },
+    "fallbacks": {
+      "project": "Проект",
+      "status": "Статус",
+      "priority": "Приоритет"
+    },
+    "aria": {
+      "project": "Проект: {name}",
+      "status": "Статус: {name}",
+      "priority": "Приоритет: {name}",
+      "assignee": "Исполнитель: {name}"
+    },
+    "cancel": "Отмена",
+    "createDefault": "Создать"
+  },
+  "taskSubtasks": {
+    "heading": "Подзадачи",
+    "emptyReadonly": "Нет подзадач.",
+    "srNew": "Новая подзадача",
+    "placeholder": "Новая подзадача… (Enter)",
+    "clickToEdit": "Нажмите, чтобы редактировать название",
+    "editTitle": "Редактировать название",
+    "aria": {
+      "done": "Выполнено: {title}",
+      "editSubtask": "Редактировать подзадачу: {title}",
+      "editSubtaskTitle": "Редактировать название подзадачи",
+      "removeSubtask": "Удалить подзадачу"
+    },
+    "toasts": {
+      "added": "Подзадача добавлена",
+      "addFailed": "Не удалось добавить подзадачу",
+      "updateFailed": "Не удалось обновить подзадачу",
+      "removed": "Подзадача удалена",
+      "removeFailed": "Не удалось удалить подзадачу",
+      "enterTitle": "Введите название подзадачи"
+    },
+    "cellRequired": "Обязательно"
+  },
+  "addMemberModal": {
+    "title": "Добавить участника",
+    "tabs": {
+      "pickUser": "Выбрать пользователя",
+      "byEmail": "По email"
+    },
+    "labels": {
+      "user": "Пользователь",
+      "email": "Email",
+      "projectRole": "Роль в проекте"
+    },
+    "placeholders": {
+      "selectUser": "Выберите пользователя…",
+      "emailExample": "user@example.com"
+    },
+    "cancel": "Отмена",
+    "add": "Добавить",
+    "toasts": {
+      "enterEmail": "Введите email",
+      "selectUser": "Выберите пользователя",
+      "added": "Участник добавлен",
+      "addFailed": "Не удалось добавить участника"
+    }
+  },
+  "transferOwnershipModal": {
+    "title": "Передать владение",
+    "body": "Только для администратора. Прежний владелец при необходимости будет добавлен как менеджер.",
+    "labelNewOwner": "Новый владелец",
+    "placeholderSelectUser": "Выберите пользователя…",
+    "cancel": "Отмена",
+    "transfer": "Передать",
+    "badges": {
+      "currentOwner": "текущий владелец"
+    },
+    "toasts": {
+      "selectNewOwner": "Выберите нового владельца",
+      "transferred": "Владение передано",
+      "transferFailed": "Не удалось передать владение"
+    }
+  },
+  "taskTransferModal": {
+    "title": "Удалить участника проекта",
+    "warning": "У {name} есть {count} назначенных задач",
+    "chooseHandling": "Выберите, как обработать эти задачи перед удалением участника.",
+    "transferMode": "Режим переноса",
+    "mode": {
+      "unassigned": "Оставить задачи без исполнителя",
+      "single_user": "Назначить все задачи одному пользователю",
+      "manual": "Настроить вручную для каждой задачи"
+    },
+    "assignAllTo": "Назначить все задачи",
+    "selectTeamMember": "Выберите участника команды…",
+    "cancel": "Отмена",
+    "primary": {
+      "unassigned": "Удалить участника и снять назначение с {count} задач",
+      "single_user": "Удалить участника и передать {count} задач",
+      "manual": "Настроить назначения задач"
+    }
+  },
+  "manualTaskTransfer": {
+    "title": "Переназначить {count} задач от {name}",
+    "banners": {
+      "deletionBlocked": "Удаление заблокировано",
+      "pending": "{pending} из {total} задач ожидают переназначения",
+      "allReassigned": "Все задачи переназначены",
+      "canRemove": "Теперь можно удалить {name} из проекта."
+    },
+    "table": {
+      "task": "Задача",
+      "status": "Статус",
+      "newAssignee": "Новый исполнитель",
+      "valid": "Ок"
+    },
+    "placeholderAssignee": "Выберите исполнителя…",
+    "progress": "Прогресс:",
+    "cancel": "Отмена",
+    "apply": "Применить переносы и удалить участника",
+    "validation": {
+      "required": "Обязательно",
+      "cannotAssignRemoved": "Нельзя назначить удаляемого участника",
+      "invalidAssignee": "Недопустимый исполнитель"
+    }
+  },
+  "profile": {
+    "title": "Профиль",
+    "subtitle": "Личные данные и безопасность",
+    "personalData": "Персональные данные",
+    "lastName": "Фамилия",
+    "firstName": "Имя",
+    "patronymic": "Отчество",
+    "department": "Название подразделения",
+    "jobTitle": "Должность",
+    "phone": "Телефон",
+    "email": "Email",
+    "save": "Сохранить",
+    "saving": "Сохранение…",
+    "changePassword": "Смена пароля",
+    "currentPassword": "Текущий пароль",
+    "newPassword": "Новый пароль",
+    "confirmPassword": "Подтверждение нового пароля",
+    "changePasswordButton": "Сменить пароль",
+    "feedbackSaved": "Данные сохранены.",
+    "feedbackSaveFailed": "Не удалось сохранить (возможно, email уже занят).",
+    "feedbackPasswordMismatch": "Новый пароль и подтверждение не совпадают.",
+    "feedbackPasswordShort": "Новый пароль — не менее 8 символов.",
+    "feedbackPasswordChanged": "Пароль изменён.",
+    "feedbackWrongCurrent": "Неверный текущий пароль.",
+    "feedbackPasswordFailed": "Не удалось сменить пароль.",
+    "feedbackLocaleSaveFailed": "Не удалось сохранить язык интерфейса."
+  },
+  "appearance": {
+    "title": "Внешний вид",
+    "themeHint": "Цветовая тема на этом устройстве",
+    "themeLight": "Светлая",
+    "themeDark": "Тёмная",
+    "themeSystem": "Системная",
+    "language": "Язык",
+    "languageHint": "Язык интерфейса сохраняется в аккаунте и на этом устройстве."
+  }
+}

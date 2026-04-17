@@ -23,6 +23,7 @@ type userUpdateBody struct {
 	Department  *string `json:"department"`
 	JobTitle    *string `json:"job_title"`
 	Phone       *string `json:"phone"`
+	Locale      *string `json:"locale"`
 	Password    *string `json:"password"`
 }
 
@@ -49,6 +50,7 @@ func userPublic(u *models.User) gin.H {
 		"department":  u.Department,
 		"job_title":   u.JobTitle,
 		"phone":       u.Phone,
+		"locale":      u.Locale,
 		"role":        u.Role,
 		"created_at":  u.CreatedAt,
 		"updated_at":  u.UpdatedAt,
@@ -164,6 +166,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Department:  body.Department,
 		JobTitle:    body.JobTitle,
 		Phone:       body.Phone,
+		Locale:      body.Locale,
 		Password:    body.Password,
 	}
 	u, err := h.Svc.Update(uint(id), callerID, role, patch)

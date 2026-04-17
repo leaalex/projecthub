@@ -12,6 +12,7 @@ import {
   UserPlusIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { useAuthStore } from '../../stores/auth.store'
 import { useTaskStore } from '../../stores/task.store'
@@ -25,6 +26,9 @@ import UiInput from '../ui/UiInput.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -87,7 +91,7 @@ const assigneeLabel = computed(() => {
   if (props.task.assignee) {
     return props.task.assignee.name || props.task.assignee.email
   }
-  return 'Unassigned'
+  return t('common.unassigned')
 })
 
 const assigneeTitle = computed(() => {
@@ -96,7 +100,9 @@ const assigneeTitle = computed(() => {
   return a.name ? `${a.name} (${a.email})` : a.email
 })
 
-const isAssigneePlaceholder = computed(() => assigneeLabel.value === 'Unassigned')
+const isAssigneePlaceholder = computed(
+  () => assigneeLabel.value === t('common.unassigned'),
+)
 
 const subtaskSummary = computed(() => {
   const list = props.task.subtasks ?? []
@@ -135,21 +141,21 @@ function normalizeAssigneeId(raw: unknown): number {
 }
 
 /** Prefer assignee_id; fall back to nested assignee.id if IDs were ever out of sync. */
-function effectiveAssigneeId(t: Task): number {
-  const fromField = normalizeAssigneeId(t.assignee_id)
+function effectiveAssigneeId(task: Task): number {
+  const fromField = normalizeAssigneeId(task.assignee_id)
   if (fromField > 0) return fromField
-  return normalizeAssigneeId(t.assignee?.id)
+  return normalizeAssigneeId(task.assignee?.id)
 }
 
 function syncDraftsFromTask() {
-  const t = props.task
-  draftTitle.value = t.title
-  draftDescription.value = t.description ?? ''
-  draftStatus.value = t.status
-  draftPriority.value = t.priority
-  draftProjectId.value = t.project_id
-  draftDue.value = dueFromTask(t.due_date)
-  const eid = effectiveAssigneeId(t)
+  const taskRow = props.task
+  draftTitle.value = taskRow.title
+  draftDescription.value = taskRow.description ?? ''
+  draftStatus.value = taskRow.status
+  draftPriority.value = taskRow.priority
+  draftProjectId.value = taskRow.project_id
+  draftDue.value = dueFromTask(taskRow.due_date)
+  const eid = effectiveAssigneeId(taskRow)
   draftAssigneeId.value = eid > 0 ? eid : ''
 }
 
@@ -194,20 +200,22 @@ function collapseExpanded() {
 }
 
 async function saveStatusOnly() {
-  const t = props.task
-  if (draftStatus.value === t.status) {
+  const taskRow = props.task
+  if (draftStatus.value === taskRow.status) {
     collapseExpanded()
     return
   }
   busy.value = true
   try {
-    await taskStore.update(t.id, { status: draftStatus.value })
+    await taskStore.update(taskRow.id, { status: draftStatus.value })
     emit('updated')
     collapseExpanded()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update status')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskCard.toasts.statusFailed'),
+    )
     syncDraftsFromTask()
   } finally {
     busy.value = false
@@ -216,22 +224,22 @@ async function saveStatusOnly() {
 
 async function requestDelete() {
   if (!props.canEdit || deleting.value) return
-  const t = props.task
+  const taskRow = props.task
   const ok = await confirm({
-    title: 'Delete task',
-    message: `Remove “${t.title}”? This cannot be undone.`,
-    confirmLabel: 'Delete',
+    title: t('taskCard.confirm.deleteTitle'),
+    message: t('taskCard.confirm.deleteMessage', { title: taskRow.title }),
+    confirmLabel: t('taskCard.confirm.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
   deleting.value = true
   try {
-    await taskStore.remove(t.id)
-    toast.success('Task deleted')
+    await taskStore.remove(taskRow.id)
+    toast.success(t('taskCard.toasts.deleted'))
     collapseExpanded()
     emit('updated')
   } catch {
-    toast.error('Could not delete task')
+    toast.error(t('taskCard.toasts.deleteFailed'))
   } finally {
     deleting.value = false
   }
@@ -245,22 +253,22 @@ function onInlineEscape(e: KeyboardEvent) {
 
 /** Сохранить изменения одной кнопкой Done. */
 async function saveAndCollapse() {
-  const t = props.task
-  const title = draftTitle.value.trim()
-  if (!title) {
-    toast.error('Enter a task title')
+  const taskRow = props.task
+  const trimmedTitle = draftTitle.value.trim()
+  if (!trimmedTitle) {
+    toast.error(t('taskCard.toasts.enterTitle'))
     return
   }
 
   const desc = draftDescription.value.trim()
-  const descPrev = (t.description ?? '').trim()
+  const descPrev = (taskRow.description ?? '').trim()
   const pid = Number(draftProjectId.value)
   const due = draftDue.value.trim()
-  const duePrev = dueFromTask(t.due_date)
+  const duePrev = dueFromTask(taskRow.due_date)
   const rawAssignee = draftAssigneeId.value
   const nextAssignee =
     rawAssignee === '' ? 0 : normalizeAssigneeId(rawAssignee)
-  const prevAssignee = effectiveAssigneeId(t)
+  const prevAssignee = effectiveAssigneeId(taskRow)
 
   const patch: Partial<{
     title: string
@@ -271,11 +279,12 @@ async function saveAndCollapse() {
     due_date: string
   }> = {}
 
-  if (title !== t.title) patch.title = title
+  if (trimmedTitle !== taskRow.title) patch.title = trimmedTitle
   if (desc !== descPrev) patch.description = desc
-  if (draftStatus.value !== t.status) patch.status = draftStatus.value
-  if (draftPriority.value !== t.priority) patch.priority = draftPriority.value
-  if (pid && pid !== t.project_id) patch.project_id = pid
+  if (draftStatus.value !== taskRow.status) patch.status = draftStatus.value
+  if (draftPriority.value !== taskRow.priority)
+    patch.priority = draftPriority.value
+  if (pid && pid !== taskRow.project_id) patch.project_id = pid
   if (due !== duePrev) patch.due_date = due
 
   const assigneeChanged = nextAssignee !== prevAssignee
@@ -290,10 +299,10 @@ async function saveAndCollapse() {
   busy.value = true
   try {
     if (hasPatch) {
-      await taskStore.update(t.id, patch)
+      await taskStore.update(taskRow.id, patch)
     }
     if (assigneeChanged) {
-      await taskStore.assign(t.id, nextAssignee)
+      await taskStore.assign(taskRow.id, nextAssignee)
     }
     emit('updated')
     expanded.value = false
@@ -301,7 +310,9 @@ async function saveAndCollapse() {
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskCard.toasts.updateFailed'),
+    )
     syncDraftsFromTask()
   } finally {
     busy.value = false
@@ -320,19 +331,19 @@ const showAssigneePicker = () =>
   props.canEdit &&
   (props.assignableUsers.length > 0 || effectiveAssigneeId(props.task) > 0)
 
-const STATUS_OPTIONS = [
-  { value: 'todo' as const, label: 'To do' },
-  { value: 'in_progress' as const, label: 'In progress' },
-  { value: 'review' as const, label: 'Review' },
-  { value: 'done' as const, label: 'Done' },
-]
+const STATUS_OPTIONS = computed(() =>
+  (['todo', 'in_progress', 'review', 'done'] as const).map((value) => ({
+    value,
+    label: taskStatusLabel(t, value),
+  })),
+)
 
-const PRIORITY_OPTIONS = [
-  { value: 'low' as const, label: 'Low' },
-  { value: 'medium' as const, label: 'Medium' },
-  { value: 'high' as const, label: 'High' },
-  { value: 'critical' as const, label: 'Critical' },
-]
+const PRIORITY_OPTIONS = computed(() =>
+  (['low', 'medium', 'high', 'critical'] as const).map((value) => ({
+    value,
+    label: taskPriorityLabel(t, value),
+  })),
+)
 
 const projectSelectOptions = computed(() =>
   props.projects.map((p) => ({ value: p.id, label: p.name })),
@@ -352,7 +363,7 @@ const assigneeSelectOptions = computed(() => {
     const a = props.task.assignee
     extra.push({ value: aid, label: a.name || a.email })
   }
-  return [{ value: '', label: 'Unassigned' }, ...extra, ...users]
+  return [{ value: '', label: t('common.unassigned') }, ...extra, ...users]
 })
 
 /** Matches option `value` types so UiMenuButton selection/highlight works. */
@@ -362,10 +373,13 @@ const collapsedAssigneeMenuValue = computed(() => {
 })
 
 const draftStatusMenuLabel = computed(
-  () => STATUS_OPTIONS.find((o) => o.value === draftStatus.value)?.label ?? '',
+  () =>
+    STATUS_OPTIONS.value.find((o) => o.value === draftStatus.value)?.label ?? '',
 )
 const draftPriorityMenuLabel = computed(
-  () => PRIORITY_OPTIONS.find((o) => o.value === draftPriority.value)?.label ?? '',
+  () =>
+    PRIORITY_OPTIONS.value.find((o) => o.value === draftPriority.value)?.label ??
+    '',
 )
 const draftProjectMenuLabel = computed(
   () =>
@@ -391,7 +405,7 @@ async function onAssigneeMenuSelect(v: string | number) {
       ? 0
       : normalizeAssigneeId(v)
   if (v !== '' && v !== null && v !== undefined && next === 0) {
-    toast.error('Invalid assignee')
+    toast.error(t('taskCard.toasts.invalidAssignee'))
     return
   }
   const prev = effectiveAssigneeId(props.task)
@@ -400,11 +414,13 @@ async function onAssigneeMenuSelect(v: string | number) {
   try {
     await taskStore.assign(props.task.id, next)
     emit('updated')
-    toast.success('Assignee updated')
+    toast.success(t('taskCard.toasts.assigneeUpdated'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not update assignee')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskCard.toasts.assigneeFailed'),
+    )
   } finally {
     assigningQuick.value = false
   }
@@ -418,14 +434,14 @@ async function onAssigneeMenuSelect(v: string | number) {
         v-if="task.status !== 'done'"
         type="button"
         class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/45 transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label="Mark done"
+        :aria-label="t('taskCard.aria.markDone')"
         @click.stop="emit('complete', task.id)"
       />
       <button
         v-else
         type="button"
         class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-emerald-500"
-        aria-label="Mark as not done"
+        :aria-label="t('taskCard.aria.markNotDone')"
         @click.stop="emit('reopen', task.id)"
       >
         <CheckIcon class="h-3 w-3 text-white" aria-hidden="true" />
@@ -463,13 +479,18 @@ async function onAssigneeMenuSelect(v: string | number) {
           class="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0 text-xs text-muted"
         >
           <span class="shrink-0">{{
-            task.project?.name ?? `Project #${task.project_id}`
+            task.project?.name ??
+            t('taskCard.meta.projectNum', { n: task.project_id })
           }}</span>
           <span class="shrink-0">·</span>
-          <span class="shrink-0">Updated {{ timeAgo(task.updated_at) }}</span>
+          <span class="shrink-0">{{
+            t('taskCard.meta.updated', { time: timeAgo(task.updated_at) })
+          }}</span>
           <template v-if="task.due_date">
             <span class="shrink-0">·</span>
-            <span class="shrink-0">Due {{ dueFromTask(task.due_date) }}</span>
+            <span class="shrink-0">{{
+              t('taskCard.meta.due', { date: dueFromTask(task.due_date) })
+            }}</span>
           </template>
         </div>
         <button
@@ -491,7 +512,7 @@ async function onAssigneeMenuSelect(v: string | number) {
             aria-hidden="true"
           />
           <span class="min-w-0">
-            Subtasks
+            {{ t('taskCard.sections.subtasks') }}
             <span class="font-medium text-foreground">{{ subtaskSummary }}</span>
           </span>
         </button>
@@ -521,7 +542,7 @@ async function onAssigneeMenuSelect(v: string | number) {
           <UiInput
             ref="titleInputRef"
             v-model="draftTitle"
-            placeholder="Title"
+            :placeholder="t('taskCard.placeholders.title')"
             class="font-medium"
             :disabled="busy"
             @keydown="onTitleKeydown"
@@ -531,7 +552,7 @@ async function onAssigneeMenuSelect(v: string | number) {
         <UiTextarea
           v-model="draftDescription"
           :rows="2"
-          placeholder="Description (optional)"
+          :placeholder="t('taskCard.placeholders.description')"
           :disabled="busy"
           @keydown="onInlineEscape"
         />
@@ -558,8 +579,12 @@ async function onAssigneeMenuSelect(v: string | number) {
               <UiMenuButton
                 v-model="draftStatus"
                 :summary="draftStatusMenuLabel"
-                :ariaLabel="`Status: ${draftStatusMenuLabel}`"
-                :title="`Status: ${draftStatusMenuLabel}`"
+                :ariaLabel="
+                  t('taskForm.aria.status', { name: draftStatusMenuLabel })
+                "
+                :title="
+                  t('taskForm.aria.status', { name: draftStatusMenuLabel })
+                "
                 :options="STATUS_OPTIONS"
                 :disabled="busy"
                 @escape="collapseExpanded"
@@ -571,8 +596,12 @@ async function onAssigneeMenuSelect(v: string | number) {
               <UiMenuButton
                 v-model="draftPriority"
                 :summary="draftPriorityMenuLabel"
-                :ariaLabel="`Priority: ${draftPriorityMenuLabel}`"
-                :title="`Priority: ${draftPriorityMenuLabel}`"
+                :ariaLabel="
+                  t('taskForm.aria.priority', { name: draftPriorityMenuLabel })
+                "
+                :title="
+                  t('taskForm.aria.priority', { name: draftPriorityMenuLabel })
+                "
                 :options="PRIORITY_OPTIONS"
                 :disabled="busy"
                 @escape="collapseExpanded"
@@ -587,8 +616,12 @@ async function onAssigneeMenuSelect(v: string | number) {
               <UiMenuButton
                 v-model="draftProjectId"
                 :summary="draftProjectMenuLabel"
-                :ariaLabel="`Project: ${draftProjectMenuLabel}`"
-                :title="`Project: ${draftProjectMenuLabel}`"
+                :ariaLabel="
+                  t('taskForm.aria.project', { name: draftProjectMenuLabel })
+                "
+                :title="
+                  t('taskForm.aria.project', { name: draftProjectMenuLabel })
+                "
                 :options="projectSelectOptions"
                 :disabled="busy"
                 @escape="collapseExpanded"
@@ -611,9 +644,13 @@ async function onAssigneeMenuSelect(v: string | number) {
                   draftAssigneeId === '' ? '' : draftAssigneeMenuLabel
                 "
                 :show-clear="draftAssigneeId !== ''"
-                clear-aria-label="Remove assignee"
-                :ariaLabel="`Assignee: ${draftAssigneeMenuLabel}`"
-                :title="`Assignee: ${draftAssigneeMenuLabel}`"
+                :clear-aria-label="t('taskCard.aria.removeAssignee')"
+                :ariaLabel="
+                  t('taskForm.aria.assignee', { name: draftAssigneeMenuLabel })
+                "
+                :title="
+                  t('taskForm.aria.assignee', { name: draftAssigneeMenuLabel })
+                "
                 :options="assigneeSelectOptions"
                 :disabled="busy"
                 @update:model-value="setDraftAssigneeFromMenu"
@@ -629,13 +666,13 @@ async function onAssigneeMenuSelect(v: string | number) {
               :title="
                 task.assignee
                   ? task.assignee.name || task.assignee.email
-                  : 'Unassigned'
+                  : t('common.unassigned')
               "
             >
               {{
                 task.assignee
                   ? task.assignee.name || task.assignee.email
-                  : 'No assignee'
+                  : t('taskCard.noAssignee')
               }}
             </span>
             <div class="flex shrink-0 items-center">
@@ -643,8 +680,10 @@ async function onAssigneeMenuSelect(v: string | number) {
                 v-model="draftDue"
                 :ariaLabel="
                   draftDue.trim()
-                    ? `Due date ${draftDue.slice(0, 10)}`
-                    : 'Due date'
+                    ? t('taskCard.aria.dueDateWith', {
+                        date: draftDue.slice(0, 10),
+                      })
+                    : t('taskCard.aria.dueDate')
                 "
                 :disabled="busy"
                 @escape="collapseExpanded"
@@ -657,8 +696,8 @@ async function onAssigneeMenuSelect(v: string | number) {
               <button
                 type="button"
                 class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                aria-label="Add subtask"
-                title="Add subtask"
+                :aria-label="t('taskCard.aria.addSubtask')"
+                :title="t('taskCard.aria.addSubtaskTitle')"
                 :disabled="busy"
                 @click.stop="revealSubtasksAndFocus"
               >
@@ -677,7 +716,7 @@ async function onAssigneeMenuSelect(v: string | number) {
             :disabled="busy || deleting"
             @click="requestDelete"
           >
-            Delete task
+            {{ t('taskCard.buttons.deleteTask') }}
           </Button>
           <div class="ml-auto flex flex-wrap gap-2">
             <Button
@@ -686,10 +725,10 @@ async function onAssigneeMenuSelect(v: string | number) {
               :disabled="busy"
               @click="collapseExpanded"
             >
-              Cancel
+              {{ t('taskCard.buttons.cancel') }}
             </Button>
             <Button type="button" :disabled="busy" @click="saveAndCollapse">
-              Save
+              {{ t('taskCard.buttons.save') }}
             </Button>
           </div>
         </div>
@@ -705,8 +744,10 @@ async function onAssigneeMenuSelect(v: string | number) {
           <UiMenuButton
             v-model="draftStatus"
             :summary="draftStatusMenuLabel"
-            :ariaLabel="`Status: ${draftStatusMenuLabel}`"
-            :title="`Status: ${draftStatusMenuLabel}`"
+            :ariaLabel="
+              t('taskForm.aria.status', { name: draftStatusMenuLabel })
+            "
+            :title="t('taskForm.aria.status', { name: draftStatusMenuLabel })"
             :options="STATUS_OPTIONS"
             :disabled="busy"
             @escape="collapseExpanded"
@@ -721,10 +762,10 @@ async function onAssigneeMenuSelect(v: string | number) {
             :disabled="busy"
             @click="collapseExpanded"
           >
-            Cancel
+            {{ t('taskCard.buttons.cancel') }}
           </Button>
           <Button type="button" :disabled="busy" @click="saveStatusOnly">
-            Save
+            {{ t('taskCard.buttons.save') }}
           </Button>
         </div>
       </div>
@@ -750,8 +791,8 @@ async function onAssigneeMenuSelect(v: string | number) {
             v-if="canEdit && showAssigneePicker()"
             class="shrink-0"
             :model-value="collapsedAssigneeMenuValue"
-            ariaLabel="Change assignee"
-            title="Change assignee"
+            :ariaLabel="t('taskCard.aria.changeAssignee')"
+            :title="t('taskCard.aria.changeAssignee')"
             placement="bottom-end"
             :options="assigneeSelectOptions"
             :disabled="assigningQuick"
@@ -769,7 +810,7 @@ async function onAssigneeMenuSelect(v: string | number) {
         <button
           type="button"
           class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Task details"
+          :aria-label="t('taskCard.aria.taskDetails')"
           @click="emit('info', task.id)"
         >
           <InformationCircleIcon class="h-5 w-5" aria-hidden="true" />
@@ -778,7 +819,7 @@ async function onAssigneeMenuSelect(v: string | number) {
           v-if="canEdit"
           type="button"
           class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          aria-label="Delete task"
+          :aria-label="t('taskCard.aria.deleteTask')"
           :disabled="deleting"
           @click="requestDelete"
         >

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import UiButton from '../ui/UiButton.vue'
 import UiCheckboxRow from '../ui/UiCheckboxRow.vue'
 import UiFilterChip from '../ui/UiFilterChip.vue'
@@ -20,6 +21,9 @@ import type {
 } from '../../types/report'
 import type { TaskPriority, TaskStatus } from '../../types/task'
 import type { User } from '../../types/user'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   generating?: boolean
@@ -44,58 +48,69 @@ const selectedUserIds = ref<number[]>([])
 const users = ref<User[]>([])
 const loadingUsers = ref(false)
 
-const FORMAT_OPTIONS = [
-  { value: 'csv', label: 'CSV' },
-  { value: 'xlsx', label: 'XLSX' },
-  { value: 'pdf', label: 'PDF' },
-  { value: 'txt', label: 'TXT' },
-] as const
+const FORMAT_OPTIONS = computed(() =>
+  (['csv', 'xlsx', 'pdf', 'txt'] as const).map((value) => ({
+    value,
+    label: t(`enums.reportFormat.${value}`),
+  })),
+)
 
-const PDF_LAYOUT_OPTIONS = [
-  { value: 'table' as const, label: 'Table' },
-  { value: 'list' as const, label: 'List' },
-]
+const PDF_LAYOUT_OPTIONS = computed(() =>
+  (['table', 'list'] as const).map((value) => ({
+    value,
+    label: t(`enums.reportPdfLayout.${value}`),
+  })),
+)
 
 const pdfLayout = ref<ReportPdfLayout>('table')
 
-const statusOptions: TaskStatus[] = [
-  'todo',
-  'in_progress',
-  'review',
-  'done',
-]
-const selectedStatuses = ref<TaskStatus[]>([...statusOptions])
+const statusKeys: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
+const selectedStatuses = ref<TaskStatus[]>([...statusKeys])
 
-const priorityOptions: TaskPriority[] = [
-  'low',
-  'medium',
-  'high',
-  'critical',
-]
-const selectedPriorities = ref<TaskPriority[]>([...priorityOptions])
+const priorityKeys: TaskPriority[] = ['low', 'medium', 'high', 'critical']
+const selectedPriorities = ref<TaskPriority[]>([...priorityKeys])
 
-const fieldDefs: { key: string; label: string }[] = [
-  { key: 'title', label: 'Title' },
-  { key: 'description', label: 'Description' },
-  { key: 'status', label: 'Status' },
-  { key: 'priority', label: 'Priority' },
-  { key: 'project', label: 'Project' },
-  { key: 'assignee', label: 'Assignee' },
-  { key: 'due_date', label: 'Due date' },
-  { key: 'created_at', label: 'Created at' },
-  { key: 'updated_at', label: 'Updated at' },
-]
-const selectedFields = ref<string[]>(fieldDefs.map((f) => f.key))
+const fieldDefs = computed(() =>
+  (
+    [
+      'title',
+      'description',
+      'status',
+      'priority',
+      'project',
+      'assignee',
+      'due_date',
+      'created_at',
+      'updated_at',
+    ] as const
+  ).map((key) => ({
+    key,
+    label: t(`enums.reportField.${key}`),
+  })),
+)
+const selectedFields = ref<string[]>([
+  'title',
+  'description',
+  'status',
+  'priority',
+  'project',
+  'assignee',
+  'due_date',
+  'created_at',
+  'updated_at',
+])
 
 const groupBy = ref<ReportGroupBy>('')
 
-const groupSelectOptions = [
-  { value: '' as const, label: 'None' },
-  { value: 'project' as const, label: 'By project' },
-  { value: 'status' as const, label: 'By status' },
-  { value: 'priority' as const, label: 'By priority' },
-  { value: 'assignee' as const, label: 'By assignee' },
-]
+const groupSelectOptions = computed(() =>
+  (['', 'project', 'status', 'priority', 'assignee'] as const).map((value) => ({
+    value,
+    label:
+      value === ''
+        ? t('enums.reportGroupBy.none')
+        : t(`enums.reportGroupBy.${value}`),
+  })),
+)
 
 onMounted(async () => {
   await projectStore.fetchList().catch(() => {})
@@ -113,15 +128,15 @@ onMounted(async () => {
 })
 
 function toggleAllStatuses(checked: boolean) {
-  selectedStatuses.value = checked ? [...statusOptions] : []
+  selectedStatuses.value = checked ? [...statusKeys] : []
 }
 
 function toggleAllPriorities(checked: boolean) {
-  selectedPriorities.value = checked ? [...priorityOptions] : []
+  selectedPriorities.value = checked ? [...priorityKeys] : []
 }
 
 function toggleAllFields(checked: boolean) {
-  selectedFields.value = checked ? fieldDefs.map((f) => f.key) : []
+  selectedFields.value = checked ? fieldDefs.value.map((f) => f.key) : []
 }
 
 function submit() {
@@ -146,37 +161,31 @@ function submit() {
 const canSubmit = computed(
   () => selectedFields.value.length > 0 && !props.generating,
 )
-
-function statusLabel(s: TaskStatus) {
-  return s.replace('_', ' ')
-}
 </script>
 
 <template>
   <div>
     <p class="text-sm text-muted">
-      Choose format, filters, columns, and grouping. The file is saved on the server
-      and listed under Saved reports on this page.
+      {{ t('reportSettings.intro') }}
     </p>
 
     <div class="mt-4 space-y-4">
-      <UiFormSection title="Format">
+      <UiFormSection :title="t('reportSettings.format')">
         <UiSegmentedControl
           v-model="format"
-          aria-label="Report format"
-          :options="[...FORMAT_OPTIONS]"
+          :aria-label="t('reportSettings.formatAria')"
+          :options="FORMAT_OPTIONS"
         />
       </UiFormSection>
 
-      <UiFormSection v-if="format === 'pdf'" title="PDF layout">
+      <UiFormSection v-if="format === 'pdf'" :title="t('reportSettings.pdfLayout')">
         <UiSegmentedControl
           v-model="pdfLayout"
-          aria-label="PDF layout"
+          :aria-label="t('reportSettings.pdfLayoutAria')"
           :options="PDF_LAYOUT_OPTIONS"
         />
         <p class="mt-2 text-xs text-muted">
-          Table: columns like a spreadsheet. List: each task as labeled lines.
-          PDF uses embedded Unicode fonts (UTF-8, including Cyrillic).
+          {{ t('reportSettings.pdfHint') }}
         </p>
       </UiFormSection>
 
@@ -185,22 +194,22 @@ function statusLabel(s: TaskStatus) {
           id="rep-from"
           v-model="dateFrom"
           type="date"
-          label="Created from"
+          :label="t('reportSettings.createdFrom')"
         />
         <UiInput
           id="rep-to"
           v-model="dateTo"
           type="date"
-          label="Created to"
+          :label="t('reportSettings.createdTo')"
         />
       </div>
 
-      <UiFormSection title="Projects (empty = all you can access)">
+      <UiFormSection :title="t('reportSettings.projects')">
         <div
           v-if="!projectStore.projects.length"
           class="text-sm text-muted"
         >
-          No projects loaded.
+          {{ t('reportSettings.noProjects') }}
         </div>
         <UiScrollPanel v-else>
           <UiCheckboxRow
@@ -215,12 +224,12 @@ function statusLabel(s: TaskStatus) {
       </UiFormSection>
 
       <div v-if="canFilterUsers">
-        <UiFormSection title="Users (empty = all tasks; otherwise assignee or project owner in list)">
+        <UiFormSection :title="t('reportSettings.users')">
           <div
             v-if="loadingUsers"
             class="text-sm text-muted"
           >
-            Loading users…
+            {{ t('reportSettings.loadingUsers') }}
           </div>
           <UiScrollPanel v-else>
             <UiCheckboxRow
@@ -236,61 +245,61 @@ function statusLabel(s: TaskStatus) {
         </UiFormSection>
       </div>
 
-      <UiFormSection title="Statuses">
+      <UiFormSection :title="t('reportSettings.statuses')">
         <template #actions>
           <UiTextAction
             @click="
-              toggleAllStatuses(selectedStatuses.length < statusOptions.length)
+              toggleAllStatuses(selectedStatuses.length < statusKeys.length)
             "
           >
             {{
-              selectedStatuses.length < statusOptions.length
-                ? 'Select all'
-                : 'Clear'
+              selectedStatuses.length < statusKeys.length
+                ? t('common.selectAll')
+                : t('common.clear')
             }}
           </UiTextAction>
         </template>
         <div class="flex flex-wrap gap-2">
           <UiFilterChip
-            v-for="s in statusOptions"
+            v-for="s in statusKeys"
             :key="s"
             v-model="selectedStatuses"
             :value="s"
           >
-            {{ statusLabel(s) }}
+            {{ taskStatusLabel(t, s) }}
           </UiFilterChip>
         </div>
       </UiFormSection>
 
-      <UiFormSection title="Priorities">
+      <UiFormSection :title="t('reportSettings.priorities')">
         <template #actions>
           <UiTextAction
             @click="
               toggleAllPriorities(
-                selectedPriorities.length < priorityOptions.length,
+                selectedPriorities.length < priorityKeys.length,
               )
             "
           >
             {{
-              selectedPriorities.length < priorityOptions.length
-                ? 'Select all'
-                : 'Clear'
+              selectedPriorities.length < priorityKeys.length
+                ? t('common.selectAll')
+                : t('common.clear')
             }}
           </UiTextAction>
         </template>
         <div class="flex flex-wrap gap-2">
           <UiFilterChip
-            v-for="pr in priorityOptions"
+            v-for="pr in priorityKeys"
             :key="pr"
             v-model="selectedPriorities"
             :value="pr"
           >
-            {{ pr }}
+            {{ taskPriorityLabel(t, pr) }}
           </UiFilterChip>
         </div>
       </UiFormSection>
 
-      <UiFormSection title="Columns">
+      <UiFormSection :title="t('reportSettings.columns')">
         <template #actions>
           <UiTextAction
             @click="
@@ -298,7 +307,9 @@ function statusLabel(s: TaskStatus) {
             "
           >
             {{
-              selectedFields.length < fieldDefs.length ? 'Select all' : 'Clear'
+              selectedFields.length < fieldDefs.length
+                ? t('common.selectAll')
+                : t('common.clear')
             }}
           </UiTextAction>
         </template>
@@ -316,17 +327,17 @@ function statusLabel(s: TaskStatus) {
           v-if="selectedFields.length === 0"
           class="mt-2 text-xs text-destructive"
         >
-          Select at least one column.
+          {{ t('reportSettings.selectOneColumn') }}
         </p>
       </UiFormSection>
 
       <UiSelect
         id="rep-group"
         v-model="groupBy"
-        label="Group by"
+        :label="t('reportSettings.groupBy')"
         class="max-w-xs"
         :block="false"
-        placeholder="None"
+        :placeholder="t('reportSettings.groupByPlaceholder')"
         :options="groupSelectOptions"
       />
     </div>
@@ -338,7 +349,7 @@ function statusLabel(s: TaskStatus) {
         :loading="generating"
         @click="submit"
       >
-        {{ generating ? 'Saving…' : 'Generate report' }}
+        {{ generating ? t('reportSettings.generating') : t('reportSettings.generate') }}
       </UiButton>
     </div>
   </div>

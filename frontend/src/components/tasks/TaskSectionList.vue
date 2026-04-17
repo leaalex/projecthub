@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TaskGroup } from '../../composables/useTaskListPresentation'
 import type { Task } from '../../types/task'
 import { taskSectionHeaderStats } from '../../utils/taskSectionStats'
 import TaskCard from './TaskCard.vue'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -139,7 +142,7 @@ function onDropAt(sectionKey: string, position: number) {
             v-if="g.tasks.length === 0"
             class="px-3 py-8 text-center text-sm text-muted"
           >
-            {{ emptyMessage || 'No tasks in this section.' }}
+            {{ emptyMessage || t('taskSectionList.emptyDefault') }}
           </p>
         </div>
       </div>

@@ -1,16 +1,3 @@
-import type { TaskStatus } from '../types/task'
-
-const statusLabels: Record<TaskStatus, string> = {
-  todo: 'To do',
-  in_progress: 'In progress',
-  review: 'Review',
-  done: 'Done',
-}
-
-export function formatTaskStatus(s: TaskStatus): string {
-  return statusLabels[s] ?? s
-}
-
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   try {

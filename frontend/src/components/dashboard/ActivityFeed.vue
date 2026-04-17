@@ -1,21 +1,24 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import Card from '../ui/UiCard.vue'
 import EmptyState from '../ui/UiEmptyState.vue'
 import { timeAgo } from '../../utils/formatters'
+
+const { t } = useI18n()
 
 defineProps<{
   items: { label: string; at: string }[]
 }>()
 
 function formatAt(at: string) {
-  if (at === '—') return at
+  if (at === t('dashboard.activity.dash')) return at
   return timeAgo(at)
 }
 </script>
 
 <template>
   <Card padding="p-4">
-    <h3 class="mb-3 text-sm font-semibold text-foreground">Activity</h3>
+    <h3 class="mb-3 text-sm font-semibold text-foreground">{{ t('dashboard.activityTitle') }}</h3>
     <ul v-if="items.length" class="space-y-2 text-sm">
       <li
         v-for="(it, i) in items"
@@ -28,8 +31,8 @@ function formatAt(at: string) {
     </ul>
     <div v-else class="py-2">
       <EmptyState
-        title="No recent activity"
-        description="Summary items will show here when available."
+        :title="t('dashboard.activityEmptyTitle')"
+        :description="t('dashboard.activityEmptyDescription')"
       />
     </div>
   </Card>

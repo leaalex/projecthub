@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import Button from '../components/ui/UiButton.vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -16,6 +17,7 @@ import type { ProjectKind } from '../types/project'
 const router = useRouter()
 const auth = useAuthStore()
 const store = useProjectStore()
+const { t } = useI18n()
 const canCreateProjects = computed(() => auth.user != null)
 const showKindPicker = computed(
   () =>
@@ -25,13 +27,18 @@ const showKindPicker = computed(
 )
 const projectsSubtitle = computed(() => {
   if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
-    return 'All projects in the workspace'
+    return t('projects.subtitleAdmin')
   }
   if (auth.user?.role === 'user') {
-    return 'Your personal projects and teams you belong to'
+    return t('projects.subtitleUser')
   }
-  return 'Projects you own or are a member of'
+  return t('projects.subtitleDefault')
 })
+
+const breadcrumbItems = computed(() => [
+  { label: t('common.home'), to: '/dashboard' },
+  { label: t('projects.breadcrumb') },
+])
 const { confirm } = useConfirm()
 
 const showModal = ref(false)
@@ -104,9 +111,9 @@ async function saveEditProject() {
 
 async function removeEditProject() {
   const ok = await confirm({
-    title: 'Delete project',
-    message: 'Delete this project and its task links?',
-    confirmLabel: 'Delete',
+    title: t('projects.deleteTitle'),
+    message: t('projects.deleteMessage'),
+    confirmLabel: t('projects.deleteConfirm'),
     danger: true,
   })
   if (!ok) return
@@ -117,19 +124,13 @@ async function removeEditProject() {
 
 <template>
   <div>
-    <Breadcrumb
-      class="mb-4"
-      :items="[
-        { label: 'Home', to: '/dashboard' },
-        { label: 'Projects' },
-      ]"
-    />
+    <Breadcrumb class="mb-4" :items="breadcrumbItems" />
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold text-foreground">Projects</h1>
+        <h1 class="text-2xl font-semibold text-foreground">{{ t('projects.title') }}</h1>
         <p class="mt-1 text-sm text-muted">{{ projectsSubtitle }}</p>
       </div>
-      <Button v-if="canCreateProjects" @click="showModal = true">New project</Button>
+      <Button v-if="canCreateProjects" @click="showModal = true">{{ t('projects.newProject') }}</Button>
     </div>
 
     <div
@@ -141,11 +142,11 @@ async function removeEditProject() {
     <EmptyState
       v-else-if="!store.projects.length"
       class="mt-6"
-      title="No projects yet"
-      description="Create your first project to start organizing tasks."
+      :title="t('projects.emptyTitle')"
+      :description="t('projects.emptyDescription')"
     >
       <Button v-if="canCreateProjects" @click="showModal = true"
-        >Create your first project</Button
+        >{{ t('projects.createFirst') }}</Button
       >
     </EmptyState>
     <ProjectList
@@ -156,31 +157,31 @@ async function removeEditProject() {
       @edit="openEditProject"
     />
 
-    <Modal v-model="showModal" title="New project">
+    <Modal v-model="showModal" :title="t('projects.modalNewTitle')">
       <ProjectForm
         v-model:name="name"
         v-model:description="description"
         v-model:kind="projectKind"
         :show-kind-picker="showKindPicker"
-        submit-label="Create"
+        :submit-label="t('common.create')"
         :loading="saving"
         @submit="createProject"
         @cancel="showModal = false"
       />
     </Modal>
 
-    <Modal v-model="editModalOpen" title="Edit project">
+    <Modal v-model="editModalOpen" :title="t('projects.modalEditTitle')">
       <ProjectForm
         v-model:name="editName"
         v-model:description="editDescription"
-        submit-label="Save"
+        :submit-label="t('common.save')"
         :loading="editSaving"
         @submit="saveEditProject"
         @cancel="editModalOpen = false"
       >
         <template #actions-start>
           <Button variant="ghost-danger" type="button" @click="removeEditProject">
-            Delete project
+            {{ t('projects.deleteButton') }}
           </Button>
         </template>
       </ProjectForm>

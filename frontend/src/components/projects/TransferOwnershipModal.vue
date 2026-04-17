@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
 import { useProjectStore } from '../../stores/project.store'
 import Button from '../ui/UiButton.vue'
 import Modal from '../ui/UiModal.vue'
 import UiSelect from '../ui/UiSelect.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   projectId: number
@@ -38,7 +41,7 @@ const transferOptions = computed(() => {
   if (owner) {
     opts.push({
       value: String(owner.id),
-      label: `${owner.name || owner.email} (current owner)`,
+      label: `${owner.name || owner.email} (${t('transferOwnershipModal.badges.currentOwner')})`,
     })
   }
   for (const m of memberRows.value) {
@@ -57,17 +60,17 @@ watch(open, (o) => {
 async function doTransfer() {
   const nid = Number(transferTo.value)
   if (!nid) {
-    toast.error('Select new owner')
+    toast.error(t('transferOwnershipModal.toasts.selectNewOwner'))
     return
   }
   transferring.value = true
   try {
     await projectStore.transferOwnership(props.projectId, nid)
-    toast.success('Ownership transferred')
+    toast.success(t('transferOwnershipModal.toasts.transferred'))
     open.value = false
     emit('transferred')
   } catch {
-    toast.error('Could not transfer ownership')
+    toast.error(t('transferOwnershipModal.toasts.transferFailed'))
   } finally {
     transferring.value = false
   }
@@ -75,23 +78,23 @@ async function doTransfer() {
 </script>
 
 <template>
-  <Modal v-model="open" title="Transfer ownership" wide>
+  <Modal v-model="open" :title="t('transferOwnershipModal.title')" wide>
     <div class="space-y-4">
       <p class="text-sm text-muted">
-        Admin only. The previous owner will be added as a manager if needed.
+        {{ t('transferOwnershipModal.body') }}
       </p>
       <UiSelect
         v-model="transferTo"
-        label="New owner"
+        :label="t('transferOwnershipModal.labelNewOwner')"
         :options="transferOptions"
-        placeholder="Select user…"
+        :placeholder="t('transferOwnershipModal.placeholderSelectUser')"
       />
       <div class="flex justify-end gap-2">
         <Button type="button" variant="secondary" @click="open = false">
-          Cancel
+          {{ t('transferOwnershipModal.cancel') }}
         </Button>
         <Button type="button" :loading="transferring" @click="doTransfer">
-          Transfer
+          {{ t('transferOwnershipModal.transfer') }}
         </Button>
       </div>
     </div>

@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { setI18nLocale } from '../i18n'
+import {
+  LOCALE_STORAGE_KEY,
+  resolveAppLocale,
+  type AppLocale,
+} from '../utils/appLocale'
 
 const SIDEBAR_COLLAPSED_KEY = 'tm-ui-sidebar-collapsed'
 const THEME_KEY = 'tm-ui-theme'
@@ -40,6 +46,14 @@ function writeTheme(mode: ThemeMode) {
   }
 }
 
+function writeLocale(mode: AppLocale) {
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, mode)
+  } catch {
+    /* ignore */
+  }
+}
+
 function applyThemeClass(mode: ThemeMode) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
@@ -63,15 +77,21 @@ export const useUiStore = defineStore('ui', () => {
   /** Mobile: overlay drawer open (< md breakpoint) */
   const mobileMenuOpen = ref(false)
   const theme = ref<ThemeMode>(readTheme())
+  const locale = ref<AppLocale>(resolveAppLocale())
 
   watch(sidebarCollapsed, (v) => writeSidebarCollapsed(v))
   watch(theme, (v) => {
     writeTheme(v)
     applyThemeClass(v)
   })
+  watch(locale, (v) => {
+    writeLocale(v)
+    setI18nLocale(v)
+  })
 
   if (typeof window !== 'undefined') {
     applyThemeClass(theme.value)
+    setI18nLocale(locale.value)
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     mq.addEventListener('change', () => {
       if (theme.value === 'system') applyThemeClass('system')
@@ -101,6 +121,10 @@ export const useUiStore = defineStore('ui', () => {
     theme.value = mode
   }
 
+  function setLocale(next: AppLocale) {
+    locale.value = next
+  }
+
   const commandPaletteOpen = ref(false)
 
   function openCommandPalette() {
@@ -119,12 +143,14 @@ export const useUiStore = defineStore('ui', () => {
     sidebarCollapsed,
     mobileMenuOpen,
     theme,
+    locale,
     commandPaletteOpen,
     toggleSidebarCollapsed,
     toggleMobileMenu,
     closeMobileMenu,
     cycleTheme,
     setTheme,
+    setLocale,
     openCommandPalette,
     closeCommandPalette,
     toggleCommandPalette,

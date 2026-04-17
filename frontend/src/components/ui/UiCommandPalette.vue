@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
 import { useAuthStore } from '../../stores/auth.store'
@@ -17,6 +18,12 @@ const { showProjectsAndTasks } = useProjectNavVisibility()
 const taskStore = useTaskStore()
 const ui = useUiStore()
 const { commandPaletteOpen } = storeToRefs(ui)
+const { t, te } = useI18n()
+
+function taskStatusSubtitle(status: string) {
+  const key = `enums.taskStatus.${status}`
+  return te(key) ? t(key) : status.replaceAll('_', ' ')
+}
 const query = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const selected = ref(0)
@@ -36,36 +43,36 @@ const navItems = computed<Item[]>(() => {
     {
       id: 'nav-dashboard',
       kind: 'nav',
-      label: 'Dashboard',
-      subtitle: 'Go to dashboard',
+      label: t('commandPalette.nav.dashboard'),
+      subtitle: t('commandPalette.nav.dashboardSub'),
       run: () => void router.push('/dashboard'),
     },
     {
       id: 'nav-projects',
       kind: 'nav',
-      label: 'Projects',
-      subtitle: 'All projects',
+      label: t('commandPalette.nav.projects'),
+      subtitle: t('commandPalette.nav.projectsSub'),
       run: () => void router.push('/projects'),
     },
     {
       id: 'nav-tasks',
       kind: 'nav',
-      label: 'Tasks',
-      subtitle: 'Task list',
+      label: t('commandPalette.nav.tasks'),
+      subtitle: t('commandPalette.nav.tasksSub'),
       run: () => void router.push('/tasks'),
     },
     {
       id: 'nav-reports',
       kind: 'nav',
-      label: 'Reports',
-      subtitle: 'Weekly reports',
+      label: t('commandPalette.nav.reports'),
+      subtitle: t('commandPalette.nav.reportsSub'),
       run: () => void router.push('/reports'),
     },
     {
       id: 'nav-profile',
       kind: 'nav',
-      label: 'Profile',
-      subtitle: 'Your profile',
+      label: t('commandPalette.nav.profile'),
+      subtitle: t('commandPalette.nav.profileSub'),
       run: () => void router.push('/profile'),
     },
   ]
@@ -74,15 +81,15 @@ const navItems = computed<Item[]>(() => {
       {
         id: 'nav-users',
         kind: 'nav',
-        label: 'Users',
-        subtitle: 'Admin',
+        label: t('commandPalette.nav.users'),
+        subtitle: t('commandPalette.nav.usersSub'),
         run: () => void router.push('/admin/users'),
       },
       {
         id: 'nav-ui-kit',
         kind: 'nav',
-        label: 'UI kit',
-        subtitle: 'Component gallery',
+        label: t('commandPalette.nav.uiKit'),
+        subtitle: t('commandPalette.nav.uiKitSub'),
         run: () => void router.push('/ui-kit'),
       },
     )
@@ -102,15 +109,15 @@ const actionItems = computed<Item[]>(() => {
       {
         id: 'act-new-project',
         kind: 'action',
-        label: 'New project',
-        subtitle: 'Open projects',
+        label: t('commandPalette.action.newProject'),
+        subtitle: t('commandPalette.action.newProjectSub'),
         run: () => void router.push('/projects'),
       },
       {
         id: 'act-new-task',
         kind: 'action',
-        label: 'New task',
-        subtitle: 'Open tasks',
+        label: t('commandPalette.action.newTask'),
+        subtitle: t('commandPalette.action.newTaskSub'),
         run: () => void router.push('/tasks'),
       },
     )
@@ -118,8 +125,8 @@ const actionItems = computed<Item[]>(() => {
   items.push({
     id: 'act-signout',
     kind: 'action',
-    label: 'Sign out',
-    subtitle: 'End session',
+    label: t('commandPalette.action.signOut'),
+    subtitle: t('commandPalette.action.signOutSub'),
     run: () => {
       auth.logout()
       void router.push('/login')
@@ -133,21 +140,21 @@ const projectItems = computed<Item[]>(() =>
     id: `proj-${p.id}`,
     kind: 'project' as const,
     label: p.name,
-    subtitle: 'Project',
+    subtitle: t('commandPalette.projectSub'),
     run: () => void router.push(`/projects/${p.id}`),
   })),
 )
 
 const taskItems = computed<Item[]>(() =>
-  taskStore.tasks.map((t) => ({
-    id: `task-${t.id}`,
+  taskStore.tasks.map((task) => ({
+    id: `task-${task.id}`,
     kind: 'task' as const,
-    label: t.title,
-    subtitle: t.status.replace('_', ' '),
+    label: task.title,
+    subtitle: taskStatusSubtitle(task.status),
     run: () => {
       const q: Record<string, string> = {}
-      if (t.project_id) q.project_id = String(t.project_id)
-      const st = t.status as TaskStatus
+      if (task.project_id) q.project_id = String(task.project_id)
+      const st = task.status as TaskStatus
       if (st) q.status = st
       void router.push({ path: '/tasks', query: q })
     },
@@ -241,7 +248,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         class="fixed inset-0 z-[95] flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-[12vh] backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        :aria-label="t('commandPalette.ariaLabel')"
         @click.self="close"
       >
         <div
@@ -254,7 +261,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               v-model="query"
               type="search"
               class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Search navigation, projects, tasks…"
+              :placeholder="t('commandPalette.placeholder')"
               autocomplete="off"
               spellcheck="false"
               aria-autocomplete="list"
@@ -265,11 +272,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <p class="mt-2 text-xs text-muted">
               <kbd class="rounded border border-border bg-surface-muted px-1">↑</kbd>
               <kbd class="rounded border border-border bg-surface-muted px-1">↓</kbd>
-              navigate ·
+              {{ t('commandPalette.hintNavigate') }}
+              ·
               <kbd class="rounded border border-border bg-surface-muted px-1">↵</kbd>
-              open ·
+              {{ t('commandPalette.hintOpen') }}
+              ·
               <kbd class="rounded border border-border bg-surface-muted px-1">esc</kbd>
-              close
+              {{ t('commandPalette.hintClose') }}
             </p>
           </div>
           <ul
@@ -277,7 +286,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             role="listbox"
           >
             <li v-if="!filtered.length" class="px-4 py-6 text-center text-sm text-muted">
-              No matches
+              {{ t('commandPalette.noMatches') }}
             </li>
             <li
               v-for="(item, index) in filtered"
@@ -295,8 +304,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
               @mouseenter="selected = index"
             >
               <span class="min-w-0 flex-1 truncate font-medium">{{ item.label }}</span>
-              <span class="shrink-0 text-xs capitalize text-muted">{{
-                item.kind
+              <span class="shrink-0 text-xs text-muted">{{
+                t(`commandPalette.kind.${item.kind}`)
               }}</span>
             </li>
           </ul>

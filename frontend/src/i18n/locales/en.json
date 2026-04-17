@@ -1,0 +1,815 @@
+{
+  "common": {
+    "home": "Home",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "open": "Open",
+    "remove": "Remove",
+    "loading": "Loading…",
+    "noDescription": "No description",
+    "owner": "Owner",
+    "updatedAt": "Updated {time}",
+    "retry": "Retry",
+    "create": "Create",
+    "search": "Search",
+    "filters": "Filters",
+    "brand": "Project Hub",
+    "confirm": "Confirm",
+    "unassigned": "Unassigned",
+    "optional": "Optional",
+    "dash": "—",
+    "add": "Add",
+    "apply": "Apply",
+    "select": "Select",
+    "selectAll": "Select all",
+    "clear": "Clear",
+    "saving": "Saving…",
+    "bytes": {
+      "b": "{n} B",
+      "kb": "{n} KB",
+      "mb": "{n} MB"
+    },
+    "created": "Created",
+    "noData": "No data"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "reports": "Reports",
+    "users": "Users",
+    "uiKit": "UI kit",
+    "admin": "Admin",
+    "profile": "Profile",
+    "signOut": "Sign out",
+    "commandPalette": "Command palette",
+    "commandPaletteShortcut": "Command palette — ⌘K or Ctrl+K",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "toggleSidebar": "Toggle sidebar width",
+    "mainNavigation": "Primary navigation"
+  },
+  "commandPalette": {
+    "ariaLabel": "Command palette",
+    "placeholder": "Search navigation, projects, tasks…",
+    "noMatches": "No matches",
+    "hintNavigate": "navigate",
+    "hintOpen": "open",
+    "hintClose": "close",
+    "kind": {
+      "nav": "nav",
+      "project": "project",
+      "task": "task",
+      "action": "action"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "dashboardSub": "Go to dashboard",
+      "projects": "Projects",
+      "projectsSub": "All projects",
+      "tasks": "Tasks",
+      "tasksSub": "Task list",
+      "reports": "Reports",
+      "reportsSub": "Weekly reports",
+      "profile": "Profile",
+      "profileSub": "Your profile",
+      "users": "Users",
+      "usersSub": "Admin",
+      "uiKit": "UI kit",
+      "uiKitSub": "Component gallery"
+    },
+    "action": {
+      "newProject": "New project",
+      "newProjectSub": "Open projects",
+      "newTask": "New task",
+      "newTaskSub": "Open tasks",
+      "signOut": "Sign out",
+      "signOutSub": "End session"
+    },
+    "projectSub": "Project"
+  },
+  "auth": {
+    "signInTitle": "Sign in",
+    "createAccount": "Create account",
+    "forgotPassword": "Forgot password",
+    "forgotPasswordBody": "Password reset is not available in this version. Please contact your administrator to restore access to your account.",
+    "backToSignIn": "Back to sign in",
+    "noAccount": "No account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "register": "Register",
+    "signIn": "Sign in",
+    "fields": {
+      "email": "Email",
+      "password": "Password",
+      "name": "Name"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "registrationFailed": "Registration failed."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your workspace",
+    "breadcrumb": "Dashboard",
+    "stats": {
+      "api": "API",
+      "apiHint": "Health check",
+      "projects": "Projects",
+      "projectsHint": "Owned by you",
+      "tasksScope": "Tasks (scope)",
+      "tasksScopeHint": "Visible tasks",
+      "doneThisWeek": "Done this week",
+      "doneThisWeekHint": "Completed in current week",
+      "ok": "OK"
+    },
+    "activity": {
+      "totalTasks": "Total tasks in scope: {count}",
+      "projectsOwned": "Projects owned: {count}",
+      "dash": "—"
+    },
+    "activityTitle": "Activity",
+    "activityEmptyTitle": "No recent activity",
+    "activityEmptyDescription": "Summary items will show here when available.",
+    "quickLinks": {
+      "title": "Quick links",
+      "projects": "Projects",
+      "tasks": "Tasks",
+      "reports": "Reports"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "breadcrumb": "Projects",
+    "subtitleAdmin": "All projects in the workspace",
+    "subtitleUser": "Your personal projects and teams you belong to",
+    "subtitleDefault": "Projects you own or are a member of",
+    "newProject": "New project",
+    "createFirst": "Create your first project",
+    "emptyTitle": "No projects yet",
+    "emptyDescription": "Create your first project to start organizing tasks.",
+    "modalNewTitle": "New project",
+    "modalEditTitle": "Edit project",
+    "deleteTitle": "Delete project",
+    "deleteMessage": "Delete this project and its task links?",
+    "deleteConfirm": "Delete",
+    "deleteButton": "Delete project"
+  },
+  "projectForm": {
+    "nameLabel": "Name",
+    "descriptionLabel": "Description",
+    "typeLabel": "Project type",
+    "typeAria": "Project type",
+    "typeHint": "Personal projects are private to you. Team projects support members and collaboration.",
+    "typePersonal": "Personal",
+    "typeTeam": "Team",
+    "cancel": "Cancel",
+    "saveDefault": "Save"
+  },
+  "projectCard": {
+    "personal": "Personal",
+    "team": "Team",
+    "owner": "Owner",
+    "updatedAt": "Updated {time}",
+    "open": "Open",
+    "editAria": "Edit project {name}",
+    "editSr": "Edit project"
+  },
+  "projectDetail": {
+    "members": "Members",
+    "editProject": "Edit project",
+    "searchPlaceholder": "Search title or description…",
+    "newTask": "New task",
+    "addSection": "Add section",
+    "sectionNamePlaceholder": "Section name…",
+    "taskFiltersRegion": "Task filters and sort",
+    "emptyNoMatchTitle": "No tasks match filters",
+    "emptyNoMatchDescription": "Try clearing search or filters, or reset.",
+    "resetFilters": "Reset filters",
+    "emptyNoTasksTitle": "No tasks yet",
+    "emptyNoTasksCanCreate": "Create a task to get started.",
+    "emptyNoTasksGuest": "No tasks in this project yet.",
+    "modalEditTitle": "Edit project",
+    "modalNewTaskTitle": "New task",
+    "submitCreate": "Create",
+    "errorBreadcrumbProject": "Project",
+    "unavailableTitle": "Project unavailable",
+    "allProjects": "All projects",
+    "loadTasksFailed": "Could not load tasks for this project",
+    "loadProjectFailed": "Could not load project",
+    "projectUpdated": "Project updated",
+    "updateProjectFailed": "Could not update project",
+    "projectDeleted": "Project deleted",
+    "deleteProjectFailed": "Could not delete project",
+    "enterTaskTitle": "Enter a task title",
+    "invalidProject": "Invalid project",
+    "taskCreated": "Task created",
+    "createTaskFailed": "Could not create task",
+    "taskReopened": "Task marked as not done",
+    "updateTaskFailed": "Could not update task",
+    "moveTaskFailed": "Could not move task",
+    "enterSectionName": "Enter section name",
+    "sectionCreated": "Section created",
+    "createSectionFailed": "Could not create section",
+    "unsectioned": "Unsectioned",
+    "emptySection": "No tasks in this section.",
+    "emptyGroup": "No tasks in this group."
+  },
+  "tasks": {
+    "title": "Tasks",
+    "breadcrumb": "Tasks",
+    "subtitleAdmin": "All tasks in the workspace",
+    "subtitleDefault": "Tasks in your projects or assigned to you",
+    "searchPlaceholder": "Search title or description…",
+    "newTask": "New task",
+    "createTask": "Create a task",
+    "resetFilters": "Reset filters",
+    "taskFiltersRegion": "Task filters and sort",
+    "emptyNoMatchTitle": "No tasks match filters",
+    "emptyNoMatchDescription": "Try clearing search, assignee, or priority filters, or reset the toolbar.",
+    "emptyNoTasksTitle": "No tasks found",
+    "emptyNoTasksCanCreate": "Create a task or adjust filters to see more.",
+    "emptyNoTasksGuest": "No tasks yet. You will see tasks when assigned to a project.",
+    "modalNewTitle": "New task",
+    "submitCreate": "Create",
+    "unsectioned": "Unsectioned",
+    "emptySection": "No tasks in this section.",
+    "emptyGroup": "No tasks in this group.",
+    "toasts": {
+      "enterTitle": "Enter a task title",
+      "selectProject": "Select a project",
+      "created": "Task created",
+      "createFailed": "Could not create task",
+      "reopened": "Task marked as not done",
+      "updateFailed": "Could not update task",
+      "moveFailed": "Could not move task"
+    }
+  },
+  "projectSettings": {
+    "title": "Settings",
+    "breadcrumb": "Settings",
+    "loadErrorTitle": "Could not load settings",
+    "loadProjectFailed": "Could not load project",
+    "membersHeading": "Members",
+    "addMember": "Add member",
+    "transferOwnership": "Transfer ownership"
+  },
+  "members": {
+    "owner": "Owner",
+    "remove": "Remove",
+    "noMembers": "No members loaded.",
+    "ariaList": "Project members",
+    "changeRole": "Change role",
+    "rolePlaceholder": "Role…",
+    "role": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "executor": "Executor",
+      "viewer": "Viewer"
+    },
+    "toasts": {
+      "roleUpdated": "Role updated",
+      "roleFailed": "Could not update role",
+      "memberRemoved": "Member removed",
+      "removeFailed": "Could not remove member",
+      "memberRemovedTasksUnassigned": "Member removed, {count} tasks unassigned",
+      "memberRemovedTasksTransferred": "Member removed, {count} tasks transferred",
+      "tasksTransferredMemberRemoved": "{count} tasks transferred, member removed",
+      "transferRemoveFailed": "Could not transfer tasks and remove member"
+    }
+  },
+  "enums": {
+    "taskStatus": {
+      "todo": "To do",
+      "in_progress": "In progress",
+      "review": "Review",
+      "done": "Done"
+    },
+    "taskPriority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "projectRole": {
+      "manager": "Manager",
+      "executor": "Executor",
+      "viewer": "Viewer"
+    },
+    "sortKeys": {
+      "updated_at": "Updated",
+      "created_at": "Created",
+      "title": "Title",
+      "priority": "Priority",
+      "due_date": "Due date"
+    },
+    "sortDir": {
+      "asc": "Ascending",
+      "desc": "Descending"
+    },
+    "groupBy": {
+      "none": "No grouping",
+      "project": "By project",
+      "section": "By section",
+      "status": "By status",
+      "priority": "By priority",
+      "assignee": "By assignee"
+    },
+    "reportField": {
+      "title": "Title",
+      "description": "Description",
+      "status": "Status",
+      "priority": "Priority",
+      "project": "Project",
+      "assignee": "Assignee",
+      "due_date": "Due date",
+      "created_at": "Created at",
+      "updated_at": "Updated at"
+    },
+    "reportFormat": {
+      "csv": "CSV",
+      "xlsx": "XLSX",
+      "pdf": "PDF",
+      "txt": "TXT"
+    },
+    "reportPdfLayout": {
+      "table": "Table",
+      "list": "List"
+    },
+    "reportGroupBy": {
+      "none": "None",
+      "project": "By project",
+      "status": "By status",
+      "priority": "By priority",
+      "assignee": "By assignee"
+    }
+  },
+  "confirmDefaults": {
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Weekly overview and saved exports",
+    "newReport": "New report",
+    "saved": {
+      "title": "Saved reports",
+      "subtitle": "Files on the server; download anytime."
+    },
+    "empty": {
+      "title": "No saved reports yet",
+      "description": "Generate a report with New report to save a file on the server."
+    },
+    "table": {
+      "name": "Name",
+      "format": "Format",
+      "size": "Size",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "download": "Download",
+    "delete": "Delete",
+    "toasts": {
+      "loadFailed": "Could not load report.",
+      "createFailed": "Could not create report.",
+      "downloadFailed": "Download failed.",
+      "deleteFailed": "Could not delete report.",
+      "deleted": "Report deleted"
+    },
+    "confirm": {
+      "deleteTitle": "Delete report",
+      "deleteMessage": "Remove “{name}” from the server? This cannot be undone.",
+      "deleteConfirm": "Delete"
+    },
+    "modal": {
+      "newTitle": "New report"
+    }
+  },
+  "reportSettings": {
+    "intro": "Choose format, filters, columns, and grouping. The file is saved on the server and listed under Saved reports on this page.",
+    "format": "Format",
+    "formatAria": "Report format",
+    "pdfLayout": "PDF layout",
+    "pdfLayoutAria": "PDF layout",
+    "pdfHint": "Table: columns like a spreadsheet. List: each task as labeled lines. PDF uses embedded Unicode fonts (UTF-8, including Cyrillic).",
+    "createdFrom": "Created from",
+    "createdTo": "Created to",
+    "projects": "Projects (empty = all you can access)",
+    "noProjects": "No projects loaded.",
+    "users": "Users (empty = all tasks; otherwise assignee or project owner in list)",
+    "loadingUsers": "Loading users…",
+    "statuses": "Statuses",
+    "priorities": "Priorities",
+    "columns": "Columns",
+    "selectOneColumn": "Select at least one column.",
+    "groupBy": "Group by",
+    "groupByPlaceholder": "None",
+    "generate": "Generate report",
+    "generating": "Saving…"
+  },
+  "reportViewer": {
+    "totalTasks": "Total tasks (visible)",
+    "completedWeek": "Completed this week",
+    "yourProjects": "Your projects",
+    "weekRange": "Week: {start} — {end}"
+  },
+  "admin": {
+    "users": {
+      "title": "Users",
+      "subtitleAdmin": "Manage accounts and global roles",
+      "subtitleStaff": "Directory — view all users (editing is admin-only)",
+      "subtitleReadonly": "Directory (read-only)",
+      "newUser": "New user",
+      "empty": {
+        "title": "No users",
+        "description": "No user accounts are visible in this environment."
+      },
+      "errors": {
+        "loadFailed": "Failed to load users (staff or admin only).",
+        "deleteFailed": "Could not delete user.",
+        "roleFailed": "Could not update role"
+      },
+      "toasts": {
+        "userDeleted": "User deleted",
+        "roleUpdated": "Role updated"
+      },
+      "table": {
+        "user": "User",
+        "info": "Info",
+        "phone": "Phone",
+        "role": "Role",
+        "actions": "Actions"
+      },
+      "changeRole": "Change role",
+      "aria": {
+        "edit": "Edit {email}",
+        "delete": "Delete {email}",
+        "view": "View {email}",
+        "changeRole": "Change role for {email}, current {role}",
+        "changeRoleTitle": "Change role (now {role})"
+      },
+      "cannotDeleteSelf": "Cannot delete your own account",
+      "confirm": {
+        "deleteTitle": "Delete user",
+        "deleteMessage": "Delete user {email}?",
+        "deleteConfirm": "Delete"
+      },
+      "roleOptions": {
+        "user": "User",
+        "creator": "Creator",
+        "staff": "Staff"
+      }
+    }
+  },
+  "uiKit": {
+    "intro": {
+      "title": "UI kit",
+      "subtitle": "Project UI primitives from the components/ui folder.",
+      "onThisPage": "On this page: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Globally in the app shell: UiToast, UiConfirmDialog, UiCommandPalette."
+    },
+    "sections": {
+      "buttons": "Buttons",
+      "segmented": "Segmented control (UiSegmentedControl)",
+      "inputs": "Inputs (UiInput)",
+      "formSections": "Form sections & filters",
+      "select": "Select (UiSelect)",
+      "menuButton": "Menu button (UiMenuButton)",
+      "badges": "Badges & avatars",
+      "cards": "Cards & table",
+      "breadcrumb": "Breadcrumb (sample)",
+      "empty": "Empty state & skeletons",
+      "modal": "Modal & global overlays"
+    },
+    "segmentedTwo": {
+      "list": "List",
+      "grid": "Grid"
+    },
+    "segmentedThree": {
+      "alpha": "Alpha",
+      "beta": "Beta",
+      "gamma": "Gamma"
+    },
+    "demo": {
+      "confirm": {
+        "title": "Confirm dialog",
+        "message": "This is a demo of UiConfirmDialog (global).",
+        "ok": "OK"
+      },
+      "toasts": {
+        "confirmed": "Confirmed",
+        "cancelled": "Cancelled",
+        "action": "Action: {action}",
+        "saved": "Saved successfully",
+        "error": "Something went wrong",
+        "info": "FYI: demo info toast"
+      }
+    }
+  },
+  "taskCard": {
+    "unassigned": "Unassigned",
+    "noAssignee": "No assignee",
+    "placeholders": {
+      "title": "Title",
+      "description": "Description (optional)"
+    },
+    "meta": {
+      "updated": "Updated {time}",
+      "due": "Due {date}",
+      "projectNum": "Project #{n}"
+    },
+    "sections": {
+      "subtasks": "Subtasks"
+    },
+    "aria": {
+      "markDone": "Mark done",
+      "markNotDone": "Mark as not done",
+      "addSubtask": "Add subtask",
+      "addSubtaskTitle": "Add subtask",
+      "taskDetails": "Task details",
+      "deleteTask": "Delete task",
+      "changeAssignee": "Change assignee",
+      "removeAssignee": "Remove assignee",
+      "dueDate": "Due date",
+      "dueDateWith": "Due date {date}"
+    },
+    "toasts": {
+      "statusFailed": "Could not update status",
+      "enterTitle": "Enter a task title",
+      "updateFailed": "Could not update task",
+      "invalidAssignee": "Invalid assignee",
+      "assigneeUpdated": "Assignee updated",
+      "assigneeFailed": "Could not update assignee",
+      "deleteFailed": "Could not delete task",
+      "deleted": "Task deleted"
+    },
+    "confirm": {
+      "deleteTitle": "Delete task",
+      "deleteMessage": "Remove “{title}”? This cannot be undone.",
+      "deleteConfirm": "Delete"
+    },
+    "buttons": {
+      "deleteTask": "Delete task",
+      "cancel": "Cancel",
+      "save": "Save"
+    }
+  },
+  "taskList": {
+    "emptyDefault": "No tasks yet."
+  },
+  "taskSectionList": {
+    "emptyDefault": "No tasks yet."
+  },
+  "taskInlineComposer": {
+    "srTitle": "Task title",
+    "srDescription": "Description",
+    "srProject": "Project",
+    "titlePlaceholder": "New task title…",
+    "descriptionPlaceholder": "Description (optional)",
+    "projectFallback": "Project",
+    "cancel": "Cancel",
+    "add": "Add",
+    "projectForNewTask": "Project for new task: {name}",
+    "projectLabel": "Project: {name}",
+    "statusLabel": "Status: {name}",
+    "priorityLabel": "Priority: {name}",
+    "toasts": {
+      "enterTitle": "Enter a task title",
+      "selectProject": "Select a project",
+      "created": "Task created",
+      "createFailed": "Could not create task"
+    }
+  },
+  "taskFiltersPanel": {
+    "labels": {
+      "project": "Project",
+      "status": "Status",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "sortBy": "Sort by",
+      "order": "Order",
+      "groupListOnly": "Group (list only)"
+    },
+    "placeholders": {
+      "allProjects": "All projects",
+      "allStatuses": "All statuses",
+      "allPriorities": "All priorities",
+      "allAssignees": "All assignees"
+    },
+    "aria": {
+      "filterByProject": "Filter by project",
+      "clearProject": "Clear project filter",
+      "filterByStatus": "Filter by status",
+      "clearStatus": "Clear status filter",
+      "filterByPriority": "Filter by priority",
+      "clearPriority": "Clear priority filter",
+      "filterByAssignee": "Filter by assignee",
+      "clearAssignee": "Clear assignee filter",
+      "sortOrderGrouping": "Sort, order, and grouping",
+      "sortTasksBy": "Sort tasks by",
+      "sortOrder": "Sort order",
+      "groupTasks": "Group tasks"
+    },
+    "reset": "Reset filters"
+  },
+  "taskDetailModal": {
+    "title": "Task details",
+    "loadError": "Could not load task.",
+    "labels": {
+      "title": "Title",
+      "description": "Description",
+      "subtasks": "Subtasks",
+      "status": "Status",
+      "priority": "Priority",
+      "project": "Project",
+      "assignee": "Assignee",
+      "dueDate": "Due date",
+      "created": "Created",
+      "updated": "Updated"
+    },
+    "meta": {
+      "created": "Created {date}",
+      "updated": "Updated {date}",
+      "due": "Due {date}"
+    },
+    "buttons": {
+      "deleteTask": "Delete task"
+    },
+    "toasts": {
+      "enterTitle": "Enter a task title",
+      "updated": "Task updated",
+      "updateFailed": "Could not update task",
+      "deleted": "Task deleted",
+      "deleteFailed": "Could not delete task"
+    }
+  },
+  "taskForm": {
+    "labels": {
+      "title": "Title",
+      "description": "Description",
+      "project": "Project",
+      "status": "Status",
+      "priority": "Priority"
+    },
+    "placeholders": {
+      "optional": "Optional",
+      "selectProject": "Select project"
+    },
+    "fallbacks": {
+      "project": "Project",
+      "status": "Status",
+      "priority": "Priority"
+    },
+    "aria": {
+      "project": "Project: {name}",
+      "status": "Status: {name}",
+      "priority": "Priority: {name}",
+      "assignee": "Assignee: {name}"
+    },
+    "cancel": "Cancel",
+    "createDefault": "Create"
+  },
+  "taskSubtasks": {
+    "heading": "Subtasks",
+    "emptyReadonly": "No subtasks.",
+    "srNew": "New subtask",
+    "placeholder": "New subtask… (Enter)",
+    "clickToEdit": "Click to edit title",
+    "editTitle": "Edit title",
+    "aria": {
+      "done": "Done: {title}",
+      "editSubtask": "Edit subtask: {title}",
+      "editSubtaskTitle": "Edit subtask title",
+      "removeSubtask": "Remove subtask"
+    },
+    "toasts": {
+      "added": "Subtask added",
+      "addFailed": "Could not add subtask",
+      "updateFailed": "Could not update subtask",
+      "removed": "Subtask removed",
+      "removeFailed": "Could not remove subtask",
+      "enterTitle": "Enter a subtask title"
+    },
+    "cellRequired": "Required"
+  },
+  "addMemberModal": {
+    "title": "Add member",
+    "tabs": {
+      "pickUser": "Pick user",
+      "byEmail": "By email"
+    },
+    "labels": {
+      "user": "User",
+      "email": "Email",
+      "projectRole": "Project role"
+    },
+    "placeholders": {
+      "selectUser": "Select user…",
+      "emailExample": "user@example.com"
+    },
+    "cancel": "Cancel",
+    "add": "Add",
+    "toasts": {
+      "enterEmail": "Enter an email",
+      "selectUser": "Select a user",
+      "added": "Member added",
+      "addFailed": "Could not add member"
+    }
+  },
+  "transferOwnershipModal": {
+    "title": "Transfer ownership",
+    "body": "Admin only. The previous owner will be added as a manager if needed.",
+    "labelNewOwner": "New owner",
+    "placeholderSelectUser": "Select user…",
+    "cancel": "Cancel",
+    "transfer": "Transfer",
+    "badges": {
+      "currentOwner": "current owner"
+    },
+    "toasts": {
+      "selectNewOwner": "Select new owner",
+      "transferred": "Ownership transferred",
+      "transferFailed": "Could not transfer ownership"
+    }
+  },
+  "taskTransferModal": {
+    "title": "Remove project member",
+    "warning": "{name} has {count} assigned task(s)",
+    "chooseHandling": "Choose how to handle these tasks before removing the member.",
+    "transferMode": "Transfer mode",
+    "mode": {
+      "unassigned": "Leave tasks unassigned",
+      "single_user": "Assign all tasks to one user",
+      "manual": "Configure per task manually"
+    },
+    "assignAllTo": "Assign all tasks to",
+    "selectTeamMember": "Select team member…",
+    "cancel": "Cancel",
+    "primary": {
+      "unassigned": "Remove member and unassign {count} tasks",
+      "single_user": "Remove member and transfer {count} tasks",
+      "manual": "Configure task assignments"
+    }
+  },
+  "manualTaskTransfer": {
+    "title": "Reassign {count} tasks from {name}",
+    "banners": {
+      "deletionBlocked": "Deletion blocked",
+      "pending": "{pending} of {total} tasks pending reassignment",
+      "allReassigned": "All tasks reassigned",
+      "canRemove": "You can now remove {name} from the project."
+    },
+    "table": {
+      "task": "Task",
+      "status": "Status",
+      "newAssignee": "New assignee",
+      "valid": "Valid"
+    },
+    "placeholderAssignee": "Select assignee…",
+    "progress": "Progress:",
+    "cancel": "Cancel",
+    "apply": "Apply transfers and remove member",
+    "validation": {
+      "required": "Required",
+      "cannotAssignRemoved": "Cannot assign to member being removed",
+      "invalidAssignee": "Invalid assignee"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Personal data and security",
+    "personalData": "Personal data",
+    "lastName": "Last name",
+    "firstName": "First name",
+    "patronymic": "Middle name",
+    "department": "Department",
+    "jobTitle": "Job title",
+    "phone": "Phone",
+    "email": "Email",
+    "save": "Save",
+    "saving": "Saving…",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePasswordButton": "Change password",
+    "feedbackSaved": "Your changes have been saved.",
+    "feedbackSaveFailed": "Could not save (email may already be in use).",
+    "feedbackPasswordMismatch": "New password and confirmation do not match.",
+    "feedbackPasswordShort": "New password must be at least 8 characters.",
+    "feedbackPasswordChanged": "Password has been changed.",
+    "feedbackWrongCurrent": "Current password is incorrect.",
+    "feedbackPasswordFailed": "Could not change password.",
+    "feedbackLocaleSaveFailed": "Could not save interface language."
+  },
+  "appearance": {
+    "title": "Appearance",
+    "themeHint": "Color theme for this device",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language",
+    "languageHint": "Interface language is saved to your account and this device."
+  }
+}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth.store'
 import { useProjectStore } from '../../stores/project.store'
@@ -19,6 +20,7 @@ const props = defineProps<{
 const auth = useAuthStore()
 const projectStore = useProjectStore()
 const toast = useToast()
+const { t, te } = useI18n()
 
 const taskTransferOpen = ref(false)
 const manualTransferOpen = ref(false)
@@ -39,11 +41,16 @@ const canManage = computed(() => {
   return r === 'owner' || r === 'manager'
 })
 
-const roleMenuOptions: UiSelectOption<ProjectMemberRole>[] = [
-  { value: 'manager', label: 'Manager' },
-  { value: 'executor', label: 'Executor' },
-  { value: 'viewer', label: 'Viewer' },
-]
+const roleMenuOptions = computed((): UiSelectOption<ProjectMemberRole>[] => [
+  { value: 'manager', label: t('members.role.manager') },
+  { value: 'executor', label: t('members.role.executor') },
+  { value: 'viewer', label: t('members.role.viewer') },
+])
+
+function displayMemberRole(role: string) {
+  const key = `members.role.${role}`
+  return te(key) ? t(key) : role
+}
 
 watch(
   () => props.projectId,
@@ -57,9 +64,9 @@ watch(
 async function onRoleChange(userId: number, role: ProjectMemberRole) {
   try {
     await projectStore.updateMemberRole(props.projectId, userId, role)
-    toast.success('Role updated')
+    toast.success(t('members.toasts.roleUpdated'))
   } catch {
-    toast.error('Could not update role')
+    toast.error(t('members.toasts.roleFailed'))
   }
 }
 
@@ -73,7 +80,7 @@ async function onRemove(userId: number) {
     )
 
     if (!checkResult.task_count || checkResult.task_count === 0) {
-      toast.success('Member removed')
+      toast.success(t('members.toasts.memberRemoved'))
       removingMemberId.value = null
       return
     }
@@ -85,7 +92,7 @@ async function onRemove(userId: number) {
     toast.error(
       typeof err.response?.data?.error === 'string'
         ? err.response.data.error
-        : 'Could not remove member',
+        : t('members.toasts.removeFailed'),
     )
     removingMemberId.value = null
   }
@@ -102,14 +109,20 @@ async function onTransferSelect(mode: TaskTransferMode, targetUserId?: number) {
       targetUserId,
     )
     toast.success(
-      `Member removed, ${result.task_count} tasks ${mode === 'unassigned' ? 'unassigned' : 'transferred'}`,
+      mode === 'unassigned'
+        ? t('members.toasts.memberRemovedTasksUnassigned', {
+            count: result.task_count,
+          })
+        : t('members.toasts.memberRemovedTasksTransferred', {
+            count: result.task_count,
+          }),
     )
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     toast.error(
       typeof err.response?.data?.error === 'string'
         ? err.response.data.error
-        : 'Could not remove member',
+        : t('members.toasts.removeFailed'),
     )
   } finally {
     removingMemberId.value = null
@@ -126,13 +139,17 @@ async function onManualApply(transfers: TaskTransfer[]) {
       removingMemberId.value,
       transfers,
     )
-    toast.success(`${result.transferred} tasks transferred, member removed`)
+    toast.success(
+      t('members.toasts.tasksTransferredMemberRemoved', {
+        count: result.transferred,
+      }),
+    )
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     toast.error(
       typeof err.response?.data?.error === 'string'
         ? err.response.data.error
-        : 'Could not transfer tasks and remove member',
+        : t('members.toasts.transferRemoveFailed'),
     )
   } finally {
     removingMemberId.value = null
@@ -188,7 +205,7 @@ function displayName(u: { name?: string; email: string }) {
   >
     <div
       class="overflow-hidden rounded-md border border-border"
-      aria-label="Project members"
+      :aria-label="t('members.ariaList')"
     >
       <div class="divide-y divide-border">
         <div
@@ -210,7 +227,7 @@ function displayName(u: { name?: string; email: string }) {
           <span
             class="shrink-0 rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
           >
-            Owner
+            {{ t('members.owner') }}
           </span>
         </div>
 
@@ -232,15 +249,15 @@ function displayName(u: { name?: string; email: string }) {
             class="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium capitalize"
             :class="roleBadgeClass(m.role)"
           >
-            {{ m.role }}
+            {{ displayMemberRole(m.role) }}
           </span>
           <div v-if="canManage" class="flex shrink-0 items-center gap-1">
             <UiMenuButton
               variant="field"
-              ariaLabel="Change role"
-              title="Change role"
+              :ariaLabel="t('members.changeRole')"
+              :title="t('members.changeRole')"
               placement="bottom-end"
-              placeholder="Role…"
+              :placeholder="t('members.rolePlaceholder')"
               class="min-w-[6.5rem]"
               :options="roleMenuOptions"
               @select="
@@ -253,7 +270,7 @@ function displayName(u: { name?: string; email: string }) {
               class="text-xs"
               @click="onRemove(m.user_id)"
             >
-              Remove
+              {{ t('members.remove') }}
             </Button>
           </div>
         </div>
@@ -262,7 +279,7 @@ function displayName(u: { name?: string; email: string }) {
           v-if="!memberRows.length && !project?.owner"
           class="px-3 py-6 text-center text-sm text-muted"
         >
-          No members loaded.
+          {{ t('members.noMembers') }}
         </p>
       </div>
     </div>

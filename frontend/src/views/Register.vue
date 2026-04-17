@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import RegisterForm from '../components/auth/RegisterForm.vue'
 import { useAuthStore } from '../stores/auth.store'
 
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 const name = ref('')
 const email = ref('')
@@ -22,9 +24,9 @@ async function onSubmit() {
   } catch (e: unknown) {
     if (typeof e === 'object' && e !== null && 'response' in e) {
       const res = (e as { response?: { data?: { error?: string } } }).response
-      error.value = res?.data?.error ?? 'Registration failed.'
+      error.value = res?.data?.error ?? t('auth.errors.registrationFailed')
     } else {
-      error.value = 'Registration failed.'
+      error.value = t('auth.errors.registrationFailed')
     }
   } finally {
     loading.value = false
@@ -35,8 +37,8 @@ async function onSubmit() {
 <template>
   <div class="flex min-h-screen items-center justify-center bg-background px-4">
     <div class="w-full max-w-md rounded-xl border border-border bg-surface p-8">
-      <h1 class="text-2xl font-semibold text-foreground">Create account</h1>
-      <p class="mt-1 text-sm text-muted">Project Hub</p>
+      <h1 class="text-2xl font-semibold text-foreground">{{ t('auth.createAccount') }}</h1>
+      <p class="mt-1 text-sm text-muted">{{ t('common.brand') }}</p>
       <RegisterForm
         v-model:name="name"
         v-model:email="email"
@@ -47,12 +49,12 @@ async function onSubmit() {
         @submit="onSubmit"
       />
       <p class="mt-6 text-center text-sm text-muted">
-        Already have an account?
+        {{ t('auth.alreadyHaveAccount') }}
         <router-link
           to="/login"
           class="font-medium text-primary hover:text-primary-hover"
         >
-          Sign in
+          {{ t('auth.signIn') }}
         </router-link>
       </p>
     </div>

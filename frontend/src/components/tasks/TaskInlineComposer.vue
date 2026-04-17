@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BoltIcon, FolderIcon, TagIcon } from '@heroicons/vue/24/outline'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TaskPriority, TaskStatus } from '../../types/task'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
@@ -8,20 +9,23 @@ import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
 import { useTaskStore } from '../../stores/task.store'
 import { useToast } from '../../composables/useToast'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
 
-const STATUS_OPTIONS = [
-  { value: 'todo' as const, label: 'To do' },
-  { value: 'in_progress' as const, label: 'In progress' },
-  { value: 'review' as const, label: 'Review' },
-  { value: 'done' as const, label: 'Done' },
-]
+const { t } = useI18n()
 
-const PRIORITY_OPTIONS = [
-  { value: 'low' as const, label: 'Low' },
-  { value: 'medium' as const, label: 'Medium' },
-  { value: 'high' as const, label: 'High' },
-  { value: 'critical' as const, label: 'Critical' },
-]
+const STATUS_OPTIONS = computed(() =>
+  (['todo', 'in_progress', 'review', 'done'] as const).map((value) => ({
+    value,
+    label: taskStatusLabel(t, value),
+  })),
+)
+
+const PRIORITY_OPTIONS = computed(() =>
+  (['low', 'medium', 'high', 'critical'] as const).map((value) => ({
+    value,
+    label: taskPriorityLabel(t, value),
+  })),
+)
 
 const props = withDefaults(
   defineProps<{
@@ -57,10 +61,12 @@ onMounted(() => {
 })
 
 const statusMenuLabel = computed(
-  () => STATUS_OPTIONS.find((o) => o.value === status.value)?.label ?? '',
+  () =>
+    STATUS_OPTIONS.value.find((o) => o.value === status.value)?.label ?? '',
 )
 const priorityMenuLabel = computed(
-  () => PRIORITY_OPTIONS.find((o) => o.value === priority.value)?.label ?? '',
+  () =>
+    PRIORITY_OPTIONS.value.find((o) => o.value === priority.value)?.label ?? '',
 )
 
 const needsProjectSelect = computed(
@@ -92,7 +98,7 @@ const inlineProjectOptions = computed(() =>
 const selectedProjectName = computed(
   () =>
     inlineProjectOptions.value.find((o) => o.value === selectedProjectId.value)
-      ?.label ?? 'Project',
+      ?.label ?? t('taskInlineComposer.projectFallback'),
 )
 
 function syncProjectFromProps() {
@@ -122,21 +128,21 @@ function cancelForm() {
 }
 
 async function submit() {
-  const t = title.value.trim()
-  if (!t) {
-    toast.error('Enter a task title')
+  const trimmedTitle = title.value.trim()
+  if (!trimmedTitle) {
+    toast.error(t('taskInlineComposer.toasts.enterTitle'))
     return
   }
   const pid = Math.trunc(Number(effectiveProjectId.value))
   if (!pid) {
-    toast.error('Select a project')
+    toast.error(t('taskInlineComposer.toasts.selectProject'))
     return
   }
   saving.value = true
   try {
     const desc = description.value.trim()
     await taskStore.create({
-      title: t,
+      title: trimmedTitle,
       ...(desc ? { description: desc } : {}),
       project_id: pid,
       status: status.value,
@@ -144,11 +150,13 @@ async function submit() {
     })
     resetForm()
     emit('created')
-    toast.success('Task created')
+    toast.success(t('taskInlineComposer.toasts.created'))
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not create task')
+    toast.error(
+      typeof msg === 'string' ? msg : t('taskInlineComposer.toasts.createFailed'),
+    )
   } finally {
     saving.value = false
   }
@@ -172,13 +180,15 @@ function onKeydown(e: KeyboardEvent) {
     ]"
   >
     <div class="min-w-0">
-      <label class="sr-only" for="inline-task-title">Task title</label>
+      <label class="sr-only" for="inline-task-title">{{
+        t('taskInlineComposer.srTitle')
+      }}</label>
       <Input
         id="inline-task-title"
         ref="titleInputRef"
         v-model="title"
         type="text"
-        placeholder="New task title…"
+        :placeholder="t('taskInlineComposer.titlePlaceholder')"
         autocomplete="off"
         :disabled="disabled || saving"
         @keydown="onKeydown"
@@ -186,12 +196,14 @@ function onKeydown(e: KeyboardEvent) {
     </div>
 
     <div class="min-w-0">
-      <label class="sr-only" for="inline-task-desc">Description</label>
+      <label class="sr-only" for="inline-task-desc">{{
+        t('taskInlineComposer.srDescription')
+      }}</label>
       <UiTextarea
         id="inline-task-desc"
         v-model="description"
         :rows="2"
-        placeholder="Description (optional)"
+        :placeholder="t('taskInlineComposer.descriptionPlaceholder')"
         :disabled="disabled || saving"
       />
     </div>
@@ -203,12 +215,18 @@ function onKeydown(e: KeyboardEvent) {
         v-if="needsProjectSelect"
         class="flex shrink-0 items-center"
       >
-        <label class="sr-only">Project</label>
+        <label class="sr-only">{{ t('taskInlineComposer.srProject') }}</label>
         <UiMenuButton
           v-model="selectedProjectId"
           :summary="selectedProjectName"
-          :ariaLabel="`Project for new task: ${selectedProjectName}`"
-          :title="`Project: ${selectedProjectName}`"
+          :ariaLabel="
+            t('taskInlineComposer.projectForNewTask', {
+              name: selectedProjectName,
+            })
+          "
+          :title="
+            t('taskInlineComposer.projectLabel', { name: selectedProjectName })
+          "
           :options="inlineProjectOptions"
           :disabled="disabled || saving"
         >
@@ -218,8 +236,8 @@ function onKeydown(e: KeyboardEvent) {
       <UiMenuButton
         v-model="status"
         :summary="statusMenuLabel"
-        :ariaLabel="`Status: ${statusMenuLabel}`"
-        :title="`Status: ${statusMenuLabel}`"
+        :ariaLabel="t('taskInlineComposer.statusLabel', { name: statusMenuLabel })"
+        :title="t('taskInlineComposer.statusLabel', { name: statusMenuLabel })"
         :options="STATUS_OPTIONS"
         :disabled="disabled || saving"
       >
@@ -228,8 +246,12 @@ function onKeydown(e: KeyboardEvent) {
       <UiMenuButton
         v-model="priority"
         :summary="priorityMenuLabel"
-        :ariaLabel="`Priority: ${priorityMenuLabel}`"
-        :title="`Priority: ${priorityMenuLabel}`"
+        :ariaLabel="
+          t('taskInlineComposer.priorityLabel', { name: priorityMenuLabel })
+        "
+        :title="
+          t('taskInlineComposer.priorityLabel', { name: priorityMenuLabel })
+        "
         :options="PRIORITY_OPTIONS"
         :disabled="disabled || saving"
       >
@@ -242,7 +264,7 @@ function onKeydown(e: KeyboardEvent) {
           :disabled="disabled || saving"
           @click="cancelForm"
         >
-          Cancel
+          {{ t('taskInlineComposer.cancel') }}
         </Button>
         <Button
           type="button"
@@ -250,7 +272,7 @@ function onKeydown(e: KeyboardEvent) {
           :loading="saving"
           @click="submit"
         >
-          Add
+          {{ t('taskInlineComposer.add') }}
         </Button>
       </div>
     </div>

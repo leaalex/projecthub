@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TaskPriority, TaskStatus } from '../../types/task'
-import { formatTaskStatus } from '../../utils/formatters'
+import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
 
 const props = defineProps<{
   kind: 'status' | 'priority'
   value: TaskStatus | TaskPriority
 }>()
 
+const { t } = useI18n()
+
 const label = computed(() => {
-  if (props.kind === 'status') return formatTaskStatus(props.value as TaskStatus)
-  return props.value
+  if (props.kind === 'status')
+    return taskStatusLabel(t, props.value as TaskStatus)
+  return taskPriorityLabel(t, props.value as TaskPriority)
 })
 
 const classNames = computed(() => {
@@ -37,7 +41,7 @@ const classNames = computed(() => {
 
 <template>
   <span
-    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize"
+    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
     :class="classNames"
   >
     {{ label }}

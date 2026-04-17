@@ -25,6 +25,7 @@ type User struct {
 	Department   string    `json:"department"`
 	JobTitle     string    `json:"job_title"`
 	Phone        string    `json:"phone"`
+	Locale       string    `gorm:"size:8;default:'ru'" json:"locale"`
 	Role         Role      `gorm:"default:'user'" json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
