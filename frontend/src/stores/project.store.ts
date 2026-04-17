@@ -320,6 +320,11 @@ export const useProjectStore = defineStore('project', () => {
     tasks.value = tasks.value.filter((t) => t.id !== taskId)
   }
 
+  /** Replace project detail task list (e.g. optimistic move rollback). */
+  function replaceTasks(next: Task[]) {
+    tasks.value = next
+  }
+
   return {
     projects,
     current,
@@ -333,6 +338,7 @@ export const useProjectStore = defineStore('project', () => {
     resetProjectDetailView,
     patchTask,
     removeTask,
+    replaceTasks,
     fetchList,
     fetchOne,
     fetchTasks,

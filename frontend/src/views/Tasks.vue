@@ -28,6 +28,7 @@ import { useTasksPageAssignableUsers } from '../composables/useAdminAssignableUs
 import { useTaskEditPermission } from '../composables/useCanEditTask'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
+import { taskSectionHeaderStats } from '../utils/taskSectionStats'
 
 const route = useRoute()
 const router = useRouter()
@@ -160,7 +161,13 @@ const sectionGroupsForList = computed(() => {
   }
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, tasks }) => ({ key, label, tasks }))
+    .map(({ key, label, tasks }) => ({
+      key,
+      label,
+      tasks: [...tasks].sort(
+        (a, b) => a.position - b.position || a.id - b.id,
+      ),
+    }))
 })
 
 function openTaskDetail(taskId: number) {
@@ -311,7 +318,6 @@ async function onSectionMove(payload: {
       section_id: payload.sectionId,
       position: payload.position,
     })
-    await load()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
@@ -467,7 +473,9 @@ async function onSectionMove(payload: {
           >
             <h2 class="text-sm font-semibold text-foreground">
               {{ g.label }}
-              <span class="font-normal text-muted">({{ g.tasks.length }})</span>
+              <span class="font-normal text-muted">{{
+                taskSectionHeaderStats(g.tasks)
+              }}</span>
             </h2>
             <TaskList
               :tasks="g.tasks"

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { TaskGroup } from '../../composables/useTaskListPresentation'
 import type { Task } from '../../types/task'
+import { taskSectionHeaderStats } from '../../utils/taskSectionStats'
 import TaskCard from './TaskCard.vue'
 
 const props = withDefaults(
@@ -79,7 +80,9 @@ function onDropAt(sectionKey: string, position: number) {
     >
       <h2 class="text-sm font-semibold text-foreground">
         {{ g.label }}
-        <span class="font-normal text-muted">({{ g.tasks.length }})</span>
+        <span class="font-normal text-muted">{{
+          taskSectionHeaderStats(g.tasks)
+        }}</span>
       </h2>
 
       <div
@@ -99,24 +102,26 @@ function onDropAt(sectionKey: string, position: number) {
             @dragend="onDragEnd"
             @dragover.prevent="dragOver = `task:${t.id}`"
             @dragleave="dragOver = null"
-            @drop.prevent="onDropAt(g.key, idx)"
+            @drop.stop.prevent="onDropAt(g.key, idx)"
           >
             <div
               v-if="dragOver === `task:${t.id}`"
               class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
             />
-            <TaskCard
-              class="px-3"
-              :task="t"
-              :can-edit="canEditTask?.(t) ?? false"
-              :can-change-status="canChangeStatusTask?.(t) ?? canEditTask?.(t) ?? false"
-              :projects="projects"
-              :assignable-users="assignableUsers"
-              @complete="emit('complete', $event)"
-              @reopen="emit('reopen', $event)"
-              @info="emit('info', $event)"
-              @updated="emit('taskUpdated')"
-            />
+            <div class="min-w-0">
+              <TaskCard
+                class="px-3"
+                :task="t"
+                :can-edit="canEditTask?.(t) ?? false"
+                :can-change-status="canChangeStatusTask?.(t) ?? canEditTask?.(t) ?? false"
+                :projects="projects"
+                :assignable-users="assignableUsers"
+                @complete="emit('complete', $event)"
+                @reopen="emit('reopen', $event)"
+                @info="emit('info', $event)"
+                @updated="emit('taskUpdated')"
+              />
+            </div>
           </div>
           <p
             v-if="g.tasks.length === 0"

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { TaskMovePayload } from '../types/project'
 import type { Subtask, Task, TaskPriority, TaskStatus } from '../types/task'
+import { applyMoveLocally } from '../utils/applyMoveLocally'
 import { api } from '../utils/api'
 import { useProjectStore } from './project.store'
 
@@ -105,18 +106,35 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   async function moveTask(projectId: number, payload: TaskMovePayload) {
-    const { data } = await api.post<{ task: Task }>(
-      `/projects/${projectId}/tasks/move`,
-      payload,
-    )
-    const i = tasks.value.findIndex((t) => t.id === data.task.id)
-    if (i >= 0) {
-      tasks.value.splice(i, 1, data.task)
-    } else {
-      tasks.value.unshift(data.task)
+    const snapshotTasks = tasks.value
+    const snapshotProjectTasks =
+      projectStore.tasks.length > 0 ? [...projectStore.tasks] : null
+
+    tasks.value = applyMoveLocally(tasks.value, payload)
+    if (projectStore.tasks.length > 0) {
+      projectStore.replaceTasks(applyMoveLocally(projectStore.tasks, payload))
     }
-    projectStore.patchTask(data.task)
-    return data.task
+
+    try {
+      const { data } = await api.post<{ task: Task }>(
+        `/projects/${projectId}/tasks/move`,
+        payload,
+      )
+      const i = tasks.value.findIndex((t) => t.id === data.task.id)
+      if (i >= 0) {
+        tasks.value.splice(i, 1, data.task)
+      } else {
+        tasks.value.unshift(data.task)
+      }
+      projectStore.patchTask(data.task)
+      return data.task
+    } catch (e) {
+      tasks.value = snapshotTasks
+      if (snapshotProjectTasks !== null) {
+        projectStore.replaceTasks([...snapshotProjectTasks])
+      }
+      throw e
+    }
   }
 
   async function createSubtask(taskId: number, title: string) {

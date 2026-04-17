@@ -38,10 +38,9 @@ type assignBody struct {
 }
 
 type moveTaskBody struct {
-	TaskID    uint               `json:"task_id" binding:"required"`
-	SectionID *uint              `json:"section_id"`
-	Status    *models.TaskStatus `json:"status"`
-	Position  *int               `json:"position"`
+	TaskID    uint  `json:"task_id" binding:"required"`
+	SectionID *uint `json:"section_id"`
+	Position  *int  `json:"position"`
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -279,7 +278,6 @@ func (h *TaskHandler) MoveInProject(c *gin.Context) {
 		TaskID:    body.TaskID,
 		ProjectID: uint(projectIDRaw),
 		SectionID: body.SectionID,
-		Status:    body.Status,
 		Position:  body.Position,
 	})
 	if err != nil {

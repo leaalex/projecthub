@@ -29,6 +29,7 @@ import { useTaskEditPermission } from '../composables/useCanEditTask'
 import ProjectMembers from '../components/projects/ProjectMembers.vue'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
+import { taskSectionHeaderStats } from '../utils/taskSectionStats'
 
 const toast = useToast()
 const auth = useAuthStore()
@@ -136,7 +137,13 @@ const sectionGroupsForList = computed(() => {
   }
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, tasks }) => ({ key, label, tasks }))
+    .map(({ key, label, tasks }) => ({
+      key,
+      label,
+      tasks: [...tasks].sort(
+        (a, b) => a.position - b.position || a.id - b.id,
+      ),
+    }))
 })
 
 function resetTaskFilters() {
@@ -325,7 +332,6 @@ async function onSectionMove(payload: {
       section_id: payload.sectionId,
       position: payload.position,
     })
-    await refreshProjectTasks()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
@@ -556,7 +562,9 @@ async function createSection() {
             >
               <h2 class="text-sm font-semibold text-foreground">
                 {{ g.label }}
-                <span class="font-normal text-muted">({{ g.tasks.length }})</span>
+                <span class="font-normal text-muted">{{
+                  taskSectionHeaderStats(g.tasks)
+                }}</span>
               </h2>
               <TaskList
                 :tasks="g.tasks"

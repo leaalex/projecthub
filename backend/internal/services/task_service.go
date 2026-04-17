@@ -372,11 +372,10 @@ type TaskMoveInput struct {
 	TaskID    uint
 	ProjectID uint
 	SectionID *uint
-	Status    *models.TaskStatus
 	Position  *int
 }
 
-// Move changes task section/status and reorders by position inside destination section.
+// Move changes task section and reorders by position inside destination section.
 func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*models.Task, error) {
 	if in.TaskID == 0 || in.ProjectID == 0 {
 		return nil, ErrInvalidInput
@@ -430,9 +429,6 @@ func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*mo
 
 	currentSection := t.SectionID
 	t.SectionID = in.SectionID
-	if in.Status != nil {
-		t.Status = *in.Status
-	}
 
 	ordered := make([]models.Task, 0, len(siblings)+1)
 	ordered = append(ordered, siblings[:insertPos]...)
@@ -445,7 +441,6 @@ func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*mo
 			Where("id = ?", ordered[idx].ID).
 			Updates(map[string]any{
 				"section_id": ordered[idx].SectionID,
-				"status":     ordered[idx].Status,
 				"position":   ordered[idx].Position,
 			}).Error; err != nil {
 			tx.Rollback()

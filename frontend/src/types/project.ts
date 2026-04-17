@@ -77,6 +77,5 @@ export interface TaskSection {
 export interface TaskMovePayload {
   task_id: number
   section_id?: number | null
-  status?: 'todo' | 'in_progress' | 'review' | 'done'
   position?: number
 }

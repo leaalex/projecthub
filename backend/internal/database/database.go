@@ -10,16 +10,28 @@ import (
 	"gorm.io/gorm"
 )
 
+// sqliteDSN appends driver options to reduce "database is locked" under concurrent writes.
+func sqliteDSN(path string) string {
+	return path + "?_busy_timeout=5000&_journal_mode=WAL"
+}
+
 func Open(databasePath string) (*gorm.DB, error) {
 	dir := filepath.Dir(databasePath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 
-	db, err := gorm.Open(sqlite.Open(databasePath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(sqliteDSN(databasePath)), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	// SQLite: single writer; limit pool to avoid competing connections.
+	sqlDB.SetMaxOpenConns(1)
 
 	if err := db.AutoMigrate(
 		&models.User{},
