@@ -61,7 +61,7 @@ export function useCanEditTask(taskGetter: MaybeRefOrGetter<Task | null | undefi
   )
 }
 
-/** Per-task helpers for list/kanban rows. */
+/** Per-task helpers for list rows. */
 export function useTaskEditPermission() {
   const auth = useAuthStore()
   const projectStore = useProjectStore()

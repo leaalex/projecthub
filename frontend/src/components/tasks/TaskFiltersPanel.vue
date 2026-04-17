@@ -21,14 +21,11 @@ const props = withDefaults(
     showAssigneeFilter?: boolean
     /** Hide project filter and “By project” grouping (single-project context). */
     hideProjectFilter?: boolean
-    /** Show List/Board toggle (global tasks page). */
-    showViewSwitcher?: boolean
   }>(),
   {
     showAssigneeFilter: false,
     assignableUsers: () => [],
     hideProjectFilter: false,
-    showViewSwitcher: true,
   },
 )
 
@@ -36,7 +33,6 @@ const emit = defineEmits<{
   reset: []
 }>()
 
-const taskView = defineModel<'list' | 'board'>('taskView', { default: 'list' })
 const filterProject = defineModel<number | ''>('filterProject', { default: '' })
 const filterStatus = defineModel<TaskStatus[]>('filterStatus', { default: () => [] })
 const clientPriority = defineModel<TaskPriority[]>('clientPriority', {
@@ -58,11 +54,6 @@ watch(
   },
   { immediate: true },
 )
-
-const viewModeOptions = [
-  { value: 'list', label: 'List' },
-  { value: 'board', label: 'Board' },
-]
 
 const statusOptionsMulti = [
   { value: 'todo' as const, label: 'To do' },
@@ -139,15 +130,6 @@ const clearBtnClass =
 <template>
   <UiCard padding="p-4 sm:p-5">
     <div class="space-y-4">
-      <div v-if="showViewSwitcher" class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <UiSegmentedControl
-          v-model="taskView"
-          class="w-full sm:w-auto"
-          aria-label="Tasks view"
-          :options="viewModeOptions"
-        />
-      </div>
-
       <div :class="filterGridClass">
         <div v-if="!hideProjectFilter">
           <label class="mb-1 block text-xs font-medium text-foreground">Project</label>

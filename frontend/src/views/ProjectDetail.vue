@@ -8,12 +8,10 @@ import EmptyState from '../components/ui/UiEmptyState.vue'
 import UiInput from '../components/ui/UiInput.vue'
 import Modal from '../components/ui/UiModal.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
-import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
-import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import TaskSectionList from '../components/tasks/TaskSectionList.vue'
 import {
@@ -31,11 +29,6 @@ import { useTaskEditPermission } from '../composables/useCanEditTask'
 import ProjectMembers from '../components/projects/ProjectMembers.vue'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
-
-const taskViewModeOptions = [
-  { value: 'list', label: 'List' },
-  { value: 'board', label: 'Board' },
-]
 
 const toast = useToast()
 const auth = useAuthStore()
@@ -81,7 +74,6 @@ const assigneeFilter = ref<AssigneeFilterValue[]>([])
 const sortKey = ref<TaskSortKey>('updated_at')
 const sortDir = ref<SortDir>('desc')
 const groupBy = ref<TaskGroupBy>('section')
-const projectTaskView = ref<'list' | 'board'>('list')
 
 const showModal = ref(false)
 const modalTitle = ref('')
@@ -238,10 +230,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(projectTaskView, (v) => {
-  if (v === 'board') showTaskComposer.value = false
-})
 
 watch(showModal, (open) => {
   if (open && Number.isFinite(id.value) && id.value > 0) {
@@ -421,12 +409,6 @@ async function createSection() {
         class="flex w-full flex-wrap items-center justify-between gap-2"
       >
         <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <UiSegmentedControl
-            v-model="projectTaskView"
-            class="shrink-0"
-            aria-label="Tasks view"
-            :options="taskViewModeOptions"
-          />
           <div class="min-w-[8rem] max-w-md flex-1">
             <UiInput
               id="project-tasks-search"
@@ -453,11 +435,7 @@ async function createSection() {
           type="button"
           class="shrink-0"
           :disabled="!Number.isFinite(id) || id <= 0"
-          @click="
-            projectTaskView === 'board'
-              ? (showModal = true)
-              : (showTaskComposer = true)
-          "
+          @click="showTaskComposer = true"
         >
           New task
         </Button>
@@ -494,7 +472,6 @@ async function createSection() {
         aria-label="Task filters and sort"
       >
         <TaskFiltersPanel
-          v-model:task-view="projectTaskView"
           v-model:filter-project="filterProject"
           v-model:filter-status="filterStatus"
           v-model:client-priority="clientPriority"
@@ -506,68 +483,12 @@ async function createSection() {
           :assignable-users="assignableUsers"
           :show-assignee-filter="showAssigneeFilter"
           hide-project-filter
-          :show-view-switcher="false"
           @reset="resetTaskFilters"
         />
       </div>
 
-      <template v-if="projectTaskView === 'list'">
-        <div
-          v-if="canCreateTasks && showTaskComposer"
-          class="overflow-hidden rounded-lg border border-border bg-surface"
-        >
-          <div class="border-b border-border px-3 py-3">
-            <TaskInlineComposer
-              variant="plain"
-              :project-id="id"
-              :disabled="!Number.isFinite(id) || id <= 0"
-              @created="onInlineComposerCreated"
-              @dismiss="showTaskComposer = false"
-            />
-          </div>
-        </div>
-
-        <TaskSectionList
-          :groups="sectionGroupsForList"
-          :can-edit-task="canManageTask"
-          :can-change-status-task="canChangeTaskStatus"
-          :projects="projectOptions"
-          :assignable-users="assignableUsers"
-          empty-message="No tasks in this section."
-          @complete="onComplete"
-          @reopen="onReopen"
-          @info="openTaskDetail"
-          @task-updated="refreshProjectTasks"
-          @move="onSectionMove"
-        />
-        <template v-if="groupBy !== 'section' && groupBy !== 'none'">
-          <div
-            v-for="g in displayGroups"
-            :key="g.key"
-            class="space-y-2"
-          >
-            <h2 class="text-sm font-semibold text-foreground">
-              {{ g.label }}
-              <span class="font-normal text-muted">({{ g.tasks.length }})</span>
-            </h2>
-            <TaskList
-              :tasks="g.tasks"
-              :can-edit-task="canManageTask"
-              :can-change-status-task="canChangeTaskStatus"
-              :projects="projectOptions"
-              :assignable-users="assignableUsers"
-              empty-message="No tasks in this group."
-              @complete="onComplete"
-              @reopen="onReopen"
-              @info="openTaskDetail"
-              @task-updated="refreshProjectTasks"
-            />
-          </div>
-        </template>
-      </template>
-      <template v-else>
+      <template v-if="!displayFlat.length && projectStore.tasks.length > 0">
         <EmptyState
-          v-if="!displayFlat.length && projectStore.tasks.length > 0"
           class="mt-6"
           title="No tasks match filters"
           description="Try clearing search or filters, or reset."
@@ -576,13 +497,14 @@ async function createSection() {
             Reset filters
           </Button>
         </EmptyState>
+      </template>
+      <template v-else-if="!displayFlat.length">
         <EmptyState
-          v-else-if="!displayFlat.length"
           class="mt-6"
           title="No tasks yet"
           :description="
             canCreateTasks
-              ? 'Create a task to see it on the board.'
+              ? 'Create a task to get started.'
               : 'No tasks in this project yet.'
           "
         >
@@ -595,14 +517,62 @@ async function createSection() {
             New task
           </Button>
         </EmptyState>
-        <TaskKanban
-          v-else
-          class="mt-6"
-          :tasks="displayFlat"
-          :sections="projectStore.sections"
-          @changed="refreshProjectTasks"
+      </template>
+      <template v-else>
+        <div class="mt-6 space-y-4">
+          <div
+            v-if="canCreateTasks && showTaskComposer"
+            class="overflow-hidden rounded-lg border border-border bg-surface"
+          >
+            <div class="border-b border-border px-3 py-3">
+              <TaskInlineComposer
+                variant="plain"
+                :project-id="id"
+                :disabled="!Number.isFinite(id) || id <= 0"
+                @created="onInlineComposerCreated"
+                @dismiss="showTaskComposer = false"
+              />
+            </div>
+          </div>
+
+          <TaskSectionList
+          :groups="sectionGroupsForList"
+          :can-edit-task="canManageTask"
+          :can-change-status-task="canChangeTaskStatus"
+          :projects="projectOptions"
+          :assignable-users="assignableUsers"
+          empty-message="No tasks in this section."
+          @complete="onComplete"
+          @reopen="onReopen"
           @info="openTaskDetail"
+          @task-updated="refreshProjectTasks"
+          @move="onSectionMove"
         />
+          <template v-if="groupBy !== 'section' && groupBy !== 'none'">
+            <div
+              v-for="g in displayGroups"
+              :key="g.key"
+              class="space-y-2"
+            >
+              <h2 class="text-sm font-semibold text-foreground">
+                {{ g.label }}
+                <span class="font-normal text-muted">({{ g.tasks.length }})</span>
+              </h2>
+              <TaskList
+                :tasks="g.tasks"
+                :can-edit-task="canManageTask"
+                :can-change-status-task="canChangeTaskStatus"
+                :projects="projectOptions"
+                :assignable-users="assignableUsers"
+                empty-message="No tasks in this group."
+                @complete="onComplete"
+                @reopen="onReopen"
+                @info="openTaskDetail"
+                @task-updated="refreshProjectTasks"
+              />
+            </div>
+          </template>
+        </div>
       </template>
     </div>
 

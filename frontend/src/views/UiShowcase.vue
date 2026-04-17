@@ -95,7 +95,7 @@ const demoSegment = ref('list')
 const demoSegmentThree = ref('b')
 const segmentedTwo = [
   { value: 'list', label: 'List' },
-  { value: 'board', label: 'Board' },
+  { value: 'grid', label: 'Grid' },
 ]
 const segmentedThree = [
   { value: 'a', label: 'Alpha' },

@@ -10,10 +10,8 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
-import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
-import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import TaskSectionList from '../components/tasks/TaskSectionList.vue'
 import {
@@ -87,12 +85,6 @@ const projectId = ref(0)
 const status = ref<TaskStatus>('todo')
 const priority = ref<TaskPriority>('medium')
 const saving = ref(false)
-const taskView = ref<'list' | 'board'>('list')
-
-const taskViewModeOptions = [
-  { value: 'list', label: 'List' },
-  { value: 'board', label: 'Board' },
-]
 
 const allowServerFilterWatch = ref(false)
 
@@ -217,10 +209,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(taskView, (v) => {
-  if (v === 'board') showListComposer.value = false
-})
 
 watch(showModal, (open) => {
   if (!open) return
@@ -356,12 +344,6 @@ async function onSectionMove(payload: {
       class="mt-6 flex w-full flex-wrap items-center justify-between gap-2"
     >
       <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <UiSegmentedControl
-          v-model="taskView"
-          class="shrink-0"
-          aria-label="Tasks view"
-          :options="taskViewModeOptions"
-        />
         <div class="min-w-[8rem] max-w-md flex-1">
           <UiInput
             id="tasks-search"
@@ -387,9 +369,7 @@ async function onSectionMove(payload: {
         v-if="canCreateTasks"
         class="shrink-0"
         :disabled="!projectStore.projects.length"
-        @click="
-          taskView === 'board' ? (showModal = true) : (showListComposer = true)
-        "
+        @click="showListComposer = true"
       >
         New task
       </Button>
@@ -403,7 +383,6 @@ async function onSectionMove(payload: {
       aria-label="Task filters and sort"
     >
       <TaskFiltersPanel
-        v-model:task-view="taskView"
         v-model:filter-project="filterProject"
         v-model:filter-status="filterStatus"
         v-model:client-priority="clientPriority"
@@ -414,7 +393,6 @@ async function onSectionMove(payload: {
         :projects="inlineComposerProjects"
         :assignable-users="assignableUsers"
         :show-assignee-filter="showAssigneeFilter"
-        :show-view-switcher="false"
         @reset="resetToolbar"
       />
     </div>
@@ -422,8 +400,36 @@ async function onSectionMove(payload: {
     <div v-if="taskStore.loading" class="mt-6 space-y-3">
       <Skeleton v-for="i in 5" :key="i" variant="card" />
     </div>
-    <template v-else-if="taskView === 'list'">
-      <div class="mt-6 space-y-4">
+    <template v-else>
+      <EmptyState
+        v-if="!displayFlat.length && taskStore.tasks.length > 0"
+        class="mt-6"
+        title="No tasks match filters"
+        description="Try clearing search, assignee, or priority filters, or reset the toolbar."
+      >
+        <Button variant="secondary" type="button" @click="resetToolbar">
+          Reset filters
+        </Button>
+      </EmptyState>
+      <EmptyState
+        v-else-if="!displayFlat.length"
+        class="mt-6"
+        title="No tasks found"
+        :description="
+          canCreateTasks
+            ? 'Create a task or adjust filters to see more.'
+            : 'No tasks yet. You will see tasks when assigned to a project.'
+        "
+      >
+        <Button
+          v-if="canCreateTasks"
+          :disabled="!projectStore.projects.length"
+          @click="showModal = true"
+        >
+          Create a task
+        </Button>
+      </EmptyState>
+      <div v-else class="mt-6 space-y-4">
         <div
           v-if="canCreateTasks && showListComposer"
           class="overflow-hidden rounded-lg border border-border bg-surface"
@@ -478,44 +484,6 @@ async function onSectionMove(payload: {
           </div>
         </template>
       </div>
-    </template>
-    <template v-else>
-      <EmptyState
-        v-if="!displayFlat.length && taskStore.tasks.length > 0"
-        class="mt-6"
-        title="No tasks match filters"
-        description="Try clearing search, assignee, or priority filters, or reset the toolbar."
-      >
-        <Button variant="secondary" type="button" @click="resetToolbar">
-          Reset filters
-        </Button>
-      </EmptyState>
-      <EmptyState
-        v-else-if="!displayFlat.length"
-        class="mt-6"
-        title="No tasks found"
-        :description="
-          canCreateTasks
-            ? 'Create a task or adjust filters to see more.'
-            : 'No tasks yet. You will see tasks when assigned to a project.'
-        "
-      >
-        <Button
-          v-if="canCreateTasks"
-          :disabled="!projectStore.projects.length"
-          @click="showModal = true"
-        >
-          Create a task
-        </Button>
-      </EmptyState>
-      <TaskKanban
-        v-else
-        class="mt-6"
-        :tasks="displayFlat"
-        :sections="projectStore.sections"
-        @changed="load"
-        @info="openTaskDetail"
-      />
     </template>
 
     <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
