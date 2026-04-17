@@ -577,7 +577,8 @@
   },
   "taskSectionList": {
     "emptyDefault": "Пока нет задач.",
-    "emptyInSection": "В этой секции нет задач."
+    "emptyInSection": "В этой секции нет задач.",
+    "doneLabel": "выполнено"
   },
   "taskInlineComposer": {
     "srTitle": "Название задачи",

@@ -9,6 +9,9 @@ const apiProxyTarget =
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
+  resolve: {
+    extensions: ['.mts', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json', '.vue'],
+  },
   server: {
     host: true,
     port: 5173,

@@ -25,3 +25,6 @@ dist-ssr
 
 # Volar/vue-tsc generated type stubs
 *.vue.js
+
+# No hand-written JS in src — ignore any emitted .js next to .ts sources
+src/**/*.js
