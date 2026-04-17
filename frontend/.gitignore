@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Volar/vue-tsc generated type stubs
+*.vue.js

@@ -21,7 +21,12 @@ import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth.store'
 import { api } from '../../utils/api'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+function roleLabel(role: string): string {
+  const key = `enums.userRole.${role}`
+  return te(key) ? t(key) : role
+}
 const { confirm } = useConfirm()
 const toast = useToast()
 const auth = useAuthStore()
@@ -34,9 +39,9 @@ const isAdmin = computed(() => auth.user?.role === 'admin')
 const isStaff = computed(() => auth.user?.role === 'staff')
 
 const roleMenuOptions = computed<UiSelectOption<string>[]>(() => [
-  { value: 'user', label: t('admin.users.roleOptions.user') },
-  { value: 'creator', label: t('admin.users.roleOptions.creator') },
-  { value: 'staff', label: t('admin.users.roleOptions.staff') },
+  { value: 'user', label: roleLabel('user') },
+  { value: 'creator', label: roleLabel('creator') },
+  { value: 'staff', label: roleLabel('staff') },
 ])
 
 const modalOpen = ref(false)
@@ -240,7 +245,7 @@ function isSelf(u: User) {
           <span
             class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
             :class="roleBadgeClass(u.role)"
-            >{{ u.role }}</span
+            >{{ roleLabel(u.role) }}</span
           >
           <div class="flex flex-wrap items-center justify-end gap-1.5">
             <template v-if="isAdmin">
@@ -292,10 +297,10 @@ function isSelf(u: User) {
             :key="`${u.id}-${u.role}`"
             :model-value="u.role"
             :ariaLabel="
-              t('admin.users.aria.changeRole', { email: u.email, role: u.role })
+              t('admin.users.aria.changeRole', { email: u.email, role: roleLabel(u.role) })
             "
             :title="
-              t('admin.users.aria.changeRoleTitle', { role: u.role })
+              t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })
             "
             :options="roleMenuOptions"
             :disabled="roleSavingId === u.id"
@@ -355,7 +360,7 @@ function isSelf(u: User) {
                 <span
                   class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
                   :class="roleBadgeClass(u.role)"
-                  >{{ u.role }}</span
+                  >{{ roleLabel(u.role) }}</span
                 >
                 <UiMenuButton
                   v-if="isAdmin && u.role !== 'admin'"
@@ -364,10 +369,10 @@ function isSelf(u: User) {
                   :ariaLabel="
                     t('admin.users.aria.changeRole', {
                       email: u.email,
-                      role: u.role,
+                      role: roleLabel(u.role),
                     })
                   "
-                  :title="t('admin.users.aria.changeRoleTitle', { role: u.role })"
+                  :title="t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })"
                   :options="roleMenuOptions"
                   :disabled="roleSavingId === u.id"
                   :min-panel-width="180"

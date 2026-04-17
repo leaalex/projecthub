@@ -41,11 +41,11 @@ const assigneeOptions = computed<UiSelectOption<number>[]>(() =>
 )
 
 const pendingCount = computed(() => {
-  return props.tasks.filter((t) => !transfers.value[t.id]).length
+  return props.tasks.filter((task) => !transfers.value[task.id]).length
 })
 
 const validCount = computed(() => {
-  return props.tasks.filter((t) => transfers.value[t.id] && transfers.value[t.id] !== props.memberId).length
+  return props.tasks.filter((task) => transfers.value[task.id] && transfers.value[task.id] !== props.memberId).length
 })
 
 const allValid = computed(() => validCount.value === props.tasks.length)

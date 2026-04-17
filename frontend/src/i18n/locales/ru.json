@@ -344,6 +344,28 @@
       "status": "По статусу",
       "priority": "По приоритету",
       "assignee": "По исполнителю"
+    },
+    "userRole": {
+      "admin": "Администратор",
+      "staff": "Сотрудник",
+      "creator": "Создатель",
+      "user": "Пользователь",
+      "readonly": "Только просмотр"
+    }
+  },
+  "formatters": {
+    "timeAgo": {
+      "justNow": "Только что",
+      "minutesAgo": "{count} минута назад | {count} минуты назад | {count} минут назад",
+      "hoursAgo": "{count} час назад | {count} часа назад | {count} часов назад",
+      "yesterday": "Вчера",
+      "daysAgo": "{count} день назад | {count} дня назад | {count} дней назад"
+    }
+  },
+  "charts": {
+    "weekly": {
+      "datasetLabel": "Задачи",
+      "title": "Задачи по статусам"
     }
   },
   "confirmDefaults": {
@@ -455,11 +477,6 @@
         "deleteTitle": "Удалить пользователя",
         "deleteMessage": "Удалить пользователя {email}?",
         "deleteConfirm": "Удалить"
-      },
-      "roleOptions": {
-        "user": "Пользователь",
-        "creator": "Создатель",
-        "staff": "Сотрудник"
       }
     }
   },
@@ -559,7 +576,8 @@
     "emptyDefault": "Пока нет задач."
   },
   "taskSectionList": {
-    "emptyDefault": "Пока нет задач."
+    "emptyDefault": "Пока нет задач.",
+    "emptyInSection": "В этой секции нет задач."
   },
   "taskInlineComposer": {
     "srTitle": "Название задачи",
@@ -727,6 +745,7 @@
     "badges": {
       "currentOwner": "текущий владелец"
     },
+    "currentOwnerOption": "{name} ({label})",
     "toasts": {
       "selectNewOwner": "Выберите нового владельца",
       "transferred": "Владение передано",

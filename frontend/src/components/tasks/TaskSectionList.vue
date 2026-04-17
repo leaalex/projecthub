@@ -108,33 +108,33 @@ function onDropAt(sectionKey: string, position: number) {
       >
         <div class="divide-y divide-border">
           <div
-            v-for="(t, idx) in g.tasks"
-            :key="t.id"
-            :draggable="canDragTask(t)"
+            v-for="(task, idx) in g.tasks"
+            :key="task.id"
+            :draggable="canDragTask(task)"
             class="relative"
-            @dragstart="onDragStart($event, t)"
+            @dragstart="onDragStart($event, task)"
             @dragend="onDragEnd"
-            @dragover.prevent="dragOver = `task:${t.id}`"
+            @dragover.prevent="dragOver = `task:${task.id}`"
             @dragleave="dragOver = null"
             @drop.stop.prevent="onDropAt(g.key, idx)"
           >
             <div
-              v-if="dragOver === `task:${t.id}`"
+              v-if="dragOver === `task:${task.id}`"
               class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
             />
             <div class="min-w-0">
               <TaskCard
                 class="px-3"
-                :task="t"
-                :can-edit="canEditTask?.(t) ?? false"
-                :can-change-status="canChangeStatusTask?.(t) ?? canEditTask?.(t) ?? false"
+                :task="task"
+                :can-edit="canEditTask?.(task) ?? false"
+                :can-change-status="canChangeStatusTask?.(task) ?? canEditTask?.(task) ?? false"
                 :projects="projects"
                 :assignable-users="assignableUsers"
                 @complete="emit('complete', $event)"
                 @reopen="emit('reopen', $event)"
                 @info="emit('info', $event)"
                 @updated="emit('taskUpdated')"
-                @expanded-change="onTaskExpandedChange(t.id, $event)"
+                @expanded-change="onTaskExpandedChange(task.id, $event)"
               />
             </div>
           </div>
@@ -142,7 +142,7 @@ function onDropAt(sectionKey: string, position: number) {
             v-if="g.tasks.length === 0"
             class="px-3 py-8 text-center text-sm text-muted"
           >
-            {{ emptyMessage || t('taskSectionList.emptyDefault') }}
+            {{ emptyMessage || t('taskSectionList.emptyInSection') }}
           </p>
         </div>
       </div>

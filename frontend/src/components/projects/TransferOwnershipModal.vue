@@ -41,7 +41,10 @@ const transferOptions = computed(() => {
   if (owner) {
     opts.push({
       value: String(owner.id),
-      label: `${owner.name || owner.email} (${t('transferOwnershipModal.badges.currentOwner')})`,
+      label: t('transferOwnershipModal.currentOwnerOption', {
+        name: owner.name || owner.email,
+        label: t('transferOwnershipModal.badges.currentOwner'),
+      }),
     })
   }
   for (const m of memberRows.value) {

@@ -87,10 +87,7 @@ function onCancel() {
       <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
         <p class="font-medium">
           {{
-            t('taskTransferModal.warning', {
-              name: memberName,
-              count: taskCount,
-            })
+            t('taskTransferModal.warning', { name: memberName, count: taskCount }, taskCount)
           }}
         </p>
         <p class="mt-1">{{ t('taskTransferModal.chooseHandling') }}</p>

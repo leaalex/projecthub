@@ -2,6 +2,7 @@
 import Chart from 'chart.js/auto'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUiStore } from '../../../stores/ui.store'
 
 const props = defineProps<{
@@ -14,6 +15,7 @@ let chart: Chart<'bar'> | null = null
 
 const ui = useUiStore()
 const { theme } = storeToRefs(ui)
+const { t, locale } = useI18n()
 
 function readCssColor(varName: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback
@@ -24,15 +26,15 @@ function readCssColor(varName: string, fallback: string): string {
 }
 
 function parseCssColorToRgb(s: string): { r: number; g: number; b: number } | null {
-  const t = s.trim()
-  const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(t)
+  const trimmed = s.trim()
+  const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(trimmed)
   if (hex)
     return {
       r: parseInt(hex[1], 16),
       g: parseInt(hex[2], 16),
       b: parseInt(hex[3], 16),
     }
-  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(t)
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(trimmed)
   if (rgb) return { r: +rgb[1], g: +rgb[2], b: +rgb[3] }
   return null
 }
@@ -56,7 +58,7 @@ function build() {
       labels: props.labels,
       datasets: [
         {
-          label: 'Tasks',
+          label: t('charts.weekly.datasetLabel'),
           data: props.values,
           backgroundColor: bg,
           borderColor: border,
@@ -71,7 +73,7 @@ function build() {
         legend: { display: false },
         title: {
           display: true,
-          text: 'Tasks by status',
+          text: t('charts.weekly.title'),
           color: titleColor,
         },
       },
@@ -91,6 +93,7 @@ watch(
 )
 
 watch(theme, () => nextTick(() => build()))
+watch(locale, () => nextTick(() => build()))
 
 onUnmounted(() => {
   chart?.destroy()

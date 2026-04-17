@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Task } from '../../types/task'
+import TaskCard from './TaskCard.vue'
 
 const { t } = useI18n()
-import TaskCard from './TaskCard.vue'
 
 withDefaults(
   defineProps<{
@@ -42,13 +42,13 @@ const emit = defineEmits<{
     </div>
     <div class="divide-y divide-border">
       <TaskCard
-        v-for="t in tasks"
-        :key="t.id"
+        v-for="task in tasks"
+        :key="task.id"
         class="px-3"
-        :task="t"
-        :can-edit="canEditTask?.(t) ?? false"
+        :task="task"
+        :can-edit="canEditTask?.(task) ?? false"
         :can-change-status="
-          canChangeStatusTask?.(t) ?? canEditTask?.(t) ?? false
+          canChangeStatusTask?.(task) ?? canEditTask?.(task) ?? false
         "
         :projects="projects"
         :assignable-users="assignableUsers"

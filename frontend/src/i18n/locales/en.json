@@ -344,6 +344,28 @@
       "status": "By status",
       "priority": "By priority",
       "assignee": "By assignee"
+    },
+    "userRole": {
+      "admin": "Admin",
+      "staff": "Staff",
+      "creator": "Creator",
+      "user": "User",
+      "readonly": "Read-only"
+    }
+  },
+  "formatters": {
+    "timeAgo": {
+      "justNow": "Just now",
+      "minutesAgo": "{count} minute ago | {count} minutes ago",
+      "hoursAgo": "{count} hour ago | {count} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo": "{count} day ago | {count} days ago"
+    }
+  },
+  "charts": {
+    "weekly": {
+      "datasetLabel": "Tasks",
+      "title": "Tasks by status"
     }
   },
   "confirmDefaults": {
@@ -455,11 +477,6 @@
         "deleteTitle": "Delete user",
         "deleteMessage": "Delete user {email}?",
         "deleteConfirm": "Delete"
-      },
-      "roleOptions": {
-        "user": "User",
-        "creator": "Creator",
-        "staff": "Staff"
       }
     }
   },
@@ -559,7 +576,8 @@
     "emptyDefault": "No tasks yet."
   },
   "taskSectionList": {
-    "emptyDefault": "No tasks yet."
+    "emptyDefault": "No tasks yet.",
+    "emptyInSection": "No tasks in this section."
   },
   "taskInlineComposer": {
     "srTitle": "Task title",
@@ -727,6 +745,7 @@
     "badges": {
       "currentOwner": "current owner"
     },
+    "currentOwnerOption": "{name} ({label})",
     "toasts": {
       "selectNewOwner": "Select new owner",
       "transferred": "Ownership transferred",
@@ -735,7 +754,7 @@
   },
   "taskTransferModal": {
     "title": "Remove project member",
-    "warning": "{name} has {count} assigned task(s)",
+    "warning": "{name} has {count} assigned task | {name} has {count} assigned tasks",
     "chooseHandling": "Choose how to handle these tasks before removing the member.",
     "transferMode": "Transfer mode",
     "mode": {

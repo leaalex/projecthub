@@ -5,6 +5,7 @@ import Card from '../ui/UiCard.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import type { WeeklyReport } from '../../types/report'
 import { formatDateShort } from '../../utils/formatters'
+import { taskStatusLabel } from '../../utils/taskEnumLabels'
 import WeeklyChart from './Charts/WeeklyChart.vue'
 
 const { t } = useI18n()
@@ -15,7 +16,7 @@ const props = defineProps<{
 }>()
 
 const chartLabels = computed(() =>
-  props.report ? Object.keys(props.report.by_status) : [],
+  props.report ? Object.keys(props.report.by_status).map((k) => taskStatusLabel(t, k)) : [],
 )
 const chartValues = computed(() =>
   props.report ? Object.values(props.report.by_status) : [],
