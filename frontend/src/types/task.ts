@@ -21,11 +21,14 @@ export interface Task {
   status: TaskStatus
   priority: TaskPriority
   project_id: number
+  section_id: number | null
+  position: number
   assignee_id: number | null
   due_date: string | null
   created_at: string
   updated_at: string
   project?: Project
+  section?: { id: number; project_id: number; name: string; position: number } | null
   assignee?: User | null
   subtasks?: Subtask[]
   /** From API: caller can manage task fields (owner / manager / admin / staff). */

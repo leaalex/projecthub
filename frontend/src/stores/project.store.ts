@@ -6,6 +6,7 @@ import type {
   ProjectMember,
   ProjectMemberRole,
   RemoveMemberResult,
+  TaskSection,
   TaskTransfer,
   TaskTransferMode,
 } from '../types/project'
@@ -33,6 +34,7 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const current = ref<Project | null>(null)
   const tasks = ref<Task[]>([])
+  const sections = ref<TaskSection[]>([])
   const members = ref<ProjectMember[]>([])
   /** Which project `members` belongs to; drives `assignableUsers`. */
   const membersProjectId = ref<number | null>(null)
@@ -107,6 +109,50 @@ export const useProjectStore = defineStore('project', () => {
     const list = Array.isArray(data.tasks) ? data.tasks : []
     tasks.value = list
     return list
+  }
+
+  async function fetchSections(projectId: number) {
+    const { data } = await api.get<{ sections?: TaskSection[] | null }>(
+      `/projects/${projectId}/task-sections`,
+    )
+    sections.value = Array.isArray(data.sections) ? data.sections : []
+    return sections.value
+  }
+
+  async function createSection(projectId: number, name: string) {
+    const { data } = await api.post<{ section: TaskSection }>(
+      `/projects/${projectId}/task-sections`,
+      { name },
+    )
+    sections.value = [...sections.value, data.section].sort(
+      (a, b) => a.position - b.position || a.id - b.id,
+    )
+    return data.section
+  }
+
+  async function updateSection(projectId: number, sectionId: number, name: string) {
+    const { data } = await api.put<{ section: TaskSection }>(
+      `/projects/${projectId}/task-sections/${sectionId}`,
+      { name },
+    )
+    const i = sections.value.findIndex((s) => s.id === sectionId)
+    if (i >= 0) sections.value.splice(i, 1, data.section)
+    sections.value.sort((a, b) => a.position - b.position || a.id - b.id)
+    return data.section
+  }
+
+  async function deleteSection(projectId: number, sectionId: number) {
+    await api.delete(`/projects/${projectId}/task-sections/${sectionId}`)
+    sections.value = sections.value.filter((s) => s.id !== sectionId)
+    // Backend moves tasks to unsectioned, refresh project tasks for accurate UI.
+    await fetchTasks(projectId)
+  }
+
+  async function reorderSections(projectId: number, sectionIds: number[]) {
+    await api.post(`/projects/${projectId}/task-sections/reorder`, {
+      section_ids: sectionIds,
+    })
+    await fetchSections(projectId)
   }
 
   async function fetchMembers(projectId: number) {
@@ -257,6 +303,7 @@ export const useProjectStore = defineStore('project', () => {
   function resetProjectDetailView() {
     current.value = null
     tasks.value = []
+    sections.value = []
     members.value = []
     membersProjectId.value = null
   }
@@ -277,6 +324,7 @@ export const useProjectStore = defineStore('project', () => {
     projects,
     current,
     tasks,
+    sections,
     members,
     membersProjectId,
     assignableUsers,
@@ -288,6 +336,11 @@ export const useProjectStore = defineStore('project', () => {
     fetchList,
     fetchOne,
     fetchTasks,
+    fetchSections,
+    createSection,
+    updateSection,
+    deleteSection,
+    reorderSections,
     fetchMembers,
     addMember,
     updateMemberRole,

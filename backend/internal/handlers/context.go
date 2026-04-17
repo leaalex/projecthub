@@ -15,7 +15,7 @@ func handleServiceError(c *gin.Context, err error) {
 	case services.ErrTaskNotFound, services.ErrProjectNotFound,
 		services.ErrSubtaskNotFound, services.ErrUserNotFound,
 		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
-		services.ErrNotProjectMember:
+		services.ErrNotProjectMember, services.ErrTaskSectionNotFound:
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
 	// Forbidden errors (403)

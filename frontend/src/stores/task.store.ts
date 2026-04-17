@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { TaskMovePayload } from '../types/project'
 import type { Subtask, Task, TaskPriority, TaskStatus } from '../types/task'
 import { api } from '../utils/api'
 import { useProjectStore } from './project.store'
@@ -51,6 +52,7 @@ export const useTaskStore = defineStore('task', () => {
     title: string
     description?: string
     project_id: number
+    section_id?: number
     status?: TaskStatus
     priority?: TaskPriority
   }) {
@@ -98,6 +100,21 @@ export const useTaskStore = defineStore('task', () => {
     const { data } = await api.post<{ task: Task }>(`/tasks/${id}/complete`)
     const i = tasks.value.findIndex((t) => t.id === id)
     if (i >= 0) tasks.value[i] = data.task
+    projectStore.patchTask(data.task)
+    return data.task
+  }
+
+  async function moveTask(projectId: number, payload: TaskMovePayload) {
+    const { data } = await api.post<{ task: Task }>(
+      `/projects/${projectId}/tasks/move`,
+      payload,
+    )
+    const i = tasks.value.findIndex((t) => t.id === data.task.id)
+    if (i >= 0) {
+      tasks.value.splice(i, 1, data.task)
+    } else {
+      tasks.value.unshift(data.task)
+    }
     projectStore.patchTask(data.task)
     return data.task
   }
@@ -160,6 +177,7 @@ export const useTaskStore = defineStore('task', () => {
     remove,
     assign,
     complete,
+    moveTask,
     createSubtask,
     toggleSubtask,
     updateSubtask,

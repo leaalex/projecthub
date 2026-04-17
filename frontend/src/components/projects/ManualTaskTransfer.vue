@@ -8,7 +8,6 @@ import Button from '../ui/UiButton.vue'
 import Modal from '../ui/UiModal.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
-import { formatTaskStatus } from '../../utils/formatters'
 
 const props = defineProps<{
   modelValue: boolean
@@ -50,7 +49,7 @@ const allValid = computed(() => validCount.value === props.tasks.length)
 
 const progressText = computed(() => `${validCount.value}/${props.tasks.length}`)
 
-function validateTransfer(taskId: number, assigneeId: number | undefined): string | undefined {
+function validateTransfer(assigneeId: number | undefined): string | undefined {
   if (!assigneeId) {
     return 'Required'
   }
@@ -64,14 +63,15 @@ function validateTransfer(taskId: number, assigneeId: number | undefined): strin
   return undefined
 }
 
-function onAssigneeChange(taskId: number, value: number | undefined) {
-  if (!value) {
+function onAssigneeChange(taskId: number, raw: string | number | null | undefined) {
+  const value = raw == null || raw === '' ? undefined : Number(raw)
+  if (!value || !Number.isFinite(value)) {
     delete transfers.value[taskId]
     validationErrors.value[taskId] = 'Required'
     return
   }
   transfers.value[taskId] = value
-  const error = validateTransfer(taskId, value)
+  const error = validateTransfer(value)
   if (error) {
     validationErrors.value[taskId] = error
   } else {
@@ -151,9 +151,7 @@ function onCancel() {
                 </div>
               </td>
               <td class="px-3 py-2">
-                <Badge variant="secondary" size="sm">
-                  {{ formatTaskStatus(task.status) }}
-                </Badge>
+                <Badge kind="status" :value="task.status" />
               </td>
               <td class="px-3 py-2">
                 <UiSelect
@@ -161,7 +159,7 @@ function onCancel() {
                   :options="assigneeOptions"
                   placeholder="Select assignee..."
                   :error="getValidationError(task.id)"
-                  @update:model-value="onAssigneeChange(task.id, $event)"
+                  @update:model-value="onAssigneeChange(task.id, $event as string | number | null | undefined)"
                 />
               </td>
               <td class="px-3 py-2 text-center">

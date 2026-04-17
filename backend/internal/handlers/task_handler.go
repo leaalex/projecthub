@@ -18,6 +18,7 @@ type taskCreateBody struct {
 	Title       string             `json:"title" binding:"required"`
 	Description string             `json:"description"`
 	ProjectID   uint               `json:"project_id" binding:"required"`
+	SectionID   *uint              `json:"section_id"`
 	Status      models.TaskStatus  `json:"status"`
 	Priority    models.TaskPriority `json:"priority"`
 }
@@ -34,6 +35,13 @@ type taskUpdateBody struct {
 type assignBody struct {
 	// 0 means unassign (clear assignee). Non-zero assigns that user.
 	AssigneeID uint `json:"assignee_id"`
+}
+
+type moveTaskBody struct {
+	TaskID    uint               `json:"task_id" binding:"required"`
+	SectionID *uint              `json:"section_id"`
+	Status    *models.TaskStatus `json:"status"`
+	Position  *int               `json:"position"`
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -94,6 +102,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		Title:       body.Title,
 		Description: body.Description,
 		ProjectID:   body.ProjectID,
+		SectionID:   body.SectionID,
 		Status:      body.Status,
 		Priority:    body.Priority,
 	})
@@ -237,6 +246,42 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 		return
 	}
 	t, err := h.Svc.Complete(uint(id), uid, role)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	_ = h.Svc.AttachCallerACL(t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": t})
+}
+
+func (h *TaskHandler) MoveInProject(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	projectIDRaw, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
+		return
+	}
+	var body moveTaskBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	t, err := h.Svc.Move(uid, role, services.TaskMoveInput{
+		TaskID:    body.TaskID,
+		ProjectID: uint(projectIDRaw),
+		SectionID: body.SectionID,
+		Status:    body.Status,
+		Position:  body.Position,
+	})
 	if err != nil {
 		handleServiceError(c, err)
 		return

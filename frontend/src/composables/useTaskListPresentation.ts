@@ -1,3 +1,4 @@
+import type { TaskSection } from '../types/project'
 import type { Task, TaskPriority, TaskStatus } from '../types/task'
 import { formatTaskStatus } from '../utils/formatters'
 
@@ -16,6 +17,7 @@ export type TaskGroupBy =
   | 'status'
   | 'priority'
   | 'assignee'
+  | 'section'
 
 export type AssigneeFilterValue = '' | 'unassigned' | number
 
@@ -167,8 +169,17 @@ function assigneeLabel(t: Task): string {
   return u.name || u.email
 }
 
-export function groupTasks(tasks: Task[], by: TaskGroupBy): TaskGroup[] {
-  if (by === 'none' || tasks.length === 0) return []
+function sectionLabel(t: Task): string {
+  return t.section?.name || 'Unsectioned'
+}
+
+export function groupTasks(
+  tasks: Task[],
+  by: TaskGroupBy,
+  sections: TaskSection[] = [],
+): TaskGroup[] {
+  if (by === 'none') return []
+  if (tasks.length === 0 && by !== 'section') return []
 
   if (by === 'status') {
     return STATUS_ORDER.map((st) => {
@@ -241,6 +252,35 @@ export function groupTasks(tasks: Task[], by: TaskGroupBy): TaskGroup[] {
     }))
   }
 
+  if (by === 'section') {
+    const map = new Map<string, { label: string; tasks: Task[]; order: number }>()
+    map.set('unsectioned', { label: 'Unsectioned', tasks: [], order: -1 })
+    for (const s of sections) {
+      map.set(`s-${s.id}`, { label: s.name, tasks: [], order: s.position })
+    }
+    for (const t of tasks) {
+      const key = t.section_id == null ? 'unsectioned' : `s-${t.section_id}`
+      if (!map.has(key)) {
+        map.set(key, {
+          label: sectionLabel(t),
+          tasks: [],
+          order: t.section?.position ?? 0,
+        })
+      }
+      map.get(key)!.tasks.push(t)
+    }
+    const entries = [...map.entries()].sort(([, a], [, b]) => {
+      if (a.label === 'Unsectioned') return -1
+      if (b.label === 'Unsectioned') return 1
+      return a.order - b.order || a.label.localeCompare(b.label)
+    })
+    return entries.map(([key, data]) => ({
+      key,
+      label: data.label,
+      tasks: data.tasks,
+    }))
+  }
+
   return []
 }
 
@@ -253,6 +293,7 @@ export function presentTasks(
     sortKey: TaskSortKey
     sortDir: SortDir
     groupBy: TaskGroupBy
+    sections?: TaskSection[]
     status?: TaskStatus | '' | TaskStatus[]
   },
 ): { flat: Task[]; groups: TaskGroup[] } {
@@ -263,9 +304,15 @@ export function presentTasks(
     assignee: opts.assignee,
     status: opts.status,
   })
-  const sorted = sortTasks(filtered, opts.sortKey, opts.sortDir)
+  const sorted =
+    opts.groupBy === 'section'
+      ? [...filtered].sort((a, b) => a.position - b.position || a.id - b.id)
+      : sortTasks(filtered, opts.sortKey, opts.sortDir)
   if (opts.groupBy === 'none') {
     return { flat: sorted, groups: [] }
   }
-  return { flat: sorted, groups: groupTasks(sorted, opts.groupBy) }
+  return {
+    flat: sorted,
+    groups: groupTasks(sorted, opts.groupBy, opts.sections ?? []),
+  }
 }

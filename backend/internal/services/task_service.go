@@ -14,6 +14,7 @@ var ErrTaskNotFound = errors.New("task not found")
 
 // ErrAssigneeNotProjectMember is returned when assigning a user who is not owner or member.
 var ErrAssigneeNotProjectMember = errors.New("assignee must be project owner or member")
+var ErrTaskSectionNotFound = errors.New("task section not found")
 
 // subtasksOrdered is a GORM scope for consistent subtask ordering in Preload.
 func subtasksOrdered(db *gorm.DB) *gorm.DB {
@@ -22,7 +23,45 @@ func subtasksOrdered(db *gorm.DB) *gorm.DB {
 
 // preloadTaskAll loads Project, Assignee, and ordered Subtasks for a task query.
 func preloadTaskAll(db *gorm.DB) *gorm.DB {
-	return db.Preload("Project").Preload("Assignee").Preload("Subtasks", subtasksOrdered)
+	return db.Preload("Project").Preload("Section").Preload("Assignee").Preload("Subtasks", subtasksOrdered)
+}
+
+func orderedTaskQuery(db *gorm.DB) *gorm.DB {
+	return db.Order("COALESCE(section_id, 0) ASC").Order("position ASC").Order("updated_at DESC").Order("id ASC")
+}
+
+func applySectionFilter(db *gorm.DB, sectionID *uint) *gorm.DB {
+	if sectionID == nil {
+		return db.Where("section_id IS NULL")
+	}
+	return db.Where("section_id = ?", *sectionID)
+}
+
+func (s *TaskService) ensureSectionInProject(projectID uint, sectionID *uint) error {
+	if sectionID == nil {
+		return nil
+	}
+	var sec models.TaskSection
+	if err := s.DB.Select("id", "project_id").First(&sec, *sectionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTaskSectionNotFound
+		}
+		return err
+	}
+	if sec.ProjectID != projectID {
+		return ErrTaskSectionNotFound
+	}
+	return nil
+}
+
+func (s *TaskService) nextTaskPosition(tx *gorm.DB, projectID uint, sectionID *uint) (int, error) {
+	query := tx.Model(&models.Task{}).Where("project_id = ?", projectID)
+	query = applySectionFilter(query, sectionID)
+	var maxPos int
+	if err := query.Select("COALESCE(MAX(position), 0)").Scan(&maxPos).Error; err != nil {
+		return 0, err
+	}
+	return maxPos + 1, nil
 }
 
 func unionUint(a, b []uint) []uint {
@@ -97,7 +136,7 @@ func (s *TaskService) List(userID uint, role models.Role, projectID *uint, statu
 	}
 
 	var tasks []models.Task
-	err := q.Order("updated_at desc").Find(&tasks).Error
+	err := orderedTaskQuery(q).Find(&tasks).Error
 	return tasks, err
 }
 
@@ -175,6 +214,7 @@ type TaskCreate struct {
 	Title       string
 	Description string
 	ProjectID   uint
+	SectionID   *uint
 	Status      models.TaskStatus
 	Priority    models.TaskPriority
 	DueDate     *string // ISO date optional
@@ -203,10 +243,19 @@ func (s *TaskService) Create(userID uint, role models.Role, in TaskCreate) (*mod
 	if pr == "" {
 		pr = models.PriorityMedium
 	}
+	if err := s.ensureSectionInProject(in.ProjectID, in.SectionID); err != nil {
+		return nil, err
+	}
+	nextPos, err := s.nextTaskPosition(s.DB, in.ProjectID, in.SectionID)
+	if err != nil {
+		return nil, err
+	}
 	t := models.Task{
 		Title:       title,
 		Description: in.Description,
 		ProjectID:   in.ProjectID,
+		SectionID:   in.SectionID,
+		Position:    nextPos,
 		Status:      st,
 		Priority:    pr,
 	}
@@ -284,6 +333,8 @@ func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (
 					return nil, ErrForbidden
 				}
 				t.ProjectID = newPID
+				// Section belongs to project; reset when moving task to another project.
+				t.SectionID = nil
 			}
 		}
 		if in.DueDate != nil {
@@ -315,6 +366,123 @@ func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (
 	}
 
 	return nil, ErrForbidden
+}
+
+type TaskMoveInput struct {
+	TaskID    uint
+	ProjectID uint
+	SectionID *uint
+	Status    *models.TaskStatus
+	Position  *int
+}
+
+// Move changes task section/status and reorders by position inside destination section.
+func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*models.Task, error) {
+	if in.TaskID == 0 || in.ProjectID == 0 {
+		return nil, ErrInvalidInput
+	}
+	t, err := s.Get(in.TaskID, userID, role)
+	if err != nil {
+		return nil, err
+	}
+	if t.ProjectID != in.ProjectID {
+		return nil, ErrForbidden
+	}
+	ok, err := s.CanManageProjectTasks(t.ProjectID, userID, role)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+	if err := s.ensureSectionInProject(t.ProjectID, in.SectionID); err != nil {
+		return nil, err
+	}
+
+	tx := s.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var siblings []models.Task
+	sq := tx.Where("project_id = ?", t.ProjectID).Where("id <> ?", t.ID)
+	sq = applySectionFilter(sq, in.SectionID)
+	if err := sq.Order("position ASC, id ASC").Find(&siblings).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	insertPos := len(siblings)
+	if in.Position != nil {
+		if *in.Position < 0 {
+			tx.Rollback()
+			return nil, ErrInvalidInput
+		}
+		if *in.Position < insertPos {
+			insertPos = *in.Position
+		}
+	}
+
+	currentSection := t.SectionID
+	t.SectionID = in.SectionID
+	if in.Status != nil {
+		t.Status = *in.Status
+	}
+
+	ordered := make([]models.Task, 0, len(siblings)+1)
+	ordered = append(ordered, siblings[:insertPos]...)
+	ordered = append(ordered, *t)
+	ordered = append(ordered, siblings[insertPos:]...)
+
+	for idx := range ordered {
+		ordered[idx].Position = idx + 1
+		if err := tx.Model(&models.Task{}).
+			Where("id = ?", ordered[idx].ID).
+			Updates(map[string]any{
+				"section_id": ordered[idx].SectionID,
+				"status":     ordered[idx].Status,
+				"position":   ordered[idx].Position,
+			}).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// Rebalance old section after moving task out.
+	sameSection := (currentSection == nil && in.SectionID == nil) ||
+		(currentSection != nil && in.SectionID != nil && *currentSection == *in.SectionID)
+	if !sameSection {
+		var old []models.Task
+		oq := tx.Where("project_id = ?", t.ProjectID).Where("id <> ?", t.ID)
+		oq = applySectionFilter(oq, currentSection)
+		if err := oq.Order("position ASC, id ASC").Find(&old).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		for idx := range old {
+			if err := tx.Model(&models.Task{}).
+				Where("id = ?", old[idx].ID).
+				Update("position", idx+1).Error; err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	var fresh models.Task
+	if err := preloadTaskAll(s.DB).First(&fresh, t.ID).Error; err != nil {
+		return nil, err
+	}
+	return &fresh, nil
 }
 
 func (s *TaskService) Delete(id, userID uint, role models.Role) error {

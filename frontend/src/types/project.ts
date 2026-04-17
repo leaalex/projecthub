@@ -64,3 +64,19 @@ export interface RemoveMemberResult {
   tasks?: Task[]
   transferred?: number
 }
+
+export interface TaskSection {
+  id: number
+  project_id: number
+  name: string
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export interface TaskMovePayload {
+  task_id: number
+  section_id?: number | null
+  status?: 'todo' | 'in_progress' | 'review' | 'done'
+  position?: number
+}

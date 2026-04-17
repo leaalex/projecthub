@@ -15,6 +15,7 @@ import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskKanban from '../components/tasks/TaskKanban.vue'
 import TaskList from '../components/tasks/TaskList.vue'
+import TaskSectionList from '../components/tasks/TaskSectionList.vue'
 import {
   presentTasks,
   type AssigneeFilterValue,
@@ -58,7 +59,7 @@ const clientPriority = ref<TaskPriority[]>([])
 const assigneeFilter = ref<AssigneeFilterValue[]>([])
 const sortKey = ref<TaskSortKey>('updated_at')
 const sortDir = ref<SortDir>('desc')
-const groupBy = ref<TaskGroupBy>('none')
+const groupBy = ref<TaskGroupBy>('section')
 const filtersOpen = ref(false)
 
 const validStatuses: TaskStatus[] = ['todo', 'in_progress', 'review', 'done']
@@ -120,18 +121,55 @@ const presentation = computed(() =>
     sortKey: sortKey.value,
     sortDir: sortDir.value,
     groupBy: groupBy.value,
+    sections:
+      filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
+        ? projectStore.sections
+        : [],
     status: filterStatus.value,
   }),
 )
 
 const displayFlat = computed(() => presentation.value.flat)
 const displayGroups = computed(() => presentation.value.groups)
-
-const listEmptyMessage = computed(() =>
-  taskStore.tasks.length > 0 && displayFlat.value.length === 0
-    ? 'No tasks match your search or filters. Adjust the toolbar or reset.'
-    : 'No tasks match these filters. Add a task above or adjust filters.',
-)
+const sectionGroupsForList = computed(() => {
+  const sourceSections =
+    filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
+      ? projectStore.sections
+      : []
+  const map = new Map<
+    string,
+    { key: string; label: string; order: number; tasks: typeof displayFlat.value }
+  >()
+  map.set('unsectioned', {
+    key: 'unsectioned',
+    label: 'Unsectioned',
+    order: -1,
+    tasks: [],
+  })
+  for (const s of [...sourceSections].sort((a, b) => a.position - b.position || a.id - b.id)) {
+    map.set(`s-${s.id}`, {
+      key: `s-${s.id}`,
+      label: s.name,
+      order: s.position,
+      tasks: [],
+    })
+  }
+  for (const t of displayFlat.value) {
+    const key = t.section_id == null ? 'unsectioned' : `s-${t.section_id}`
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: t.section?.name ?? `Section #${t.section_id}`,
+        order: t.section?.position ?? Number.MAX_SAFE_INTEGER,
+        tasks: [],
+      })
+    }
+    map.get(key)!.tasks.push(t)
+  }
+  return [...map.values()]
+    .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+    .map(({ key, label, tasks }) => ({ key, label, tasks }))
+})
 
 function openTaskDetail(taskId: number) {
   detailTaskId.value = taskId
@@ -160,6 +198,25 @@ watch([filterProject, filterStatus], async () => {
   if (!allowServerFilterWatch.value) return
   await load()
 }, { deep: true })
+
+watch(
+  filterProject,
+  async (pid) => {
+    if (pid === '') {
+      projectStore.sections = []
+      return
+    }
+    const n = Number(pid)
+    if (!Number.isFinite(n) || n <= 0) {
+      projectStore.sections = []
+      return
+    }
+    await projectStore.fetchSections(n).catch(() => {
+      projectStore.sections = []
+    })
+  },
+  { immediate: true },
+)
 
 watch(taskView, (v) => {
   if (v === 'board') showListComposer.value = false
@@ -195,7 +252,7 @@ function resetToolbar() {
   assigneeFilter.value = []
   sortKey.value = 'updated_at'
   sortDir.value = 'desc'
-  groupBy.value = 'none'
+  groupBy.value = 'section'
   filterProject.value = ''
   filterStatus.value = []
   router.replace({ path: route.path, query: {} })
@@ -250,6 +307,27 @@ async function onReopen(id: number) {
     const err = e as { response?: { data?: { error?: string } } }
     const msg = err.response?.data?.error
     toast.error(typeof msg === 'string' ? msg : 'Could not update task')
+  }
+}
+
+async function onSectionMove(payload: {
+  taskId: number
+  sectionId: number | null
+  position: number
+}) {
+  const task = taskStore.tasks.find((t) => t.id === payload.taskId)
+  if (!task) return
+  try {
+    await taskStore.moveTask(task.project_id, {
+      task_id: payload.taskId,
+      section_id: payload.sectionId,
+      position: payload.position,
+    })
+    await load()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not move task')
   }
 }
 </script>
@@ -362,34 +440,20 @@ async function onReopen(id: number) {
           </div>
         </div>
 
-        <template v-if="groupBy === 'none'">
-          <TaskList
-            :tasks="displayFlat"
-            :can-edit-task="canManageTask"
-            :can-change-status-task="canChangeTaskStatus"
-            :projects="inlineComposerProjects"
-            :assignable-users="assignableUsers"
-            :empty-message="listEmptyMessage"
-            @complete="onComplete"
-            @reopen="onReopen"
-            @info="openTaskDetail"
-            @task-updated="load"
-          />
-        </template>
-        <TaskList
-          v-else-if="!displayFlat.length"
-          :tasks="[]"
+        <TaskSectionList
+          :groups="sectionGroupsForList"
           :can-edit-task="canManageTask"
-            :can-change-status-task="canChangeTaskStatus"
+          :can-change-status-task="canChangeTaskStatus"
           :projects="inlineComposerProjects"
           :assignable-users="assignableUsers"
-          :empty-message="listEmptyMessage"
+          empty-message="No tasks in this section."
           @complete="onComplete"
           @reopen="onReopen"
           @info="openTaskDetail"
           @task-updated="load"
+          @move="onSectionMove"
         />
-        <template v-else>
+        <template v-if="groupBy !== 'section' && groupBy !== 'none'">
           <div
             v-for="g in displayGroups"
             :key="g.key"
@@ -402,7 +466,7 @@ async function onReopen(id: number) {
             <TaskList
               :tasks="g.tasks"
               :can-edit-task="canManageTask"
-            :can-change-status-task="canChangeTaskStatus"
+              :can-change-status-task="canChangeTaskStatus"
               :projects="inlineComposerProjects"
               :assignable-users="assignableUsers"
               empty-message="No tasks in this group."
@@ -448,6 +512,7 @@ async function onReopen(id: number) {
         v-else
         class="mt-6"
         :tasks="displayFlat"
+        :sections="projectStore.sections"
         @changed="load"
         @info="openTaskDetail"
       />

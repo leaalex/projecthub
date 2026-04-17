@@ -167,6 +167,14 @@ func (s *ProjectService) TasksForProject(projectID, callerID uint, role models.R
 		return nil, err
 	}
 	var tasks []models.Task
-	err = s.DB.Where("project_id = ?", p.ID).Preload("Assignee").Preload("Subtasks", subtasksOrdered).Order("updated_at desc").Find(&tasks).Error
+	err = s.DB.Where("project_id = ?", p.ID).
+		Preload("Section").
+		Preload("Assignee").
+		Preload("Subtasks", subtasksOrdered).
+		Order("COALESCE(section_id, 0) ASC").
+		Order("position ASC").
+		Order("updated_at DESC").
+		Order("id ASC").
+		Find(&tasks).Error
 	return tasks, err
 }

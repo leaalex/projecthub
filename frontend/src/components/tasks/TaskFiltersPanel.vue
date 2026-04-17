@@ -94,6 +94,7 @@ const sortDirSegmented: { value: SortDir; label: string }[] = [
 const groupByOptionsAll: { value: TaskGroupBy; label: string }[] = [
   { value: 'none', label: 'No grouping' },
   { value: 'project', label: 'By project' },
+  { value: 'section', label: 'By section' },
   { value: 'status', label: 'By status' },
   { value: 'priority', label: 'By priority' },
   { value: 'assignee', label: 'By assignee' },

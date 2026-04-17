@@ -38,6 +38,11 @@ func main() {
 	memberSvc := &services.ProjectMemberService{DB: db}
 	projectSvc := &services.ProjectService{DB: db, Members: memberSvc}
 	taskSvc := &services.TaskService{DB: db}
+	taskSectionSvc := &services.TaskSectionService{
+		DB:       db,
+		Projects: projectSvc,
+		Tasks:    taskSvc,
+	}
 	subtaskSvc := &services.SubtaskService{DB: db, Tasks: taskSvc}
 	userSvc := &services.UserService{DB: db}
 	reportSvc := &services.ReportService{DB: db, ReportsDir: cfg.ReportsDir}
@@ -46,6 +51,7 @@ func main() {
 	projectHandler := &handlers.ProjectHandler{Svc: projectSvc, Members: memberSvc, TaskSvc: taskSvc}
 	memberHandler := &handlers.MemberHandler{Svc: memberSvc}
 	taskHandler := &handlers.TaskHandler{Svc: taskSvc}
+	taskSectionHandler := &handlers.TaskSectionHandler{Svc: taskSectionSvc}
 	subtaskHandler := &handlers.SubtaskHandler{Svc: subtaskSvc}
 	userHandler := &handlers.UserHandler{Svc: userSvc}
 	reportHandler := &handlers.ReportHandler{Svc: reportSvc}
@@ -74,6 +80,12 @@ func main() {
 	projects.POST("", projectHandler.Create)
 	// Register longer /:id/... routes before /:id so Gin never mis-matches paths like /:id/tasks.
 	projects.GET("/:id/tasks", projectHandler.Tasks)
+	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
+	projects.GET("/:id/task-sections", taskSectionHandler.List)
+	projects.POST("/:id/task-sections", taskSectionHandler.Create)
+	projects.PUT("/:id/task-sections/:sectionId", taskSectionHandler.Update)
+	projects.DELETE("/:id/task-sections/:sectionId", taskSectionHandler.Delete)
+	projects.POST("/:id/task-sections/reorder", taskSectionHandler.Reorder)
 	projects.GET("/:id/members", memberHandler.List)
 	projects.POST("/:id/members", memberHandler.Add)
 	projects.PUT("/:id/members/:user_id", memberHandler.UpdateRole)

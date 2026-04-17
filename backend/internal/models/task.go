@@ -28,6 +28,9 @@ type Task struct {
 	Priority    TaskPriority `gorm:"default:'medium'" json:"priority"`
 	ProjectID   uint         `gorm:"not null;index" json:"project_id"`
 	Project     Project      `gorm:"foreignKey:ProjectID" json:"-"`
+	SectionID   *uint        `gorm:"index" json:"section_id"`
+	Section     *TaskSection `gorm:"foreignKey:SectionID" json:"section,omitempty"`
+	Position    int          `gorm:"not null;default:0;index" json:"position"`
 	AssigneeID  *uint        `gorm:"index" json:"assignee_id"`
 	Assignee    *User        `gorm:"foreignKey:AssigneeID" json:"assignee,omitempty"`
 	DueDate     *time.Time   `json:"due_date"`
