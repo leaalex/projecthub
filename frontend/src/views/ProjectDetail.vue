@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FunnelIcon, UsersIcon } from '@heroicons/vue/24/outline'
+import { FunnelIcon, PencilSquareIcon, UsersIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -13,6 +13,7 @@ import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
+import ProjectForm from '../components/projects/ProjectForm.vue'
 import TaskSectionList from '../components/tasks/TaskSectionList.vue'
 import {
   presentTasks,
@@ -25,13 +26,14 @@ import { useAuthStore } from '../stores/auth.store'
 import { useProjectStore } from '../stores/project.store'
 import { useTaskStore } from '../stores/task.store'
 import { useProjectScopedAssignableUsers } from '../composables/useAdminAssignableUsers'
+import { useConfirm } from '../composables/useConfirm'
 import { useTaskEditPermission } from '../composables/useCanEditTask'
-import ProjectMembers from '../components/projects/ProjectMembers.vue'
 import { useToast } from '../composables/useToast'
 import type { TaskPriority, TaskStatus } from '../types/task'
 import { taskSectionHeaderStats } from '../utils/taskSectionStats'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +41,18 @@ const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 
 const canCreateTasks = computed(() => {
+  const u = auth.user
+  if (!u) return false
+  if (u.role === 'admin' || u.role === 'staff') return true
+  const p = projectStore.current
+  if (!p) return false
+  if (p.owner_id === u.id) return true
+  const r = p.caller_project_role
+  return r === 'manager' || r === 'owner'
+})
+
+/** Name/description — same gate as task management (owner, manager, admin, staff). */
+const canEditProject = computed(() => {
   const u = auth.user
   if (!u) return false
   if (u.role === 'admin' || u.role === 'staff') return true
@@ -86,6 +100,11 @@ const modalSaving = ref(false)
 const addingSection = ref(false)
 const newSectionName = ref('')
 const savingSection = ref(false)
+
+const editProjectModalOpen = ref(false)
+const editName = ref('')
+const editDescription = ref('')
+const editSaving = ref(false)
 
 const showAssigneeFilter = computed(() => assignableUsers.value.length > 0)
 
@@ -160,8 +179,6 @@ function resetTaskFilters() {
 
 const pageLoading = ref(true)
 const loadError = ref<string | null>(null)
-const membersModalOpen = ref(false)
-
 /** Bumps on each load so stale async work never leaves the UI stuck loading. */
 let loadGeneration = 0
 
@@ -244,11 +261,53 @@ watch(showModal, (open) => {
   }
 })
 
-watch(membersModalOpen, (open) => {
-  if (open && Number.isFinite(id.value) && id.value > 0) {
-    void projectStore.fetchMembers(id.value).catch(() => {})
+watch(editProjectModalOpen, (open) => {
+  const p = projectStore.current
+  if (open && p) {
+    editName.value = p.name
+    editDescription.value = p.description ?? ''
   }
 })
+
+async function saveEditProject() {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  editSaving.value = true
+  try {
+    await projectStore.update(id.value, {
+      name: editName.value,
+      description: editDescription.value,
+    })
+    editProjectModalOpen.value = false
+    toast.success('Project updated')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not update project')
+  } finally {
+    editSaving.value = false
+  }
+}
+
+async function removeProjectFromEdit() {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  const ok = await confirm({
+    title: 'Delete project',
+    message: 'Delete this project and its task links?',
+    confirmLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await projectStore.remove(id.value)
+    editProjectModalOpen.value = false
+    toast.success('Project deleted')
+    await router.push('/projects')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : 'Could not delete project')
+  }
+}
 
 function openTaskDetail(taskId: number) {
   detailTaskId.value = taskId
@@ -389,26 +448,27 @@ async function createSection() {
           {{ projectStore.current.description || 'No description' }}
         </p>
       </div>
-      <Button
-        v-if="projectStore.current?.kind === 'team'"
-        type="button"
-        variant="secondary"
-        class="inline-flex shrink-0 items-center"
-        @click="membersModalOpen = true"
-      >
-        <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
-        <span class="ml-1.5">Members</span>
-      </Button>
+      <div class="flex flex-wrap items-center gap-2">
+        <router-link
+          v-if="projectStore.current?.kind === 'team'"
+          :to="`/projects/${id}/members`"
+          class="box-border inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/65 bg-surface-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
+          <span class="ml-1.5">Members</span>
+        </router-link>
+        <Button
+          v-if="canEditProject"
+          type="button"
+          variant="secondary"
+          class="inline-flex shrink-0 items-center"
+          @click="editProjectModalOpen = true"
+        >
+          <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span class="ml-1.5">Edit project</span>
+        </Button>
+      </div>
     </div>
-
-    <Modal
-      v-if="projectStore.current?.kind === 'team'"
-      v-model="membersModalOpen"
-      title="Members"
-      wide
-    >
-      <ProjectMembers :project-id="id" />
-    </Modal>
 
     <div class="mt-6 space-y-4">
       <div
@@ -589,6 +649,27 @@ async function createSection() {
       :task-id="detailTaskId"
       @saved="refreshProjectTasks"
     />
+
+    <Modal v-model="editProjectModalOpen" title="Edit project">
+      <ProjectForm
+        v-model:name="editName"
+        v-model:description="editDescription"
+        submit-label="Save"
+        :loading="editSaving"
+        @submit="saveEditProject"
+        @cancel="editProjectModalOpen = false"
+      >
+        <template #actions-start>
+          <Button
+            variant="ghost-danger"
+            type="button"
+            @click="removeProjectFromEdit"
+          >
+            Delete project
+          </Button>
+        </template>
+      </ProjectForm>
+    </Modal>
 
     <Modal v-if="canCreateTasks" v-model="showModal" title="New task">
       <TaskForm
