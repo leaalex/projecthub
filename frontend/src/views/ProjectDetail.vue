@@ -451,7 +451,7 @@ async function createSection() {
       <div class="flex flex-wrap items-center gap-2">
         <router-link
           v-if="projectStore.current?.kind === 'team'"
-          :to="`/projects/${id}/members`"
+          :to="`/projects/${id}/settings`"
           class="box-border inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/65 bg-surface-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />

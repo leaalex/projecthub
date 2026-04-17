@@ -49,10 +49,15 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/projects/:id/settings',
+      name: 'project-settings',
+      component: () => import('../views/ProjectSettings.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/projects/:id/members',
       name: 'project-members',
-      component: () => import('../views/ProjectMembersPage.vue'),
-      meta: { requiresAuth: true },
+      redirect: (to) => `/projects/${to.params.id}/settings`,
     },
     {
       path: '/tasks',

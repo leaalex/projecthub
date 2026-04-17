@@ -165,17 +165,7 @@ async function savePassword() {
     <p class="mt-1 text-sm text-muted">
       Личные данные и безопасность
     </p>
-    <p
-      v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
-      class="mt-3 text-sm"
-    >
-      <RouterLink
-        to="/admin/users"
-        class="font-medium text-primary underline underline-offset-2 hover:no-underline"
-      >
-        Пользователи и глобальные роли
-      </RouterLink>
-    </p>
+    
 
     <div
       class="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start"

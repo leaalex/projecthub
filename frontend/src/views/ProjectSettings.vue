@@ -129,7 +129,7 @@ async function refreshAfterTransfer() {
   </div>
   <div v-else-if="loadError">
     <EmptyState
-      title="Could not load members"
+      title="Could not load settings"
       :description="loadError"
     >
       <Button type="button" variant="secondary" @click="void load()">
@@ -144,42 +144,44 @@ async function refreshAfterTransfer() {
         { label: 'Home', to: '/dashboard' },
         { label: 'Projects', to: '/projects' },
         { label: projectStore.current.name, to: `/projects/${id}` },
-        { label: 'Members' },
+        { label: 'Settings' },
       ]"
     />
 
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0 flex-1">
-        <h1 class="text-2xl font-semibold text-foreground">Members</h1>
-        <p class="mt-1 text-sm text-muted">
-          {{ projectStore.current.name }}
-        </p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button
-          v-if="showTransfer"
-          type="button"
-          variant="secondary"
-          class="text-xs"
-          @click="transferModalOpen = true"
-        >
-          Transfer ownership
-        </Button>
-        <Button
-          v-if="canManage"
-          type="button"
-          class="text-xs"
-          @click="addModalOpen = true"
-        >
-          <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
-          <span class="ml-1.5">Add member</span>
-        </Button>
-      </div>
-    </div>
+    <h1 class="text-2xl font-semibold text-foreground">Settings</h1>
+    <p class="mt-1 text-sm text-muted">
+      {{ projectStore.current.name }}
+    </p>
 
-    <div class="mt-6">
-      <ProjectMembers :project-id="id" />
-    </div>
+    <section class="mt-8 border-t border-border pt-8">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <h2 class="text-lg font-semibold text-foreground">Members</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button
+            v-if="showTransfer"
+            type="button"
+            variant="secondary"
+            class="text-xs"
+            @click="transferModalOpen = true"
+          >
+            Transfer ownership
+          </Button>
+          <Button
+            v-if="canManage"
+            type="button"
+            class="text-xs"
+            @click="addModalOpen = true"
+          >
+            <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
+            <span class="ml-1.5">Add member</span>
+          </Button>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <ProjectMembers :project-id="id" />
+      </div>
+    </section>
 
     <AddMemberModal
       v-if="canManage"
