@@ -576,8 +576,7 @@
   },
   "taskSectionList": {
     "emptyDefault": "Пока нет задач.",
-    "emptyInSection": "В этой секции нет задач.",
-    "doneLabel": "выполнено"
+    "emptyInSection": "В этой секции нет задач."
   },
   "taskInlineComposer": {
     "srTitle": "Название задачи",
@@ -754,7 +753,7 @@
   },
   "taskTransferModal": {
     "title": "Удалить участника проекта",
-    "warning": "У {name} есть {count} назначенных задач",
+    "warning": "У {name} есть {count} назначенная задача | У {name} есть {count} назначенных задач",
     "chooseHandling": "Выберите, как обработать эти задачи перед удалением участника.",
     "transferMode": "Режим переноса",
     "mode": {

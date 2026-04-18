@@ -144,7 +144,7 @@ async function deleteSaved(r: SavedReport) {
   const ok = await confirm({
     title: t('reports.confirm.deleteTitle'),
     message: t('reports.confirm.deleteMessage', { name: r.display_name }),
-    confirmLabel: t('reports.confirm.deleteConfirm'),
+    confirmLabelKey: 'reports.confirm.deleteConfirm',
     danger: true,
   })
   if (!ok) return

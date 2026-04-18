@@ -228,7 +228,7 @@ async function requestDelete() {
   const ok = await confirm({
     title: t('taskCard.confirm.deleteTitle'),
     message: t('taskCard.confirm.deleteMessage', { title: taskRow.title }),
-    confirmLabel: t('taskCard.confirm.deleteConfirm'),
+    confirmLabelKey: 'taskCard.confirm.deleteConfirm',
     danger: true,
   })
   if (!ok) return

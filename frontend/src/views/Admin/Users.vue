@@ -119,7 +119,7 @@ async function remove(u: User) {
   const ok = await confirm({
     title: t('admin.users.confirm.deleteTitle'),
     message: t('admin.users.confirm.deleteMessage', { email: u.email }),
-    confirmLabel: t('admin.users.confirm.deleteConfirm'),
+    confirmLabelKey: 'admin.users.confirm.deleteConfirm',
     danger: true,
   })
   if (!ok) return

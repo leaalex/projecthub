@@ -9,6 +9,7 @@ import { useProjectStore } from '../../stores/project.store'
 import { useTaskStore } from '../../stores/task.store'
 import { useUiStore } from '../../stores/ui.store'
 import type { TaskStatus } from '../../types/task'
+import { taskStatusLabel } from '../../utils/taskEnumLabels'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,11 +19,10 @@ const { showProjectsAndTasks } = useProjectNavVisibility()
 const taskStore = useTaskStore()
 const ui = useUiStore()
 const { commandPaletteOpen } = storeToRefs(ui)
-const { t, te } = useI18n()
+const { t } = useI18n()
 
 function taskStatusSubtitle(status: string) {
-  const key = `enums.taskStatus.${status}`
-  return te(key) ? t(key) : status.replaceAll('_', ' ')
+  return taskStatusLabel(t, status, status.replaceAll('_', ' '))
 }
 const query = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)

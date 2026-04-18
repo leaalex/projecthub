@@ -119,7 +119,7 @@ async function runConfirmDemo() {
   const ok = await confirm({
     title: t('uiKit.demo.confirm.title'),
     message: t('uiKit.demo.confirm.message'),
-    confirmLabel: t('uiKit.demo.confirm.ok'),
+    confirmLabelKey: 'uiKit.demo.confirm.ok',
   })
   toast.info(
     ok ? t('uiKit.demo.toasts.confirmed') : t('uiKit.demo.toasts.cancelled'),

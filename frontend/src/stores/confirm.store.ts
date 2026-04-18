@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { i18n } from '../i18n'
 
 export interface ConfirmOptions {
   title: string
   message: string
-  confirmLabel?: string
-  cancelLabel?: string
+  confirmLabelKey?: string
+  cancelLabelKey?: string
   danger?: boolean
 }
 
@@ -16,12 +15,7 @@ export const useConfirmStore = defineStore('confirm', () => {
   let resolver: ((value: boolean) => void) | null = null
 
   function request(opts: ConfirmOptions): Promise<boolean> {
-    options.value = {
-      confirmLabel: i18n.global.t('confirmDefaults.confirm'),
-      cancelLabel: i18n.global.t('confirmDefaults.cancel'),
-      danger: false,
-      ...opts,
-    }
+    options.value = { danger: false, ...opts }
     open.value = true
     return new Promise<boolean>((resolve) => {
       resolver = resolve

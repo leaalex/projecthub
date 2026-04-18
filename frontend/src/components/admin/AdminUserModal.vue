@@ -109,7 +109,7 @@ async function confirmDelete() {
   const ok = await confirm({
     title: 'Delete user',
     message: `Delete user ${u.email}?`,
-    confirmLabel: 'Delete',
+    confirmLabelKey: 'common.delete',
     danger: true,
   })
   if (!ok) return

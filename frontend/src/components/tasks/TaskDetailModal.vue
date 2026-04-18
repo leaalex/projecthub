@@ -128,7 +128,7 @@ async function removeTask() {
   const ok = await confirm({
     title: t('taskCard.confirm.deleteTitle'),
     message: t('taskCard.confirm.deleteMessage', { title: cur.title }),
-    confirmLabel: t('taskCard.confirm.deleteConfirm'),
+    confirmLabelKey: 'taskCard.confirm.deleteConfirm',
     danger: true,
   })
   if (!ok) return

@@ -576,8 +576,7 @@
   },
   "taskSectionList": {
     "emptyDefault": "No tasks yet.",
-    "emptyInSection": "No tasks in this section.",
-    "doneLabel": "done"
+    "emptyInSection": "No tasks in this section."
   },
   "taskInlineComposer": {
     "srTitle": "Task title",

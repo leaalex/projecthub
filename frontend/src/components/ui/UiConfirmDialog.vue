@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useConfirmStore } from '../../stores/confirm.store'
 import Button from './UiButton.vue'
 
+const { t } = useI18n()
 const store = useConfirmStore()
 const { open, options } = storeToRefs(store)
 
@@ -45,13 +47,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           <p class="mt-2 text-sm text-muted">{{ options.message }}</p>
           <div class="mt-6 flex justify-end gap-2">
             <Button variant="secondary" @click="store.answer(false)">
-              {{ options.cancelLabel }}
+              {{ t(options.cancelLabelKey ?? 'confirmDefaults.cancel') }}
             </Button>
             <Button
               :variant="options.danger ? 'ghost-danger' : 'primary'"
               @click="store.answer(true)"
             >
-              {{ options.confirmLabel }}
+              {{ t(options.confirmLabelKey ?? 'confirmDefaults.confirm') }}
             </Button>
           </div>
         </div>

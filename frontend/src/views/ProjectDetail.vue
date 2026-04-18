@@ -315,7 +315,7 @@ async function removeProjectFromEdit() {
   const ok = await confirm({
     title: t('projects.deleteTitle'),
     message: t('projects.deleteMessage'),
-    confirmLabel: t('projects.deleteConfirm'),
+    confirmLabelKey: 'projects.deleteConfirm',
     danger: true,
   })
   if (!ok) return
@@ -638,7 +638,7 @@ async function createSection() {
               <h2 class="text-sm font-semibold text-foreground">
                 {{ g.label }}
                 <span class="font-normal text-muted">{{
-                  taskSectionHeaderStats(g.tasks, t)
+                  taskSectionHeaderStats(g.tasks)
                 }}</span>
               </h2>
               <TaskList

@@ -479,7 +479,7 @@ async function onSectionMove(payload: {
             <h2 class="text-sm font-semibold text-foreground">
               {{ g.label }}
               <span class="font-normal text-muted">{{
-                taskSectionHeaderStats(g.tasks, t)
+                taskSectionHeaderStats(g.tasks)
               }}</span>
             </h2>
             <TaskList

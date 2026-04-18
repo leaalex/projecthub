@@ -10,7 +10,7 @@ const apiProxyTarget =
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   resolve: {
-    extensions: ['.mts', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json', '.vue'],
+    extensions: ['.mts', '.ts', '.tsx', '.mjs', '.js', '.jsx', '.json'],
   },
   server: {
     host: true,

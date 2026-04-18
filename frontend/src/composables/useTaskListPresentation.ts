@@ -1,6 +1,7 @@
 import type { ComposerTranslation } from 'vue-i18n'
 import type { TaskSection } from '../types/project'
 import type { Task, TaskPriority, TaskStatus } from '../types/task'
+import { taskPriorityLabel, taskStatusLabel } from '../utils/taskEnumLabels'
 
 export type TaskSortKey =
   | 'updated_at'
@@ -190,7 +191,7 @@ export function groupTasks(
       const groupTasksList = tasks.filter((task) => task.status === st)
       return {
         key: st,
-        label: t(`enums.taskStatus.${st}`),
+        label: taskStatusLabel(t, st),
         tasks: groupTasksList,
       }
     })
@@ -201,7 +202,7 @@ export function groupTasks(
       const groupTasksList = tasks.filter((task) => task.priority === pr)
       return {
         key: pr,
-        label: t(`enums.taskPriority.${pr}`),
+        label: taskPriorityLabel(t, pr),
         tasks: groupTasksList,
       }
     })
