@@ -119,6 +119,14 @@ func (m *memSessions) FindByTokenHash(ctx context.Context, hash [32]byte) (*sess
 }
 
 func (m *memSessions) RevokeAllByUser(ctx context.Context, uid user.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := time.Now()
+	for _, s := range m.rows {
+		if s.UserID() == uid {
+			s.Revoke(now)
+		}
+	}
 	return nil
 }
 
@@ -168,5 +176,29 @@ func TestAuthService_RegisterDuplicateEmail(t *testing.T) {
 	_, _, _, err = svc.Register(ctx, "dup@x.co", "password999", "B")
 	if !errors.Is(err, user.ErrEmailTaken) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestAuthService_ChangePassword_RevokesSessions(t *testing.T) {
+	users := newMemUsers()
+	sess := newMemSessions()
+	clock := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	svc := application.NewAuthService(users, sess, "secret", time.Hour, 24*time.Hour)
+	svc.Clock = func() time.Time { return clock }
+
+	ctx := context.Background()
+	u, _, refresh, err := svc.Register(ctx, "cp@x.co", "password123", "Bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ChangePassword(ctx, u.ID(), "password123", "newpassword9"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Refresh(ctx, refresh); !errors.Is(err, application.ErrInvalidRefreshToken) {
+		t.Fatalf("expected ErrInvalidRefreshToken after password change, got %v", err)
+	}
+	_, access, _, err := svc.Login(ctx, "cp@x.co", "newpassword9")
+	if err != nil || access == "" {
+		t.Fatalf("login with new password: %v", err)
 	}
 }

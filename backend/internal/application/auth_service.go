@@ -131,11 +131,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshPlain string) (string,
 		}
 		return "", err
 	}
-	now := s.Clock()
-	if !sess.IsActive(now) {
-		if sess.RevokedAt() != nil {
-			return "", ErrInvalidRefreshToken
-		}
+	if !sess.IsActive(s.Clock()) {
 		return "", ErrInvalidRefreshToken
 	}
 	u, err := s.Users.FindByID(ctx, sess.UserID())
@@ -184,5 +180,8 @@ func (s *AuthService) ChangePassword(ctx context.Context, id user.ID, currentPas
 	}
 	u.ChangePassword(hash)
 	u.Touch(s.Clock())
-	return s.Users.Save(ctx, u)
+	if err := s.Users.Save(ctx, u); err != nil {
+		return err
+	}
+	return s.Sessions.RevokeAllByUser(ctx, id)
 }
