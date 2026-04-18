@@ -5,16 +5,17 @@ import (
 	"net/http"
 	"testing"
 
+	domainuser "task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/testutil"
 )
 
 func TestTask_Create(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 
 	t.Run("create task in project", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPost, "/api/tasks", map[string]any{
@@ -45,9 +46,9 @@ func TestTask_Create(t *testing.T) {
 
 func TestTask_GetUpdateDelete(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	task := app.SeedTask(p.ID)
 
 	t.Run("get task", func(t *testing.T) {
@@ -95,9 +96,9 @@ func TestTask_GetUpdateDelete(t *testing.T) {
 
 func TestTask_Complete(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	task := app.SeedTask(p.ID)
 
 	t.Run("complete sets status to done", func(t *testing.T) {
@@ -114,15 +115,15 @@ func TestTask_Complete(t *testing.T) {
 
 func TestTask_Assign(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	member := app.SeedUser(models.RoleUser)
-	ownerToken := app.Login(owner.Email, ownerPass)
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	member := app.SeedUser(domainuser.RoleUser)
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 
 	// Добавляем участника в проект через API.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", p.ID), map[string]any{
-		"user_id": member.ID,
+		"user_id": member.ID().Uint(),
 		"role":    "executor",
 	}, ownerToken)
 
@@ -130,14 +131,14 @@ func TestTask_Assign(t *testing.T) {
 
 	t.Run("assign member", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/assign", task.ID), map[string]any{
-			"assignee_id": member.ID,
+			"assignee_id": member.ID().Uint(),
 		}, ownerToken)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 		}
 		got := data["task"].(map[string]any)
-		if uint(got["assignee_id"].(float64)) != member.ID {
-			t.Fatalf("expected assignee_id %d, got %v", member.ID, got["assignee_id"])
+		if uint(got["assignee_id"].(float64)) != member.ID().Uint() {
+			t.Fatalf("expected assignee_id %d, got %v", member.ID().Uint(), got["assignee_id"])
 		}
 	})
 
@@ -157,9 +158,9 @@ func TestTask_Assign(t *testing.T) {
 
 func TestTask_MoveInProject(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 
 	// Создаём две задачи через API для получения валидных ID.
 	rec1, d1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{"title": "T1", "project_id": p.ID}, token)

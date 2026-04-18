@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"testing"
 
-	"task-manager/backend/internal/models"
+	domainuser "task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/testutil"
 )
 
 func TestProject_CRUD(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
 
 	var projectID float64
 
@@ -106,8 +106,8 @@ func TestProject_CRUD(t *testing.T) {
 //     через ProjectDeletionService.
 func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
 
 	// Создаём проект через API.
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
@@ -148,11 +148,11 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 
 func TestProject_Permissions(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "ownerpass1")
-	other, otherPass := app.SeedUserWithPassword(models.RoleUser, "otherpass1")
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "ownerpass1")
+	other, otherPass := app.SeedUserWithPassword(domainuser.RoleUser, "otherpass1")
 
-	ownerToken := app.Login(owner.Email, ownerPass)
-	otherToken := app.Login(other.Email, otherPass)
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
+	otherToken, _ := app.Login(other.Email().String(), otherPass)
 
 	// Создаём проект от имени владельца.
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{

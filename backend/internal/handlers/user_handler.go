@@ -1,17 +1,19 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
-	"task-manager/backend/internal/models"
-	"task-manager/backend/internal/services"
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/user"
 
 	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
-	Svc *services.UserService
+	Svc *application.UserService
 }
 
 type userUpdateBody struct {
@@ -39,21 +41,21 @@ type userCreateBody struct {
 	Phone      string `json:"phone"`
 }
 
-func userPublic(u *models.User) gin.H {
+func userPublic(u *user.User) gin.H {
 	return gin.H{
-		"id":          u.ID,
-		"email":       u.Email,
-		"name":        models.UserDisplayName(u),
-		"last_name":   u.LastName,
-		"first_name":  u.FirstName,
-		"patronymic":  u.Patronymic,
-		"department":  u.Department,
-		"job_title":   u.JobTitle,
-		"phone":       u.Phone,
-		"locale":      u.Locale,
-		"role":        u.Role,
-		"created_at":  u.CreatedAt,
-		"updated_at":  u.UpdatedAt,
+		"id":          u.ID().Uint(),
+		"email":       u.Email().String(),
+		"name":        u.Name().DisplayName(),
+		"last_name":   u.Name().LastName,
+		"first_name":  u.Name().FirstName,
+		"patronymic":  u.Name().Patronymic,
+		"department":  u.Department(),
+		"job_title":   u.JobTitle(),
+		"phone":       u.Phone(),
+		"locale":      u.Locale().String(),
+		"role":        u.Role().String(),
+		"created_at":  u.CreatedAt(),
+		"updated_at":  u.UpdatedAt(),
 	}
 }
 
@@ -73,10 +75,15 @@ func (h *UserHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	u, err := h.Svc.AdminCreate(role, services.AdminCreateInput{
+	r, err := user.ParseRole(strings.TrimSpace(body.Role))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+		return
+	}
+	u, err := h.Svc.AdminCreate(c.Request.Context(), role, application.AdminCreateInput{
 		Email:      body.Email,
 		Password:   body.Password,
-		Role:       models.Role(body.Role),
+		Role:       r,
 		LastName:   body.LastName,
 		FirstName:  body.FirstName,
 		Patronymic: body.Patronymic,
@@ -92,14 +99,14 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 func (h *UserHandler) List(c *gin.Context) {
-	list, err := h.Svc.List()
+	list, err := h.Svc.List(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	out := make([]gin.H, 0, len(list))
-	for i := range list {
-		out = append(out, userPublic(&list[i]))
+	for _, u := range list {
+		out = append(out, userPublic(u))
 	}
 	c.JSON(http.StatusOK, gin.H{"users": out})
 }
@@ -120,13 +127,14 @@ func (h *UserHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if !h.Svc.CanAccessUser(callerID, role, uint(id)) {
+	targetID := user.ID(uint(id))
+	if !h.Svc.CanAccessUser(user.ID(callerID), role, targetID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
-	u, err := h.Svc.Get(uint(id))
+	u, err := h.Svc.Get(c.Request.Context(), targetID)
 	if err != nil {
-		if err == services.ErrUserNotFound {
+		if errors.Is(err, user.ErrUserNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
@@ -157,7 +165,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	patch := services.UserProfilePatch{
+	patch := application.UserProfilePatch{
 		Name:        body.Name,
 		Email:       body.Email,
 		LastName:    body.LastName,
@@ -169,7 +177,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Locale:      body.Locale,
 		Password:    body.Password,
 	}
-	u, err := h.Svc.Update(uint(id), callerID, role, patch)
+	u, err := h.Svc.Update(c.Request.Context(), user.ID(uint(id)), user.ID(callerID), role, patch)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -193,7 +201,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(id), callerID, role); err != nil {
+	if err := h.Svc.Delete(c.Request.Context(), user.ID(uint(id)), user.ID(callerID), role); err != nil {
 		handleServiceError(c, err)
 		return
 	}
@@ -225,7 +233,12 @@ func (h *UserHandler) SetRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	u, err := h.Svc.SetGlobalRole(uint(id), callerID, role, models.Role(body.Role))
+	newRole, err := user.ParseRole(strings.TrimSpace(body.Role))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+		return
+	}
+	u, err := h.Svc.SetGlobalRole(c.Request.Context(), user.ID(uint(id)), user.ID(callerID), role, newRole)
 	if err != nil {
 		handleServiceError(c, err)
 		return

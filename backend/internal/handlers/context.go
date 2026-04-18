@@ -1,44 +1,56 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
+
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/middleware"
-	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 func handleServiceError(c *gin.Context, err error) {
-	switch err {
-	// Ошибки «не найдено» (404)
-	case services.ErrTaskNotFound, services.ErrProjectNotFound,
-		services.ErrSubtaskNotFound, services.ErrUserNotFound,
-		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
-		services.ErrNotProjectMember, services.ErrTaskSectionNotFound:
+	switch {
+	case errors.Is(err, user.ErrUserNotFound),
+		errors.Is(err, services.ErrTaskNotFound),
+		errors.Is(err, services.ErrProjectNotFound),
+		errors.Is(err, services.ErrSubtaskNotFound),
+		errors.Is(err, services.ErrSavedReportNotFound),
+		errors.Is(err, services.ErrTargetUserNotFound),
+		errors.Is(err, services.ErrNotProjectMember),
+		errors.Is(err, services.ErrTaskSectionNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
-	// Ошибки доступа (403)
-	case services.ErrForbidden, services.ErrPersonalProjectMembersNotAllowed,
-		services.ErrTeamProjectNotAllowed:
+	case errors.Is(err, services.ErrForbidden),
+		errors.Is(err, services.ErrPersonalProjectMembersNotAllowed),
+		errors.Is(err, services.ErrTeamProjectNotAllowed):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 
-	// Ошибки некорректного запроса (400)
-	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember,
-		services.ErrCannotRemoveOwner, services.ErrCannotChangeOwnRole,
-		services.ErrInvalidGlobalRole, services.ErrCannotTransferToSelf,
-		services.ErrTargetNotProjectMember, services.ErrInvalidTaskTransfer,
-		services.ErrDuplicateTaskTransfer, services.ErrCannotTransferToSameMember,
-		services.ErrInvalidAssignee, services.ErrIncompleteTaskTransfer:
+	case errors.Is(err, services.ErrInvalidInput),
+		errors.Is(err, application.ErrInvalidInput),
+		errors.Is(err, services.ErrAssigneeNotProjectMember),
+		errors.Is(err, services.ErrCannotRemoveOwner),
+		errors.Is(err, user.ErrCannotChangeOwnRole),
+		errors.Is(err, user.ErrInvalidGlobalRole),
+		errors.Is(err, services.ErrCannotTransferToSelf),
+		errors.Is(err, services.ErrTargetNotProjectMember),
+		errors.Is(err, services.ErrInvalidTaskTransfer),
+		errors.Is(err, services.ErrDuplicateTaskTransfer),
+		errors.Is(err, services.ErrCannotTransferToSameMember),
+		errors.Is(err, services.ErrInvalidAssignee),
+		errors.Is(err, services.ErrIncompleteTaskTransfer):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
-	// Ошибки конфликта (409)
-	case services.ErrCannotDeleteSelf, services.ErrAlreadyProjectMember,
-		services.ErrEmailTaken:
+	case errors.Is(err, user.ErrCannotDeleteSelf),
+		errors.Is(err, services.ErrAlreadyProjectMember),
+		errors.Is(err, user.ErrEmailTaken):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
-	// Ошибки аутентификации (401)
-	case services.ErrInvalidCreds:
+	case errors.Is(err, application.ErrInvalidCreds),
+		errors.Is(err, application.ErrInvalidRefreshToken):
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 
 	default:
@@ -55,11 +67,11 @@ func ctxUserID(c *gin.Context) (uint, bool) {
 	return id, ok
 }
 
-func ctxRole(c *gin.Context) (models.Role, bool) {
+func ctxRole(c *gin.Context) (user.Role, bool) {
 	v, ok := c.Get(middleware.ContextRoleKey)
 	if !ok {
 		return "", false
 	}
-	r, ok := v.(models.Role)
+	r, ok := v.(user.Role)
 	return r, ok
 }

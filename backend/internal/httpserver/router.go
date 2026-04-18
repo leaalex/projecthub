@@ -5,7 +5,10 @@ package httpserver
 
 import (
 	"net/http"
+	"time"
 
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/handlers"
 	"task-manager/backend/internal/middleware"
 	"task-manager/backend/internal/services"
@@ -16,29 +19,40 @@ import (
 
 // Deps содержит все зависимости, необходимые для сборки HTTP-роутера.
 type Deps struct {
-	DB         *gorm.DB
-	JWTSecret  string
-	CORSOrigin string
-	AuthSvc    *services.AuthService
-	MemberSvc  *services.ProjectMemberService
-	ProjectSvc *services.ProjectService
-	TaskSvc    *services.TaskService
-	SectionSvc *services.TaskSectionService
-	SubtaskSvc *services.SubtaskService
-	UserSvc    *services.UserService
-	ReportSvc  *services.ReportService
+	DB                *gorm.DB
+	JWTSecret         string
+	CORSOrigin        string
+	UserRepo          user.Repository
+	Auth              *application.AuthService
+	Users             *application.UserService
+	RefreshCookieName string
+	RefreshCookiePath string
+	CookieSecure      bool
+	RefreshTTL        time.Duration
+	MemberSvc         *services.ProjectMemberService
+	ProjectSvc        *services.ProjectService
+	TaskSvc           *services.TaskService
+	SectionSvc        *services.TaskSectionService
+	SubtaskSvc        *services.SubtaskService
+	ReportSvc         *services.ReportService
 }
 
 // BuildRouter собирает и возвращает настроенный *gin.Engine.
 // Вызывающий код отвечает за r.Run() или передачу движка в httptest.
 func BuildRouter(deps Deps) *gin.Engine {
-	authHandler := &handlers.AuthHandler{Auth: deps.AuthSvc}
+	authHandler := &handlers.AuthHandler{
+		Auth:              deps.Auth,
+		RefreshCookieName: deps.RefreshCookieName,
+		RefreshCookiePath: deps.RefreshCookiePath,
+		CookieSecure:      deps.CookieSecure,
+		RefreshTTL:        deps.RefreshTTL,
+	}
 	projectHandler := &handlers.ProjectHandler{Svc: deps.ProjectSvc, Members: deps.MemberSvc, TaskSvc: deps.TaskSvc}
 	memberHandler := &handlers.MemberHandler{Svc: deps.MemberSvc}
 	taskHandler := &handlers.TaskHandler{Svc: deps.TaskSvc}
 	taskSectionHandler := &handlers.TaskSectionHandler{Svc: deps.SectionSvc}
 	subtaskHandler := &handlers.SubtaskHandler{Svc: deps.SubtaskSvc}
-	userHandler := &handlers.UserHandler{Svc: deps.UserSvc}
+	userHandler := &handlers.UserHandler{Svc: deps.Users}
 	reportHandler := &handlers.ReportHandler{Svc: deps.ReportSvc}
 
 	r := gin.New()
@@ -53,17 +67,18 @@ func BuildRouter(deps Deps) *gin.Engine {
 	auth := api.Group("/auth")
 	auth.POST("/register", authHandler.Register)
 	auth.POST("/login", authHandler.Login)
+	auth.POST("/refresh", authHandler.Refresh)
+	auth.POST("/logout", authHandler.Logout)
 
 	protected := api.Group("")
 	protected.Use(middleware.JWTAuth(deps.JWTSecret))
-	protected.Use(middleware.SyncRoleFromDB(deps.DB))
+	protected.Use(middleware.SyncRoleFromDB(deps.UserRepo))
 	protected.GET("/me", authHandler.Me)
 	protected.POST("/me/password", authHandler.ChangePassword)
 
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
 	projects.POST("", projectHandler.Create)
-	// Длинные маршруты /:id/... регистрируются до /:id, чтобы Gin не путал пути вида /:id/tasks.
 	projects.GET("/:id/tasks", projectHandler.Tasks)
 	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
 	projects.GET("/:id/task-sections", taskSectionHandler.List)

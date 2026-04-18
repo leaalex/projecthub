@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -27,8 +28,8 @@ func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
 }
 
 // ListForCaller возвращает все проекты для admin/staff; для creator: собственные ∪ участник; для user: собственные ∪ участник.
-func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.Project, error) {
-	if models.IsSystemRole(role) {
+func (s *ProjectService) ListForCaller(userID uint, role user.Role) ([]models.Project, error) {
+	if user.IsSystemRole(role) {
 		var list []models.Project
 		err := s.DB.Preload("Owner").Order("updated_at desc").Find(&list).Error
 		return list, err
@@ -41,7 +42,7 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 		return nil, err
 	}
 	var q *gorm.DB
-	if role == models.RoleUser {
+	if role == user.RoleUser {
 		if len(memberIDs) == 0 {
 			q = s.DB.Preload("Owner").Where("owner_id = ?", userID).Order("updated_at desc")
 		} else {
@@ -59,13 +60,13 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 	return list, err
 }
 
-func (s *ProjectService) Create(ownerID uint, role models.Role, name, description string, kind models.ProjectKind) (*models.Project, error) {
+func (s *ProjectService) Create(ownerID uint, role user.Role, name, description string, kind models.ProjectKind) (*models.Project, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrInvalidInput
 	}
 	if kind == "" {
-		if role == models.RoleUser {
+		if role == user.RoleUser {
 			kind = models.ProjectKindPersonal
 		} else {
 			kind = models.ProjectKindTeam
@@ -74,7 +75,7 @@ func (s *ProjectService) Create(ownerID uint, role models.Role, name, descriptio
 	if !models.IsValidProjectKind(kind) {
 		return nil, ErrInvalidInput
 	}
-	if kind == models.ProjectKindTeam && role == models.RoleUser {
+	if kind == models.ProjectKindTeam && role == user.RoleUser {
 		return nil, ErrTeamProjectNotAllowed
 	}
 	p := models.Project{
@@ -93,7 +94,7 @@ func (s *ProjectService) Create(ownerID uint, role models.Role, name, descriptio
 }
 
 // Get возвращает проект, если вызывающий — admin/staff, владелец или любой участник (включая наблюдателя).
-func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Project, error) {
+func (s *ProjectService) Get(id, callerID uint, role user.Role) (*models.Project, error) {
 	var p models.Project
 	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -101,7 +102,7 @@ func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Proje
 		}
 		return nil, err
 	}
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		return &p, nil
 	}
 	if p.OwnerID == callerID {
@@ -114,14 +115,14 @@ func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Proje
 }
 
 // canModifyProjectMetadata возвращает true для admin/staff или только владельца проекта.
-func (s *ProjectService) canModifyProjectMetadata(p *models.Project, callerID uint, role models.Role) bool {
-	if models.IsSystemRole(role) {
+func (s *ProjectService) canModifyProjectMetadata(p *models.Project, callerID uint, role user.Role) bool {
+	if user.IsSystemRole(role) {
 		return true
 	}
 	return p.OwnerID == callerID
 }
 
-func (s *ProjectService) Update(id, callerID uint, role models.Role, name, description string) (*models.Project, error) {
+func (s *ProjectService) Update(id, callerID uint, role user.Role, name, description string) (*models.Project, error) {
 	var p models.Project
 	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -147,7 +148,7 @@ func (s *ProjectService) Update(id, callerID uint, role models.Role, name, descr
 	return &p, nil
 }
 
-func (s *ProjectService) Delete(id, callerID uint, role models.Role) error {
+func (s *ProjectService) Delete(id, callerID uint, role user.Role) error {
 	var p models.Project
 	if err := s.DB.First(&p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -161,7 +162,7 @@ func (s *ProjectService) Delete(id, callerID uint, role models.Role) error {
 	return s.DB.Delete(&p).Error
 }
 
-func (s *ProjectService) TasksForProject(projectID, callerID uint, role models.Role) ([]models.Task, error) {
+func (s *ProjectService) TasksForProject(projectID, callerID uint, role user.Role) ([]models.Task, error) {
 	p, err := s.Get(projectID, callerID, role)
 	if err != nil {
 		return nil, err

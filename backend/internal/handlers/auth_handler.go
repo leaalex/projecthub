@@ -2,15 +2,21 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/middleware"
-	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	Auth *services.AuthService
+	Auth              *application.AuthService
+	RefreshCookieName string
+	RefreshCookiePath string
+	CookieSecure      bool
+	RefreshTTL        time.Duration
 }
 
 type registerBody struct {
@@ -24,20 +30,41 @@ type loginBody struct {
 	Password string `json:"password" binding:"required"`
 }
 
+func (h *AuthHandler) writeRefreshCookie(c *gin.Context, plain string) {
+	maxAge := int(h.RefreshTTL.Seconds())
+	if maxAge < 1 {
+		maxAge = int((24 * time.Hour).Seconds())
+	}
+	c.SetCookie(h.RefreshCookieName, plain, maxAge, h.RefreshCookiePath, "", h.CookieSecure, true)
+}
+
+func (h *AuthHandler) clearRefreshCookie(c *gin.Context) {
+	c.SetCookie(h.RefreshCookieName, "", -1, h.RefreshCookiePath, "", h.CookieSecure, true)
+}
+
+func (h *AuthHandler) refreshCookieValue(c *gin.Context) string {
+	v, err := c.Cookie(h.RefreshCookieName)
+	if err != nil || v == "" {
+		return ""
+	}
+	return v
+}
+
 func (h *AuthHandler) Register(c *gin.Context) {
 	var body registerBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	u, token, err := h.Auth.Register(body.Email, body.Password, body.Name)
+	u, access, refresh, err := h.Auth.Register(c.Request.Context(), body.Email, body.Password, body.Name)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
+	h.writeRefreshCookie(c, refresh)
 	c.JSON(http.StatusCreated, gin.H{
-		"token": token,
-		"user":  userPublic(u),
+		"access_token": access,
+		"user":         userPublic(u),
 	})
 }
 
@@ -47,15 +74,40 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	u, token, err := h.Auth.Login(body.Email, body.Password)
+	u, access, refresh, err := h.Auth.Login(c.Request.Context(), body.Email, body.Password)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
+	h.writeRefreshCookie(c, refresh)
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
-		"user":  userPublic(u),
+		"access_token": access,
+		"user":         userPublic(u),
 	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	plain := h.refreshCookieValue(c)
+	if plain == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing refresh token"})
+		return
+	}
+	access, err := h.Auth.Refresh(c.Request.Context(), plain)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	h.writeRefreshCookie(c, plain)
+	c.JSON(http.StatusOK, gin.H{"access_token": access})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	plain := h.refreshCookieValue(c)
+	if plain != "" {
+		_ = h.Auth.Logout(c.Request.Context(), plain)
+	}
+	h.clearRefreshCookie(c)
+	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) Me(c *gin.Context) {
@@ -69,7 +121,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	u, err := h.Auth.UserByID(userID)
+	u, err := h.Auth.Me(c.Request.Context(), user.ID(userID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
@@ -98,7 +150,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if err := h.Auth.ChangePassword(userID, body.CurrentPassword, body.NewPassword); err != nil {
+	if err := h.Auth.ChangePassword(c.Request.Context(), user.ID(userID), body.CurrentPassword, body.NewPassword); err != nil {
 		handleServiceError(c, err)
 		return
 	}

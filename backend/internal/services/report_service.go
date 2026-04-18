@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -49,7 +50,7 @@ type WeeklyReport struct {
 	ProjectsCount   int64          `json:"projects_count"`
 }
 
-func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, error) {
+func (s *ReportService) Weekly(userID uint, role user.Role) (*WeeklyReport, error) {
 	now := time.Now().UTC()
 	weekday := int(now.Weekday())
 	if weekday == 0 {
@@ -59,7 +60,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	end := start.AddDate(0, 0, 7)
 
 	var base *gorm.DB
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
@@ -84,7 +85,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 		Cnt    int
 	}
 	q := s.DB.Model(&models.Task{})
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
@@ -107,7 +108,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 
 	var completed int64
 	q2 := s.DB.Model(&models.Task{}).Where("status = ?", models.StatusDone)
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
@@ -126,7 +127,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	}
 
 	var pc int64
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		_ = s.DB.Model(&models.Project{}).Count(&pc).Error
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
@@ -161,7 +162,7 @@ func parseReportDateStart(s string) (time.Time, error) {
 }
 
 // generateReportBytes строит байты файла отчёта (запрос + экспорт).
-func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
+func (s *ReportService) generateReportBytes(callerID uint, role user.Role, req GenerateRequest) ([]byte, string, string, error) {
 	format := strings.ToLower(strings.TrimSpace(req.Format))
 	if format != "csv" && format != "xlsx" && format != "pdf" && format != "txt" {
 		return nil, "", "", ErrInvalidInput
@@ -174,17 +175,17 @@ func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req
 		return nil, "", "", ErrInvalidInput
 	}
 
-	if !models.IsSystemRole(role) && len(req.UserIDs) > 0 {
+	if !user.IsSystemRole(role) && len(req.UserIDs) > 0 {
 		return nil, "", "", ErrForbidden
 	}
 
 	q := s.DB.Model(&models.Task{}).Preload("Project").Preload("Assignee")
 	taskSvc := &TaskService{DB: s.DB}
 
-	if models.IsSystemRole(role) && len(req.UserIDs) > 0 {
+	if user.IsSystemRole(role) && len(req.UserIDs) > 0 {
 		q = q.Joins("LEFT JOIN projects AS rep_proj ON rep_proj.id = tasks.project_id").
 			Where("(tasks.assignee_id IN ?) OR (rep_proj.owner_id IN ?)", req.UserIDs, req.UserIDs)
-	} else if !models.IsSystemRole(role) {
+	} else if !user.IsSystemRole(role) {
 		visible, err := taskSvc.visibleProjectIDs(callerID)
 		if err != nil {
 			return nil, "", "", err
@@ -288,7 +289,7 @@ func ReportMIME(format string) string {
 }
 
 // GenerateAndSave записывает отчёт в ReportsDir и сохраняет метаданные.
-func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req GenerateRequest) (*models.SavedReport, error) {
+func (s *ReportService) GenerateAndSave(callerID uint, role user.Role, req GenerateRequest) (*models.SavedReport, error) {
 	if s.ReportsDir == "" {
 		return nil, fmt.Errorf("reports directory not configured")
 	}
@@ -331,10 +332,10 @@ func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req Gen
 }
 
 // ListSaved возвращает сохранённые экспорты вызывающего; администраторы видят все.
-func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.SavedReport, error) {
+func (s *ReportService) ListSaved(callerID uint, role user.Role) ([]models.SavedReport, error) {
 	var list []models.SavedReport
 	q := s.DB.Model(&models.SavedReport{}).Order("created_at desc")
-	if !models.IsSystemRole(role) {
+	if !user.IsSystemRole(role) {
 		q = q.Where("user_id = ?", callerID)
 	}
 	if err := q.Find(&list).Error; err != nil {
@@ -344,7 +345,7 @@ func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.Sav
 }
 
 // SavedReportFilePath возвращает путь на диске после проверки ACL; проверяет существование файла.
-func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role) (*models.SavedReport, string, error) {
+func (s *ReportService) SavedReportFilePath(id, callerID uint, role user.Role) (*models.SavedReport, string, error) {
 	var r models.SavedReport
 	if err := s.DB.First(&r, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -352,7 +353,7 @@ func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role)
 		}
 		return nil, "", err
 	}
-	if !models.IsSystemRole(role) && r.UserID != callerID {
+	if !user.IsSystemRole(role) && r.UserID != callerID {
 		return nil, "", ErrForbidden
 	}
 	full := filepath.Join(s.ReportsDir, r.StorageKey)
@@ -366,7 +367,7 @@ func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role)
 }
 
 // DeleteSaved удаляет строку сохранённого экспорта и его файл после той же проверки ACL, что и при скачивании.
-func (s *ReportService) DeleteSaved(id, callerID uint, role models.Role) error {
+func (s *ReportService) DeleteSaved(id, callerID uint, role user.Role) error {
 	var r models.SavedReport
 	if err := s.DB.First(&r, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -374,7 +375,7 @@ func (s *ReportService) DeleteSaved(id, callerID uint, role models.Role) error {
 		}
 		return err
 	}
-	if !models.IsSystemRole(role) && r.UserID != callerID {
+	if !user.IsSystemRole(role) && r.UserID != callerID {
 		return ErrForbidden
 	}
 	full := filepath.Join(s.ReportsDir, r.StorageKey)

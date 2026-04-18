@@ -5,15 +5,16 @@ import (
 	"net/http"
 	"testing"
 
+	domainuser "task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/testutil"
 )
 
 func TestSubtask_CRUD(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	task := app.SeedTask(p.ID)
 
 	var subtaskID float64
@@ -95,9 +96,9 @@ func TestSubtask_CRUD(t *testing.T) {
 // при удалении родительской задачи (constraint:OnDelete:CASCADE в models/subtask.go).
 func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	token := app.Login(owner.Email, pass)
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	task := app.SeedTask(p.ID)
 
 	// Создаём подзадачи.

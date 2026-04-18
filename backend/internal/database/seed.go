@@ -1,11 +1,13 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"strings"
+	"time"
 
-	"task-manager/backend/internal/models"
-	"task-manager/backend/internal/utils"
+	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/userstore"
 
 	"gorm.io/gorm"
 )
@@ -19,7 +21,7 @@ func EnsureDefaultAdmin(db *gorm.DB, email, password, name string) error {
 		return nil
 	}
 
-	var existing models.User
+	var existing userstore.Record
 	err := db.Where("email = ?", email).First(&existing).Error
 	if err == nil {
 		return nil
@@ -28,18 +30,23 @@ func EnsureDefaultAdmin(db *gorm.DB, email, password, name string) error {
 		return err
 	}
 
-	hash, err := utils.HashPassword(password)
+	hash, err := user.HashPassword(password)
 	if err != nil {
 		return err
 	}
 	if strings.TrimSpace(name) == "" {
 		name = "Admin"
 	}
-
-	return db.Create(&models.User{
-		Email:        email,
-		PasswordHash: hash,
-		Name:         name,
-		Role:         models.RoleAdmin,
-	}).Error
+	e, err := user.NewEmail(email)
+	if err != nil {
+		return err
+	}
+	fn := user.FullName{Legacy: name}
+	u, err := user.NewUser(e, hash, fn, user.RoleAdmin)
+	if err != nil {
+		return err
+	}
+	u.Touch(time.Now())
+	repo := userstore.NewGormRepository(db)
+	return repo.Save(context.Background(), u)
 }

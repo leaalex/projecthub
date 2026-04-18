@@ -8,24 +8,30 @@ import (
 )
 
 type Claims struct {
-	UserID uint   `json:"uid"`
-	Role   string `json:"role"`
+	UserID    uint   `json:"uid"`
+	Role      string `json:"role"`
+	TokenType string `json:"typ,omitempty"`
 	jwt.RegisteredClaims
 }
 
-func SignJWT(userID uint, role string, secret string, expiryHours int) (string, error) {
-	if expiryHours < 1 {
-		expiryHours = 72
+const AccessTokenType = "access"
+
+// SignJWT подписывает access-JWT с заданным TTL (если ttl <= 0, используется 15 минут).
+func SignJWT(userID uint, role string, secret string, ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		ttl = 15 * time.Minute
 	}
 	if role == "" {
 		role = "user"
 	}
+	now := time.Now()
 	claims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:    userID,
+		Role:      role,
+		TokenType: AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expiryHours) * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -48,6 +54,9 @@ func ParseJWT(tokenString, secret string) (*Claims, error) {
 	}
 	if claims.Role == "" {
 		claims.Role = "user"
+	}
+	if claims.TokenType != "" && claims.TokenType != AccessTokenType {
+		return nil, errors.New("invalid token")
 	}
 	return claims, nil
 }

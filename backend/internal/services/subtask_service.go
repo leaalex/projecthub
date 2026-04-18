@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -17,7 +18,7 @@ type SubtaskService struct {
 }
 
 // List возвращает подзадачи задачи, если пользователь имеет к ней доступ.
-func (s *SubtaskService) List(taskID, userID uint, role models.Role) ([]models.Subtask, error) {
+func (s *SubtaskService) List(taskID, userID uint, role user.Role) ([]models.Subtask, error) {
 	_, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
@@ -28,7 +29,7 @@ func (s *SubtaskService) List(taskID, userID uint, role models.Role) ([]models.S
 }
 
 // Create добавляет подзадачу в конец; только владелец проекта.
-func (s *SubtaskService) Create(taskID, userID uint, role models.Role, title string) (*models.Subtask, error) {
+func (s *SubtaskService) Create(taskID, userID uint, role user.Role, title string) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
@@ -85,7 +86,7 @@ type SubtaskUpdate struct {
 }
 
 // Update редактирует подзадачу; только владелец проекта.
-func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role models.Role, in SubtaskUpdate) (*models.Subtask, error) {
+func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role user.Role, in SubtaskUpdate) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
@@ -121,7 +122,7 @@ func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role models.Role
 }
 
 // Delete удаляет подзадачу; только владелец проекта.
-func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role models.Role) error {
+func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role user.Role) error {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return err
@@ -141,7 +142,7 @@ func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role models.Role
 }
 
 // Toggle инвертирует флаг done; только владелец проекта или назначенный на задачу.
-func (s *SubtaskService) Toggle(taskID, subtaskID, userID uint, role models.Role) (*models.Subtask, error) {
+func (s *SubtaskService) Toggle(taskID, subtaskID, userID uint, role user.Role) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err

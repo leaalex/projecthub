@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/userstore"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -112,9 +114,9 @@ func (s *TaskService) visibleProjectIDs(userID uint) ([]uint, error) {
 	return unionUint(owned, memberIDs), nil
 }
 
-func (s *TaskService) List(userID uint, role models.Role, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
+func (s *TaskService) List(userID uint, role user.Role, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
 	q := preloadTaskAll(s.DB.Model(&models.Task{}))
-	if models.IsSystemRole(role) {
+	if user.IsSystemRole(role) {
 		// все задачи
 	} else {
 		visible, err := s.visibleProjectIDs(userID)
@@ -140,8 +142,8 @@ func (s *TaskService) List(userID uint, role models.Role, projectID *uint, statu
 	return tasks, err
 }
 
-func (s *TaskService) canAccessTask(task *models.Task, userID uint, role models.Role) bool {
-	if models.IsSystemRole(role) {
+func (s *TaskService) canAccessTask(task *models.Task, userID uint, role user.Role) bool {
+	if user.IsSystemRole(role) {
 		return true
 	}
 	if task.AssigneeID != nil && *task.AssigneeID == userID {
@@ -162,8 +164,8 @@ func (s *TaskService) canAccessTask(task *models.Task, userID uint, role models.
 }
 
 // CanManageProjectTasks возвращает true для admin/staff, владельца проекта или участника с ролью менеджера.
-func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role models.Role) (bool, error) {
-	if models.IsSystemRole(role) {
+func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role user.Role) (bool, error) {
+	if user.IsSystemRole(role) {
 		return true, nil
 	}
 	ok, err := s.isProjectOwner(projectID, userID)
@@ -196,7 +198,7 @@ func (s *TaskService) isProjectOwner(projectID, userID uint) (bool, error) {
 	return p.OwnerID == userID, nil
 }
 
-func (s *TaskService) Get(id, userID uint, role models.Role) (*models.Task, error) {
+func (s *TaskService) Get(id, userID uint, role user.Role) (*models.Task, error) {
 	var t models.Task
 	if err := preloadTaskAll(s.DB).First(&t, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -220,7 +222,7 @@ type TaskCreate struct {
 	DueDate     *string // ISO-дата, необязательна
 }
 
-func (s *TaskService) Create(userID uint, role models.Role, in TaskCreate) (*models.Task, error) {
+func (s *TaskService) Create(userID uint, role user.Role, in TaskCreate) (*models.Task, error) {
 	if in.ProjectID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -293,7 +295,7 @@ func (s *TaskService) executorAssigneeStatusOnly(t *models.Task, userID uint, in
 	return pm.Role == models.ProjectRoleExecutor
 }
 
-func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (*models.Task, error) {
+func (s *TaskService) Update(id, userID uint, role user.Role, in TaskUpdate) (*models.Task, error) {
 	t, err := s.Get(id, userID, role)
 	if err != nil {
 		return nil, err
@@ -376,7 +378,7 @@ type TaskMoveInput struct {
 }
 
 // Move изменяет секцию задачи и переупорядочивает по позиции внутри целевой секции.
-func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*models.Task, error) {
+func (s *TaskService) Move(userID uint, role user.Role, in TaskMoveInput) (*models.Task, error) {
 	if in.TaskID == 0 || in.ProjectID == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -480,7 +482,7 @@ func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*mo
 	return &fresh, nil
 }
 
-func (s *TaskService) Delete(id, userID uint, role models.Role) error {
+func (s *TaskService) Delete(id, userID uint, role user.Role) error {
 	t, err := s.Get(id, userID, role)
 	if err != nil {
 		return err
@@ -502,7 +504,7 @@ func (s *TaskService) Delete(id, userID uint, role models.Role) error {
 	})
 }
 
-func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigneeID uint) (*models.Task, error) {
+func (s *TaskService) Assign(taskID, ownerUserID uint, role user.Role, assigneeID uint) (*models.Task, error) {
 	t, err := s.Get(taskID, ownerUserID, role)
 	if err != nil {
 		return nil, err
@@ -526,7 +528,7 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 		}
 		return &fresh, nil
 	}
-	var u models.User
+	var u userstore.Record
 	if err := s.DB.First(&u, assigneeID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidInput
@@ -555,7 +557,7 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 	return &fresh, nil
 }
 
-func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.Task, error) {
+func (s *TaskService) Complete(taskID, userID uint, role user.Role) (*models.Task, error) {
 	t, err := s.Get(taskID, userID, role)
 	if err != nil {
 		return nil, err
@@ -578,7 +580,7 @@ func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.T
 }
 
 // AttachCallerACL устанавливает JSON-only ACL-поля для запрашивающего пользователя.
-func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role models.Role) error {
+func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role user.Role) error {
 	m, err := s.CanManageProjectTasks(t.ProjectID, uid, role)
 	if err != nil {
 		return err
@@ -600,7 +602,7 @@ func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role models.Role
 }
 
 // AttachCallerACLBatch устанавливает ACL для каждой задачи (один и тот же вызывающий).
-func (s *TaskService) AttachCallerACLBatch(tasks []models.Task, uid uint, role models.Role) error {
+func (s *TaskService) AttachCallerACLBatch(tasks []models.Task, uid uint, role user.Role) error {
 	for i := range tasks {
 		if err := s.AttachCallerACL(&tasks[i], uid, role); err != nil {
 			return err

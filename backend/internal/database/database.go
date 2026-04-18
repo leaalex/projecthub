@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
+	"task-manager/backend/internal/infrastructure/persistence/userstore"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/driver/sqlite"
@@ -37,7 +40,8 @@ func Open(databasePath string) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(1)
 
 	if err := db.AutoMigrate(
-		&models.User{},
+		&userstore.Record{},
+		&sessionstore.Record{},
 		&models.Project{},
 		&models.ProjectMember{},
 		&models.TaskSection{},
@@ -49,8 +53,8 @@ func Open(databasePath string) (*gorm.DB, error) {
 	}
 
 	// Одноразовая миграция устаревших глобальных ролей
-	_ = db.Model(&models.User{}).Where("role = ?", "member").Update("role", string(models.RoleUser)).Error
-	_ = db.Model(&models.User{}).Where("role = ?", "manager").Update("role", string(models.RoleCreator)).Error
+	_ = db.Model(&userstore.Record{}).Where("role = ?", "member").Update("role", string(user.RoleUser)).Error
+	_ = db.Model(&userstore.Record{}).Where("role = ?", "manager").Update("role", string(user.RoleCreator)).Error
 
 	_ = db.Model(&models.Project{}).Where("kind IS NULL OR kind = ?", "").Update("kind", string(models.ProjectKindTeam)).Error
 

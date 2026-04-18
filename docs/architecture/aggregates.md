@@ -74,27 +74,49 @@
 
 ## IAM Aggregate — User
 
-**Корень:** `User`
+**Корень:** `User` — реализован в пакете [`backend/internal/domain/user`](../../backend/internal/domain/user).
+
+Сценарии HTTP: [`backend/internal/application/auth_service.go`](../../backend/internal/application/auth_service.go) (регистрация, вход, refresh, выход, смена пароля, `/me`) и [`backend/internal/application/user_service.go`](../../backend/internal/application/user_service.go) (`/users`).
+
+Персистентность: [`backend/internal/infrastructure/persistence/userstore`](../../backend/internal/infrastructure/persistence/userstore) (таблица `users`). Для связей GORM в `models.Project` / `Task` / `ProjectMember` оставлена минимальная ORM-обёртка [`models.User`](../../backend/internal/models/user_orm.go).
 
 ### Value-objects
 
 | Тип | Поля |
 |-----|------|
-| `FullName` | `LastName`, `FirstName`, `Patronymic` → вычисляемый `Name` |
-| `Email` | строка с уникальным индексом |
+| `FullName` | `LastName`, `FirstName`, `Patronymic`, legacy `Name` |
+| `Email` | нормализованная строка, уникальный индекс в БД |
 | `Role` | enum: `admin`, `staff`, `creator`, `user` |
-| `Locale` | ограниченное множество |
+| `Locale` | ограниченное множество (`ru`, `en`) |
+| `PasswordHash` | bcrypt-хеш |
 
 ### Локальные инварианты
 
 - Email уникален в системе.
-- `Name = UserDisplayName(LastName, FirstName, Patronymic)` — поддерживается при любом изменении ФИО.
-- Смену `Role` может выполнить только пользователь с ролью `admin`.
-- `Locale` принимает только значения из заранее известного множества.
+- Отображаемое имя выводится из ФИО или legacy `Name` (см. `FullName.DisplayName` / синхронизация).
+- Смену глобальной `Role` выполняет только `admin` и не на себя.
+- `Locale` только из разрешённого множества.
 
 ### Команды
 
-`Register`, `ChangePassword`, `UpdateProfile(fio, department, jobTitle, phone, locale)`, `SetRole(adminOnly)`, `Delete(adminOnly)`
+`Register`, `ChangePassword`, `UpdateProfile`, `SetRole(adminOnly)`, `Delete(adminOnly)` — через `application.UserService` и `application.AuthService`.
+
+---
+
+## Session Aggregate (refresh)
+
+**Корень:** `Session` — [`backend/internal/domain/session`](../../backend/internal/domain/session).
+
+Хранит **только SHA-256** от opaque refresh-токена; в HttpOnly-cookie клиенту отдаётся исходная строка (см. `Session.Issue`). Таблица `user_sessions`, репозиторий: [`backend/internal/infrastructure/persistence/sessionstore`](../../backend/internal/infrastructure/persistence/sessionstore).
+
+### Локальные инварианты
+
+- Сессия привязана к `user_id`; при удалении пользователя строки сессий каскадно удаляются (FK).
+- До `expires_at` сессия может обновлять access-JWT (`POST /auth/refresh`); после `logout` выставляется `revoked_at` (текущая реализация без ротации токена — см. `docs/todo.md`).
+
+### Транзакционная граница
+
+Одна операция `Save` сессии или отзыв — атомарная запись в БД; связка «выпустить access + сохранить refresh» выполняется в прикладном слое последовательно (при необходимости позже обернуть в явную транзакцию БД).
 
 ---
 
@@ -334,3 +356,4 @@ backend/internal/
 | Дата | Изменение |
 |------|-----------|
 | 2026-04-18 | Первичная фиксация границ агрегатов: User, Project, Task, Report. Принято решение о soft-delete для Project. |
+| 2026-04-18 | IAM `User` перенесён в `domain/user` + `application` + `userstore`; добавлен агрегат `Session` для refresh-токенов; access-JWT короткоживущий, refresh в HttpOnly-cookie. |

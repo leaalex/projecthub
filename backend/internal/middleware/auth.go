@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"task-manager/backend/internal/models"
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const ContextUserIDKey = "user_id"
@@ -29,15 +28,14 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return
 		}
 		c.Set(ContextUserIDKey, claims.UserID)
-		c.Set(ContextRoleKey, normalizeRole(models.Role(claims.Role)))
+		r, _ := user.ParseRole(claims.Role)
+		c.Set(ContextRoleKey, normalizeRole(r))
 		c.Next()
 	}
 }
 
 // SyncRoleFromDB перезаписывает роль в контексте актуальным значением из базы данных.
-// JWT может содержать устаревшую роль после того, как администратор изменил глобальную роль пользователя;
-// /me уже читает из БД, поэтому без этого сотрудники видели бы UI, но получали 403 на /users.
-func SyncRoleFromDB(db *gorm.DB) gin.HandlerFunc {
+func SyncRoleFromDB(repo user.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid, ok := c.Get(ContextUserIDKey)
 		if !ok {
@@ -49,22 +47,22 @@ func SyncRoleFromDB(db *gorm.DB) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		var u models.User
-		if err := db.Select("role").First(&u, userID).Error; err != nil {
+		u, err := repo.FindByID(c.Request.Context(), user.ID(userID))
+		if err != nil {
 			c.Next()
 			return
 		}
-		c.Set(ContextRoleKey, normalizeRole(u.Role))
+		c.Set(ContextRoleKey, normalizeRole(u.Role()))
 		c.Next()
 	}
 }
 
-func normalizeRole(r models.Role) models.Role {
+func normalizeRole(r user.Role) user.Role {
 	switch r {
 	case "member":
-		return models.RoleUser
+		return user.RoleUser
 	case "manager":
-		return models.RoleCreator
+		return user.RoleCreator
 	default:
 		return r
 	}
@@ -78,8 +76,8 @@ func RequireAdmin() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		role, ok := r.(models.Role)
-		if !ok || role != models.RoleAdmin {
+		role, ok := r.(user.Role)
+		if !ok || role != user.RoleAdmin {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin only"})
 			return
 		}
@@ -95,8 +93,8 @@ func RequireStaffOrAdmin() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		role, ok := r.(models.Role)
-		if !ok || (role != models.RoleAdmin && role != models.RoleStaff) {
+		role, ok := r.(user.Role)
+		if !ok || (role != user.RoleAdmin && role != user.RoleStaff) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "staff or admin only"})
 			return
 		}
@@ -112,8 +110,8 @@ func RequireCreatorOrAbove() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		role, ok := r.(models.Role)
-		if !ok || role == models.RoleUser {
+		role, ok := r.(user.Role)
+		if !ok || role == user.RoleUser {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "creator role or above required"})
 			return
 		}

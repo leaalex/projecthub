@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -23,7 +24,7 @@ type TaskSectionUpdate struct {
 	Name string
 }
 
-func (s *TaskSectionService) ensureProjectAccess(projectID, userID uint, role models.Role) error {
+func (s *TaskSectionService) ensureProjectAccess(projectID, userID uint, role user.Role) error {
 	if s.Projects == nil {
 		return ErrForbidden
 	}
@@ -31,7 +32,7 @@ func (s *TaskSectionService) ensureProjectAccess(projectID, userID uint, role mo
 	return err
 }
 
-func (s *TaskSectionService) ensureManage(projectID, userID uint, role models.Role) error {
+func (s *TaskSectionService) ensureManage(projectID, userID uint, role user.Role) error {
 	if s.Tasks == nil {
 		return ErrForbidden
 	}
@@ -45,7 +46,7 @@ func (s *TaskSectionService) ensureManage(projectID, userID uint, role models.Ro
 	return nil
 }
 
-func (s *TaskSectionService) List(projectID, userID uint, role models.Role) ([]models.TaskSection, error) {
+func (s *TaskSectionService) List(projectID, userID uint, role user.Role) ([]models.TaskSection, error) {
 	if err := s.ensureProjectAccess(projectID, userID, role); err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (s *TaskSectionService) List(projectID, userID uint, role models.Role) ([]m
 	return sections, nil
 }
 
-func (s *TaskSectionService) Create(projectID, userID uint, role models.Role, in TaskSectionCreate) (*models.TaskSection, error) {
+func (s *TaskSectionService) Create(projectID, userID uint, role user.Role, in TaskSectionCreate) (*models.TaskSection, error) {
 	if err := s.ensureManage(projectID, userID, role); err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (s *TaskSectionService) Create(projectID, userID uint, role models.Role, in
 	return &sec, nil
 }
 
-func (s *TaskSectionService) Update(projectID, sectionID, userID uint, role models.Role, in TaskSectionUpdate) (*models.TaskSection, error) {
+func (s *TaskSectionService) Update(projectID, sectionID, userID uint, role user.Role, in TaskSectionUpdate) (*models.TaskSection, error) {
 	if err := s.ensureManage(projectID, userID, role); err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func (s *TaskSectionService) Update(projectID, sectionID, userID uint, role mode
 	return &sec, nil
 }
 
-func (s *TaskSectionService) Delete(projectID, sectionID, userID uint, role models.Role) error {
+func (s *TaskSectionService) Delete(projectID, sectionID, userID uint, role user.Role) error {
 	if err := s.ensureManage(projectID, userID, role); err != nil {
 		return err
 	}
@@ -143,7 +144,7 @@ func (s *TaskSectionService) Delete(projectID, sectionID, userID uint, role mode
 	})
 }
 
-func (s *TaskSectionService) Reorder(projectID, userID uint, role models.Role, sectionIDs []uint) error {
+func (s *TaskSectionService) Reorder(projectID, userID uint, role user.Role, sectionIDs []uint) error {
 	if err := s.ensureManage(projectID, userID, role); err != nil {
 		return err
 	}

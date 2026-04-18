@@ -110,8 +110,8 @@ func assigneeLabel(t *models.Task) string {
 	if t.AssigneeID == nil || t.Assignee == nil {
 		return "Unassigned"
 	}
-	if strings.TrimSpace(t.Assignee.Name) != "" {
-		return t.Assignee.Name
+	if dn := models.UserDisplayName(t.Assignee); dn != "" {
+		return dn
 	}
 	return t.Assignee.Email
 }

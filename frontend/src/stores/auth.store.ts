@@ -32,20 +32,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email: string, password: string) {
-    const { data } = await api.post<{ token: string; user: User }>(
+    const { data } = await api.post<{ access_token: string; user: User }>(
       '/auth/login',
       { email, password },
     )
-    setToken(data.token)
+    setToken(data.access_token)
     user.value = data.user
   }
 
   async function register(email: string, password: string, name: string) {
-    const { data } = await api.post<{ token: string; user: User }>(
+    const { data } = await api.post<{ access_token: string; user: User }>(
       '/auth/register',
       { email, password, name },
     )
-    setToken(data.token)
+    setToken(data.access_token)
     user.value = data.user
   }
 
@@ -56,8 +56,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function restoreSession() {
     if (!token.value) {
-      user.value = null
-      return
+      try {
+        const { data } = await api.post<{ access_token: string }>(
+          '/auth/refresh',
+          {},
+          { headers: { 'X-Skip-Refresh': '1' } },
+        )
+        setToken(data.access_token)
+      } catch {
+        user.value = null
+        return
+      }
     }
     try {
       await fetchMe()
@@ -67,7 +76,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await api.post('/auth/logout', {}, { headers: { 'X-Skip-Refresh': '1' } })
+    } catch {
+      /* ignore */
+    }
     setToken(null)
     user.value = null
   }

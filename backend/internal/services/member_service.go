@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 
+	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/userstore"
 	"task-manager/backend/internal/models"
 
 	"gorm.io/gorm"
@@ -345,16 +347,16 @@ func (m *ProjectMemberService) IsOwnerOrMember(projectID, userID uint) bool {
 }
 
 // CanAccessProject возвращает true для admin/staff, владельца или любого участника (включая наблюдателя).
-func (m *ProjectMemberService) CanAccessProject(projectID, userID uint, globalRole models.Role) bool {
-	if models.IsSystemRole(globalRole) {
+func (m *ProjectMemberService) CanAccessProject(projectID, userID uint, globalRole user.Role) bool {
+	if user.IsSystemRole(globalRole) {
 		return true
 	}
 	return m.IsOwnerOrMember(projectID, userID)
 }
 
 // CanManageMembers возвращает true для admin/staff, владельца проекта или участника с ролью менеджера.
-func (m *ProjectMemberService) CanManageMembers(projectID, userID uint, globalRole models.Role) bool {
-	if models.IsSystemRole(globalRole) {
+func (m *ProjectMemberService) CanManageMembers(projectID, userID uint, globalRole user.Role) bool {
+	if user.IsSystemRole(globalRole) {
 		return true
 	}
 	var p models.Project
@@ -369,11 +371,11 @@ func (m *ProjectMemberService) CanManageMembers(projectID, userID uint, globalRo
 }
 
 // CallerProjectRoleString возвращает стабильную метку для API-ответов (owner / manager / executor / viewer / admin / staff).
-func (m *ProjectMemberService) CallerProjectRoleString(projectID, callerID uint, globalRole models.Role) string {
+func (m *ProjectMemberService) CallerProjectRoleString(projectID, callerID uint, globalRole user.Role) string {
 	switch globalRole {
-	case models.RoleAdmin:
+	case user.RoleAdmin:
 		return "admin"
-	case models.RoleStaff:
+	case user.RoleStaff:
 		return "staff"
 	}
 	var p models.Project
@@ -398,8 +400,8 @@ func (m *ProjectMemberService) MemberProjectIDs(userID uint) ([]uint, error) {
 
 // TransferOwnership устанавливает нового владельца (только admin/staff на уровне обработчика).
 // Предыдущему владельцу гарантируется членство в роли менеджера, чтобы он сохранил доступ.
-func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID uint, globalRole models.Role) error {
-	if !models.IsSystemRole(globalRole) {
+func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID uint, globalRole user.Role) error {
+	if !user.IsSystemRole(globalRole) {
 		return ErrForbidden
 	}
 	var p models.Project
@@ -409,7 +411,7 @@ func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID
 		}
 		return err
 	}
-	if err := m.DB.First(&models.User{}, newOwnerID).Error; err != nil {
+	if err := m.DB.First(&userstore.Record{}, newOwnerID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrTargetUserNotFound
 		}
@@ -457,7 +459,7 @@ func (m *ProjectMemberService) ResolveUserIDByEmail(email string) (uint, error) 
 	if email == "" {
 		return 0, ErrInvalidInput
 	}
-	var u models.User
+	var u userstore.Record
 	if err := m.DB.Where("LOWER(email) = ?", email).First(&u).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return 0, ErrTargetUserNotFound

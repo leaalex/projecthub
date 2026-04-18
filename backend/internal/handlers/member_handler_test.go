@@ -5,22 +5,23 @@ import (
 	"net/http"
 	"testing"
 
+	domainuser "task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/testutil"
 )
 
 func TestMember_AddUpdateRemove(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	member, _ := app.SeedUserWithPassword(models.RoleUser, "userpass123")
-	ownerToken := app.Login(owner.Email, ownerPass)
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	member, _ := app.SeedUserWithPassword(domainuser.RoleUser, "userpass123")
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	pid := p.ID
 
 	t.Run("add member", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-			"user_id": member.ID,
+			"user_id": member.ID().Uint(),
 			"role":    "executor",
 		}, ownerToken)
 		if rec.Code != http.StatusCreated {
@@ -42,7 +43,7 @@ func TestMember_AddUpdateRemove(t *testing.T) {
 		for _, item := range members {
 			m := item.(map[string]any)
 			u := m["user"].(map[string]any)
-			if uint(u["id"].(float64)) == member.ID {
+			if uint(u["id"].(float64)) == member.ID().Uint() {
 				found = true
 				break
 			}
@@ -53,7 +54,7 @@ func TestMember_AddUpdateRemove(t *testing.T) {
 	})
 
 	t.Run("update role to manager", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPut, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID), map[string]any{
+		rec, data := app.Do(http.MethodPut, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID().Uint()), map[string]any{
 			"role": "manager",
 		}, ownerToken)
 		if rec.Code != http.StatusOK {
@@ -66,7 +67,7 @@ func TestMember_AddUpdateRemove(t *testing.T) {
 	})
 
 	t.Run("remove member (unassigned mode, no tasks)", func(t *testing.T) {
-		rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
+		rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID().Uint()),
 			map[string]any{"transfer_mode": "unassigned"}, ownerToken)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
@@ -80,25 +81,25 @@ func TestMember_AddUpdateRemove(t *testing.T) {
 
 func TestMember_RemoveWithTasks_Unassigned(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	member := app.SeedUser(models.RoleUser)
-	ownerToken := app.Login(owner.Email, ownerPass)
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	member := app.SeedUser(domainuser.RoleUser)
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	pid := p.ID
 
 	// Добавляем участника.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-		"user_id": member.ID,
+		"user_id": member.ID().Uint(),
 		"role":    "executor",
 	}, ownerToken)
 
 	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
-	app.DB.Model(task).Update("assignee_id", member.ID)
+	app.DB.Model(task).Update("assignee_id", member.ID().Uint())
 
 	// Удаляем в режиме unassigned.
-	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
+	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID().Uint()),
 		map[string]any{"transfer_mode": "unassigned"}, ownerToken)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
@@ -114,31 +115,31 @@ func TestMember_RemoveWithTasks_Unassigned(t *testing.T) {
 
 func TestMember_RemoveWithTasks_SingleUser(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	member := app.SeedUser(models.RoleUser)
-	newAssignee := app.SeedUser(models.RoleUser)
-	ownerToken := app.Login(owner.Email, ownerPass)
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	member := app.SeedUser(domainuser.RoleUser)
+	newAssignee := app.SeedUser(domainuser.RoleUser)
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	pid := p.ID
 
 	// Добавляем обоих пользователей как участников.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-		"user_id": member.ID, "role": "executor",
+		"user_id": member.ID().Uint(), "role": "executor",
 	}, ownerToken)
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-		"user_id": newAssignee.ID, "role": "executor",
+		"user_id": newAssignee.ID().Uint(), "role": "executor",
 	}, ownerToken)
 
 	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
-	app.DB.Model(task).Update("assignee_id", member.ID)
+	app.DB.Model(task).Update("assignee_id", member.ID().Uint())
 
 	// Удаляем в режиме single_user → переназначаем всё на newAssignee.
-	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
+	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID().Uint()),
 		map[string]any{
 			"transfer_mode":      "single_user",
-			"transfer_to_user_id": newAssignee.ID,
+			"transfer_to_user_id": newAssignee.ID().Uint(),
 		}, ownerToken)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
@@ -147,35 +148,35 @@ func TestMember_RemoveWithTasks_SingleUser(t *testing.T) {
 	// Проверяем, что задача переназначена.
 	var updated models.Task
 	app.DB.First(&updated, task.ID)
-	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID {
-		t.Fatalf("expected assignee_id %d, got %v", newAssignee.ID, updated.AssigneeID)
+	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID().Uint() {
+		t.Fatalf("expected assignee_id %d, got %v", newAssignee.ID().Uint(), updated.AssigneeID)
 	}
 }
 
 func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	owner, ownerPass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
-	member := app.SeedUser(models.RoleUser)
-	newAssignee := app.SeedUser(models.RoleUser)
-	ownerToken := app.Login(owner.Email, ownerPass)
+	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	member := app.SeedUser(domainuser.RoleUser)
+	newAssignee := app.SeedUser(domainuser.RoleUser)
+	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	pid := p.ID
 
 	// Добавляем обоих пользователей.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-		"user_id": member.ID, "role": "executor",
+		"user_id": member.ID().Uint(), "role": "executor",
 	}, ownerToken)
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
-		"user_id": newAssignee.ID, "role": "executor",
+		"user_id": newAssignee.ID().Uint(), "role": "executor",
 	}, ownerToken)
 
 	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
-	app.DB.Model(task).Update("assignee_id", member.ID)
+	app.DB.Model(task).Update("assignee_id", member.ID().Uint())
 
 	// Шаг 1: ручной режим возвращает задачи (участника НЕ удаляет).
-	rec1, data1 := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
+	rec1, data1 := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID().Uint()),
 		map[string]any{"transfer_mode": "manual"}, ownerToken)
 	if rec1.Code != http.StatusOK {
 		t.Fatalf("step1: expected 200, got %d: %v", rec1.Code, data1)
@@ -187,10 +188,10 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 
 	// Шаг 2: применяем ручные переносы. Это также удаляет участника.
 	rec2, data2 := app.Do(http.MethodPost,
-		fmt.Sprintf("/api/projects/%d/members/%d/transfer-tasks", pid, member.ID),
+		fmt.Sprintf("/api/projects/%d/members/%d/transfer-tasks", pid, member.ID().Uint()),
 		map[string]any{
 			"transfers": []map[string]any{
-				{"task_id": task.ID, "assignee_id": newAssignee.ID},
+				{"task_id": task.ID, "assignee_id": newAssignee.ID().Uint()},
 			},
 		}, ownerToken)
 	if rec2.Code != http.StatusOK {
@@ -200,13 +201,13 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 	// Проверяем, что задача была переназначена.
 	var updated models.Task
 	app.DB.First(&updated, task.ID)
-	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID {
-		t.Fatalf("expected assignee_id %d, got %v", newAssignee.ID, updated.AssigneeID)
+	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID().Uint() {
+		t.Fatalf("expected assignee_id %d, got %v", newAssignee.ID().Uint(), updated.AssigneeID)
 	}
 
 	// Участник должен больше не существовать (удалён через ApplyManualTaskTransfers).
 	var count int64
-	app.DB.Model(&models.ProjectMember{}).Where("project_id = ? AND user_id = ?", pid, member.ID).Count(&count)
+	app.DB.Model(&models.ProjectMember{}).Where("project_id = ? AND user_id = ?", pid, member.ID().Uint()).Count(&count)
 	if count != 0 {
 		t.Fatalf("expected member to be removed after transfer, got %d rows", count)
 	}
@@ -215,17 +216,17 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 func TestMember_TransferOwnership(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	// Передача владения требует роли staff или admin.
-	admin, adminPass := app.SeedUserWithPassword(models.RoleAdmin, "adminpass1")
-	owner := app.SeedUser(models.RoleCreator)
-	newOwner := app.SeedUser(models.RoleCreator)
-	adminToken := app.Login(admin.Email, adminPass)
+	admin, adminPass := app.SeedUserWithPassword(domainuser.RoleAdmin, "adminpass1")
+	owner := app.SeedUser(domainuser.RoleCreator)
+	newOwner := app.SeedUser(domainuser.RoleCreator)
+	adminToken, _ := app.Login(admin.Email().String(), adminPass)
 
-	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
 	pid := p.ID
 
 	t.Run("admin can transfer ownership", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPatch, fmt.Sprintf("/api/projects/%d/owner", pid),
-			map[string]any{"new_owner_id": newOwner.ID}, adminToken)
+			map[string]any{"new_owner_id": newOwner.ID().Uint()}, adminToken)
 		// TransferOwnership возвращает 204 No Content (без тела).
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("expected 204, got %d: %v", rec.Code, data)
@@ -233,16 +234,16 @@ func TestMember_TransferOwnership(t *testing.T) {
 		// Проверяем нового владельца в БД.
 		var updated models.Project
 		app.DB.First(&updated, pid)
-		if updated.OwnerID != newOwner.ID {
-			t.Fatalf("expected new owner_id %d, got %d", newOwner.ID, updated.OwnerID)
+		if updated.OwnerID != newOwner.ID().Uint() {
+			t.Fatalf("expected new owner_id %d, got %d", newOwner.ID().Uint(), updated.OwnerID)
 		}
 	})
 
 	t.Run("non-admin cannot transfer ownership", func(t *testing.T) {
-		nonAdmin, nonAdminPass := app.SeedUserWithPassword(models.RoleCreator, "creator456")
-		nonAdminTok := app.Login(nonAdmin.Email, nonAdminPass)
+		nonAdmin, nonAdminPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator456")
+		nonAdminTok, _ := app.Login(nonAdmin.Email().String(), nonAdminPass)
 		rec, _ := app.Do(http.MethodPatch, fmt.Sprintf("/api/projects/%d/owner", pid),
-			map[string]any{"new_owner_id": owner.ID}, nonAdminTok)
+			map[string]any{"new_owner_id": owner.ID().Uint()}, nonAdminTok)
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("expected 403, got %d", rec.Code)
 		}

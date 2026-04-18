@@ -5,34 +5,47 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Port           string
-	GinMode        string
-	DatabasePath   string
-	ReportsDir     string
-	JWTSecret      string
-	JWTExpiryHrs   int
-	CORSOrigin     string
-	AdminEmail     string
-	AdminPassword  string
-	AdminName      string
+	Port              string
+	GinMode           string
+	DatabasePath      string
+	ReportsDir        string
+	JWTSecret         string
+	AccessTTL         time.Duration
+	RefreshTTL        time.Duration
+	RefreshCookieName string
+	RefreshCookiePath string
+	CookieSecure      bool
+	CORSOrigin        string
+	AdminEmail        string
+	AdminPassword     string
+	AdminName         string
 }
 
 func Load() (*Config, error) {
 	_ = godotenv.Load()
-	// Монорепо: `go run` из backend/ загружает только ./.env; пробуем также корень репозитория.
 	_ = godotenv.Load("../.env")
 
-	expiry := 72
-	if v := os.Getenv("JWT_EXPIRY_HOURS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			expiry = n
+	accessMin := 15
+	if v := os.Getenv("ACCESS_TTL_MIN"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			accessMin = n
 		}
 	}
+	accessTTL := time.Duration(accessMin) * time.Minute
+
+	refreshHrs := 168
+	if v := os.Getenv("REFRESH_TTL_HOURS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			refreshHrs = n
+		}
+	}
+	refreshTTL := time.Duration(refreshHrs) * time.Hour
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -64,20 +77,43 @@ func Load() (*Config, error) {
 		ginMode = "debug"
 	}
 
+	cookieName := strings.TrimSpace(os.Getenv("REFRESH_COOKIE_NAME"))
+	if cookieName == "" {
+		cookieName = "refresh_token"
+	}
+	cookiePath := strings.TrimSpace(os.Getenv("REFRESH_COOKIE_PATH"))
+	if cookiePath == "" {
+		cookiePath = "/api/auth"
+	}
+
+	cookieSecure := ginMode == "release"
+	if v := strings.TrimSpace(strings.ToLower(os.Getenv("REFRESH_COOKIE_SECURE"))); v != "" {
+		switch v {
+		case "true", "1":
+			cookieSecure = true
+		case "false", "0":
+			cookieSecure = false
+		}
+	}
+
 	adminEmail := strings.TrimSpace(strings.ToLower(os.Getenv("ADMIN_EMAIL")))
 	adminPassword := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD"))
 	adminName := strings.TrimSpace(os.Getenv("ADMIN_NAME"))
 
 	return &Config{
-		Port:          port,
-		GinMode:       ginMode,
-		DatabasePath:  dbPath,
-		ReportsDir:    reportsDir,
-		JWTSecret:     secret,
-		JWTExpiryHrs:  expiry,
-		CORSOrigin:    cors,
-		AdminEmail:    adminEmail,
-		AdminPassword: adminPassword,
-		AdminName:     adminName,
+		Port:              port,
+		GinMode:           ginMode,
+		DatabasePath:      dbPath,
+		ReportsDir:        reportsDir,
+		JWTSecret:         secret,
+		AccessTTL:         accessTTL,
+		RefreshTTL:        refreshTTL,
+		RefreshCookieName: cookieName,
+		RefreshCookiePath: cookiePath,
+		CookieSecure:      cookieSecure,
+		CORSOrigin:        cors,
+		AdminEmail:        adminEmail,
+		AdminPassword:     adminPassword,
+		AdminName:         adminName,
 	}, nil
 }
