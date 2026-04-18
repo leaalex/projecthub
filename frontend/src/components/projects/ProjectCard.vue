@@ -15,7 +15,7 @@ const emit = defineEmits<{
   edit: [id: number]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const kindLabel = computed(() =>
   props.project.kind === 'personal'
@@ -55,7 +55,11 @@ const editAria = computed(() =>
         }}</span>
       </p>
       <p class="mt-1 text-xs text-muted">
-        {{ t('projectCard.updatedAt', { time: timeAgo(props.project.updated_at) }) }}
+        {{
+          t('projectCard.updatedAt', {
+            time: timeAgo(props.project.updated_at, t, locale),
+          })
+        }}
       </p>
     </div>
     <div class="mt-4 flex items-center gap-2">

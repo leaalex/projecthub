@@ -1,7 +1,7 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { i18n, setI18nLocale } from './i18n'
+import { i18n } from './i18n'
 import router from './router'
 import { useAuthStore } from './stores/auth.store'
 import { useUiStore } from './stores/ui.store'
@@ -14,7 +14,6 @@ async function bootstrap() {
   app.use(i18n)
 
   const ui = useUiStore()
-  setI18nLocale(ui.locale)
 
   const auth = useAuthStore()
   await auth.restoreSession()

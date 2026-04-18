@@ -28,7 +28,7 @@ import UiTextarea from '../ui/UiTextarea.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -484,7 +484,9 @@ async function onAssigneeMenuSelect(v: string | number) {
           }}</span>
           <span class="shrink-0">·</span>
           <span class="shrink-0">{{
-            t('taskCard.meta.updated', { time: timeAgo(task.updated_at) })
+            t('taskCard.meta.updated', {
+              time: timeAgo(task.updated_at, t, locale),
+            })
           }}</span>
           <template v-if="task.due_date">
             <span class="shrink-0">·</span>

@@ -349,8 +349,7 @@
       "admin": "Admin",
       "staff": "Staff",
       "creator": "Creator",
-      "user": "User",
-      "readonly": "Read-only"
+      "user": "User"
     }
   },
   "formatters": {

@@ -14,7 +14,7 @@ import type { Task, TaskPriority, TaskStatus } from '../../types/task'
 import { formatDate } from '../../utils/formatters'
 import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -225,7 +225,7 @@ async function removeTask() {
             t('taskDetailModal.labels.dueDate')
           }}</dt>
           <dd class="mt-1 text-foreground">
-            {{ task.due_date ? formatDate(task.due_date) : t('common.dash') }}
+            {{ task.due_date ? formatDate(task.due_date, locale) : t('common.dash') }}
           </dd>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
@@ -233,13 +233,13 @@ async function removeTask() {
             <dt class="font-medium text-muted">{{
               t('taskDetailModal.labels.created')
             }}</dt>
-            <dd class="mt-1 text-foreground">{{ formatDate(task.created_at) }}</dd>
+            <dd class="mt-1 text-foreground">{{ formatDate(task.created_at, locale) }}</dd>
           </div>
           <div>
             <dt class="font-medium text-muted">{{
               t('taskDetailModal.labels.updated')
             }}</dt>
-            <dd class="mt-1 text-foreground">{{ formatDate(task.updated_at) }}</dd>
+            <dd class="mt-1 text-foreground">{{ formatDate(task.updated_at, locale) }}</dd>
           </div>
         </div>
       </dl>
@@ -264,17 +264,17 @@ async function removeTask() {
           <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
             <span>{{
               t('taskDetailModal.meta.created', {
-                date: formatDate(task.created_at),
+                date: formatDate(task.created_at, locale),
               })
             }}</span>
             <span>{{
               t('taskDetailModal.meta.updated', {
-                date: formatDate(task.updated_at),
+                date: formatDate(task.updated_at, locale),
               })
             }}</span>
             <span v-if="task.due_date">{{
               t('taskDetailModal.meta.due', {
-                date: formatDate(task.due_date),
+                date: formatDate(task.due_date, locale),
               })
             }}</span>
           </div>

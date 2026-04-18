@@ -1,18 +1,24 @@
-import { i18n } from '../i18n'
+import type { ComposerTranslation } from 'vue-i18n'
 
-export function formatDate(iso: string | null | undefined): string {
+export function formatDate(
+  iso: string | null | undefined,
+  locale: string,
+): string {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString(i18n.global.locale.value)
+    return new Date(iso).toLocaleString(locale)
   } catch {
     return iso
   }
 }
 
-export function formatDateShort(iso: string | null | undefined): string {
+export function formatDateShort(
+  iso: string | null | undefined,
+  locale: string,
+): string {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleDateString(i18n.global.locale.value)
+    return new Date(iso).toLocaleDateString(locale)
   } catch {
     return iso
   }
@@ -27,20 +33,22 @@ function sameCalendarDay(a: Date, b: Date): boolean {
 }
 
 /** Relative time, localized via i18n. */
-export function timeAgo(iso: string | null | undefined): string {
+export function timeAgo(
+  iso: string | null | undefined,
+  t: ComposerTranslation,
+  locale: string,
+): string {
   if (!iso) return '—'
   let then: Date
   try {
     then = new Date(iso)
-    if (Number.isNaN(then.getTime())) return formatDateShort(iso)
+    if (Number.isNaN(then.getTime())) return formatDateShort(iso, locale)
   } catch {
-    return formatDateShort(iso)
+    return formatDateShort(iso, locale)
   }
   const now = new Date()
   const diffMs = now.getTime() - then.getTime()
-  if (diffMs < 0) return formatDateShort(iso)
-
-  const t = i18n.global.t.bind(i18n.global)
+  if (diffMs < 0) return formatDateShort(iso, locale)
 
   const sec = Math.floor(diffMs / 1000)
   if (sec < 45) return t('formatters.timeAgo.justNow')
@@ -49,12 +57,15 @@ export function timeAgo(iso: string | null | undefined): string {
   if (min < 60) return t('formatters.timeAgo.minutesAgo', min)
 
   const hr = Math.floor(min / 60)
-  if (hr < 24 && sameCalendarDay(then, now)) return t('formatters.timeAgo.hoursAgo', hr)
+  if (hr < 24 && sameCalendarDay(then, now))
+    return t('formatters.timeAgo.hoursAgo', hr)
 
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const startThen = new Date(then.getFullYear(), then.getMonth(), then.getDate())
-  const dayDiff = Math.round((startToday.getTime() - startThen.getTime()) / 86400000)
+  const dayDiff = Math.round(
+    (startToday.getTime() - startThen.getTime()) / 86400000,
+  )
   if (dayDiff === 1) return t('formatters.timeAgo.yesterday')
   if (dayDiff > 1 && dayDiff < 7) return t('formatters.timeAgo.daysAgo', dayDiff)
-  return formatDateShort(iso)
+  return formatDateShort(iso, locale)
 }

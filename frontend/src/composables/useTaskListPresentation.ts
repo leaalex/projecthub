@@ -1,6 +1,6 @@
+import type { ComposerTranslation } from 'vue-i18n'
 import type { TaskSection } from '../types/project'
 import type { Task, TaskPriority, TaskStatus } from '../types/task'
-import { i18n } from '../i18n'
 
 export type TaskSortKey =
   | 'updated_at'
@@ -49,51 +49,51 @@ const PRIORITY_ORDER: TaskPriority[] = [
 ]
 
 function parseIso(s: string): number {
-  const t = Date.parse(s)
-  return Number.isFinite(t) ? t : 0
+  const ms = Date.parse(s)
+  return Number.isFinite(ms) ? ms : 0
 }
 
 function matchesStatus(
-  t: Task,
+  task: Task,
   status: TaskStatus | '' | TaskStatus[] | undefined,
 ): boolean {
   const st = status ?? ''
   if (Array.isArray(st)) {
     if (st.length === 0) return true
-    return st.includes(t.status)
+    return st.includes(task.status)
   }
   if (st === '') return true
-  return t.status === st
+  return task.status === st
 }
 
 function matchesPriority(
-  t: Task,
+  task: Task,
   priority: TaskPriority | '' | TaskPriority[],
 ): boolean {
   const pr = priority
   if (Array.isArray(pr)) {
     if (pr.length === 0) return true
-    return pr.includes(t.priority)
+    return pr.includes(task.priority)
   }
   if (pr === '') return true
-  return t.priority === pr
+  return task.priority === pr
 }
 
 function matchesAssignee(
-  t: Task,
+  task: Task,
   assignee: AssigneeFilterValue | AssigneeFilterValue[],
 ): boolean {
   if (Array.isArray(assignee)) {
     if (assignee.length === 0) return true
     return assignee.some((opt) => {
       if (opt === '') return false
-      if (opt === 'unassigned') return t.assignee_id == null
-      return t.assignee_id === opt
+      if (opt === 'unassigned') return task.assignee_id == null
+      return task.assignee_id === opt
     })
   }
-  if (assignee === 'unassigned') return t.assignee_id == null
+  if (assignee === 'unassigned') return task.assignee_id == null
   if (assignee === '') return true
-  return t.assignee_id === assignee
+  return task.assignee_id === assignee
 }
 
 export function filterTasks(
@@ -107,13 +107,13 @@ export function filterTasks(
   },
 ): Task[] {
   const q = opts.search.trim().toLowerCase()
-  return tasks.filter((t) => {
-    if (!matchesStatus(t, opts.status)) return false
-    if (!matchesPriority(t, opts.priority)) return false
-    if (!matchesAssignee(t, opts.assignee)) return false
+  return tasks.filter((task) => {
+    if (!matchesStatus(task, opts.status)) return false
+    if (!matchesPriority(task, opts.priority)) return false
+    if (!matchesAssignee(task, opts.assignee)) return false
     if (q) {
-      const title = t.title.toLowerCase()
-      const desc = (t.description ?? '').toLowerCase()
+      const title = task.title.toLowerCase()
+      const desc = (task.description ?? '').toLowerCase()
       if (!title.includes(q) && !desc.includes(q)) return false
     }
     return true
@@ -159,26 +159,27 @@ export function sortTasks(
   return out
 }
 
-function projectLabel(task: Task): string {
+function projectLabel(task: Task, t: ComposerTranslation): string {
   return (
     task.project?.name ??
-    i18n.global.t('taskCard.meta.projectNum', { n: task.project_id })
+    t('taskCard.meta.projectNum', { n: task.project_id })
   )
 }
 
-function assigneeLabel(t: Task): string {
-  if (!t.assignee_id || !t.assignee) return i18n.global.t('common.unassigned')
-  const u = t.assignee
+function assigneeLabel(task: Task, t: ComposerTranslation): string {
+  if (!task.assignee_id || !task.assignee) return t('common.unassigned')
+  const u = task.assignee
   return u.name || u.email
 }
 
-function sectionLabel(t: Task): string {
-  return t.section?.name || i18n.global.t('projectDetail.unsectioned')
+function sectionLabel(task: Task, t: ComposerTranslation): string {
+  return task.section?.name || t('projectDetail.unsectioned')
 }
 
 export function groupTasks(
   tasks: Task[],
   by: TaskGroupBy,
+  t: ComposerTranslation,
   sections: TaskSection[] = [],
 ): TaskGroup[] {
   if (by === 'none') return []
@@ -186,10 +187,10 @@ export function groupTasks(
 
   if (by === 'status') {
     return STATUS_ORDER.map((st) => {
-      const groupTasksList = tasks.filter((t) => t.status === st)
+      const groupTasksList = tasks.filter((task) => task.status === st)
       return {
         key: st,
-        label: i18n.global.t(`enums.taskStatus.${st}`),
+        label: t(`enums.taskStatus.${st}`),
         tasks: groupTasksList,
       }
     })
@@ -197,10 +198,10 @@ export function groupTasks(
 
   if (by === 'priority') {
     return PRIORITY_ORDER.map((pr) => {
-      const groupTasksList = tasks.filter((t) => t.priority === pr)
+      const groupTasksList = tasks.filter((task) => task.priority === pr)
       return {
         key: pr,
-        label: i18n.global.t(`enums.taskPriority.${pr}`),
+        label: t(`enums.taskPriority.${pr}`),
         tasks: groupTasksList,
       }
     })
@@ -208,24 +209,26 @@ export function groupTasks(
 
   if (by === 'project') {
     const map = new Map<number, Task[]>()
-    for (const t of tasks) {
-      const id = t.project_id
+    for (const task of tasks) {
+      const id = task.project_id
       if (!map.has(id)) map.set(id, [])
-      map.get(id)!.push(t)
+      map.get(id)!.push(task)
     }
     const keys = [...map.keys()].sort((a, b) =>
-      projectLabel(
-        map.get(a)![0],
-      ).localeCompare(projectLabel(map.get(b)![0]), undefined, {
-        sensitivity: 'base',
-      }),
+      projectLabel(map.get(a)![0], t).localeCompare(
+        projectLabel(map.get(b)![0], t),
+        undefined,
+        {
+          sensitivity: 'base',
+        },
+      ),
     )
     return keys.map((id) => {
       const list = map.get(id)!
       const t0 = list[0]
       return {
         key: `p-${id}`,
-        label: projectLabel(t0),
+        label: projectLabel(t0, t),
         tasks: list,
       }
     })
@@ -233,15 +236,15 @@ export function groupTasks(
 
   if (by === 'assignee') {
     const map = new Map<string, { label: string; tasks: Task[] }>()
-    for (const t of tasks) {
+    for (const task of tasks) {
       const key =
-        t.assignee_id != null && t.assignee
-          ? `u-${t.assignee_id}`
+        task.assignee_id != null && task.assignee
+          ? `u-${task.assignee_id}`
           : 'unassigned'
       if (!map.has(key)) {
-        map.set(key, { label: assigneeLabel(t), tasks: [] })
+        map.set(key, { label: assigneeLabel(task, t), tasks: [] })
       }
-      map.get(key)!.tasks.push(t)
+      map.get(key)!.tasks.push(task)
     }
     const entries = [...map.entries()].sort(([keyA, a], [keyB, b]) => {
       if (keyA === 'unassigned') return -1
@@ -258,23 +261,23 @@ export function groupTasks(
   if (by === 'section') {
     const map = new Map<string, { label: string; tasks: Task[]; order: number }>()
     map.set('unsectioned', {
-      label: i18n.global.t('projectDetail.unsectioned'),
+      label: t('projectDetail.unsectioned'),
       tasks: [],
       order: -1,
     })
     for (const s of sections) {
       map.set(`s-${s.id}`, { label: s.name, tasks: [], order: s.position })
     }
-    for (const t of tasks) {
-      const key = t.section_id == null ? 'unsectioned' : `s-${t.section_id}`
+    for (const task of tasks) {
+      const key = task.section_id == null ? 'unsectioned' : `s-${task.section_id}`
       if (!map.has(key)) {
         map.set(key, {
-          label: sectionLabel(t),
+          label: sectionLabel(task, t),
           tasks: [],
-          order: t.section?.position ?? 0,
+          order: task.section?.position ?? 0,
         })
       }
-      map.get(key)!.tasks.push(t)
+      map.get(key)!.tasks.push(task)
     }
     const entries = [...map.entries()].sort(([keyA, a], [keyB, b]) => {
       if (keyA === 'unsectioned') return -1
@@ -303,6 +306,7 @@ export function presentTasks(
     sections?: TaskSection[]
     status?: TaskStatus | '' | TaskStatus[]
   },
+  t: ComposerTranslation,
 ): { flat: Task[]; groups: TaskGroup[] } {
   const taskList = Array.isArray(tasks) ? tasks : []
   const filtered = filterTasks(taskList, {
@@ -320,6 +324,6 @@ export function presentTasks(
   }
   return {
     flat: sorted,
-    groups: groupTasks(sorted, opts.groupBy, opts.sections ?? []),
+    groups: groupTasks(sorted, opts.groupBy, t, opts.sections ?? []),
   }
 }

@@ -16,11 +16,5 @@ export const i18n = createI18n({
 
 export function setI18nLocale(code: AppLocale) {
   i18n.global.locale.value = code
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('lang', code)
-  }
-}
-
-if (typeof document !== 'undefined') {
-  setI18nLocale(resolveAppLocale())
+  document.documentElement.setAttribute('lang', code)
 }

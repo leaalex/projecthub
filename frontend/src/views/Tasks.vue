@@ -109,19 +109,23 @@ const inlineComposerProjects = computed(() =>
 const showAssigneeFilter = computed(() => assignableUsers.value.length > 0)
 
 const presentation = computed(() =>
-  presentTasks(taskStore.tasks, {
-    search: searchQuery.value,
-    priority: clientPriority.value,
-    assignee: assigneeFilter.value,
-    sortKey: sortKey.value,
-    sortDir: sortDir.value,
-    groupBy: groupBy.value,
-    sections:
-      filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
-        ? projectStore.sections
-        : [],
-    status: filterStatus.value,
-  }),
+  presentTasks(
+    taskStore.tasks,
+    {
+      search: searchQuery.value,
+      priority: clientPriority.value,
+      assignee: assigneeFilter.value,
+      sortKey: sortKey.value,
+      sortDir: sortDir.value,
+      groupBy: groupBy.value,
+      sections:
+        filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
+          ? projectStore.sections
+          : [],
+      status: filterStatus.value,
+    },
+    t,
+  ),
 )
 
 const displayFlat = computed(() => presentation.value.flat)
@@ -475,7 +479,7 @@ async function onSectionMove(payload: {
             <h2 class="text-sm font-semibold text-foreground">
               {{ g.label }}
               <span class="font-normal text-muted">{{
-                taskSectionHeaderStats(g.tasks)
+                taskSectionHeaderStats(g.tasks, t)
               }}</span>
             </h2>
             <TaskList

@@ -4,7 +4,7 @@ import Card from '../ui/UiCard.vue'
 import EmptyState from '../ui/UiEmptyState.vue'
 import { timeAgo } from '../../utils/formatters'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 defineProps<{
   items: { label: string; at: string }[]
@@ -12,7 +12,7 @@ defineProps<{
 
 function formatAt(at: string) {
   if (at === t('dashboard.activity.dash')) return at
-  return timeAgo(at)
+  return timeAgo(at, t, locale.value)
 }
 </script>
 

@@ -16,7 +16,7 @@ import { api } from '../utils/api'
 import { formatDateShort } from '../utils/formatters'
 import type { ReportConfig, SavedReport, WeeklyReport } from '../types/report'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const report = ref<WeeklyReport | null>(null)
 const loading = ref(true)
@@ -231,7 +231,7 @@ const tableHeaders = computed(() => [
             <td class="px-4 py-3 uppercase">{{ r.format }}</td>
             <td class="px-4 py-3 text-muted">{{ formatBytes(r.size_bytes) }}</td>
             <td class="px-4 py-3 text-muted">
-              {{ formatDateShort(r.created_at) }}
+              {{ formatDateShort(r.created_at, locale) }}
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex flex-wrap items-center justify-end gap-2">

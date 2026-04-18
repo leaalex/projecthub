@@ -8,7 +8,7 @@ import { formatDateShort } from '../../utils/formatters'
 import { taskStatusLabel } from '../../utils/taskEnumLabels'
 import WeeklyChart from './Charts/WeeklyChart.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps<{
   report: WeeklyReport | null
@@ -26,8 +26,8 @@ const weekLine = computed(() => {
   const r = props.report
   if (!r) return ''
   return t('reportViewer.weekRange', {
-    start: formatDateShort(r.week_start),
-    end: formatDateShort(r.week_end),
+    start: formatDateShort(r.week_start, locale.value),
+    end: formatDateShort(r.week_end, locale.value),
   })
 })
 </script>
