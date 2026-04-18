@@ -29,11 +29,11 @@ type taskUpdateBody struct {
 	Status      *models.TaskStatus   `json:"status"`
 	Priority    *models.TaskPriority `json:"priority"`
 	ProjectID   *uint                `json:"project_id"`
-	DueDate     *string              `json:"due_date"` // ISO date (YYYY-MM-DD) or empty string to clear
+	DueDate     *string              `json:"due_date"` // ISO-дата (YYYY-MM-DD) или пустая строка для сброса
 }
 
 type assignBody struct {
-	// 0 means unassign (clear assignee). Non-zero assigns that user.
+	// 0 означает снять назначение (сбросить). Ненулевое значение назначает указанного пользователя.
 	AssigneeID uint `json:"assignee_id"`
 }
 

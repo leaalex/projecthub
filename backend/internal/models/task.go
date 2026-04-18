@@ -38,7 +38,7 @@ type Task struct {
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 
-	// Caller ACL (not stored; set on API responses for the current user).
+	// Caller ACL (не хранится в БД; устанавливается в API-ответах для текущего пользователя).
 	CallerCanManage       bool `json:"caller_can_manage" gorm:"-"`
 	CallerCanChangeStatus bool `json:"caller_can_change_status" gorm:"-"`
 }

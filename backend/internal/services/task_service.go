@@ -12,16 +12,16 @@ import (
 
 var ErrTaskNotFound = errors.New("task not found")
 
-// ErrAssigneeNotProjectMember is returned when assigning a user who is not owner or member.
+// ErrAssigneeNotProjectMember возвращается при назначении пользователя, не являющегося владельцем или участником проекта.
 var ErrAssigneeNotProjectMember = errors.New("assignee must be project owner or member")
 var ErrTaskSectionNotFound = errors.New("task section not found")
 
-// subtasksOrdered is a GORM scope for consistent subtask ordering in Preload.
+// subtasksOrdered — GORM-скоуп для стабильной сортировки подзадач при Preload.
 func subtasksOrdered(db *gorm.DB) *gorm.DB {
 	return db.Order("subtasks.position ASC, subtasks.id ASC")
 }
 
-// preloadTaskAll loads Project, Assignee, and ordered Subtasks for a task query.
+// preloadTaskAll загружает Project, Assignee и упорядоченные Subtasks для запроса задачи.
 func preloadTaskAll(db *gorm.DB) *gorm.DB {
 	return db.Preload("Project").Preload("Section").Preload("Assignee").Preload("Subtasks", subtasksOrdered)
 }
@@ -115,7 +115,7 @@ func (s *TaskService) visibleProjectIDs(userID uint) ([]uint, error) {
 func (s *TaskService) List(userID uint, role models.Role, projectID *uint, status *models.TaskStatus) ([]models.Task, error) {
 	q := preloadTaskAll(s.DB.Model(&models.Task{}))
 	if models.IsSystemRole(role) {
-		// all tasks
+		// все задачи
 	} else {
 		visible, err := s.visibleProjectIDs(userID)
 		if err != nil {
@@ -161,7 +161,7 @@ func (s *TaskService) canAccessTask(task *models.Task, userID uint, role models.
 	return n > 0
 }
 
-// CanManageProjectTasks is true for admin/staff, project owner, or manager member.
+// CanManageProjectTasks возвращает true для admin/staff, владельца проекта или участника с ролью менеджера.
 func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role models.Role) (bool, error) {
 	if models.IsSystemRole(role) {
 		return true, nil
@@ -180,7 +180,7 @@ func (s *TaskService) CanManageProjectTasks(projectID, userID uint, role models.
 	return pm.Role == models.ProjectRoleManager, nil
 }
 
-// IsProjectOwner reports whether userID owns the project.
+// IsProjectOwner сообщает, является ли userID владельцем проекта.
 func (s *TaskService) IsProjectOwner(projectID, userID uint) (bool, error) {
 	return s.isProjectOwner(projectID, userID)
 }
@@ -217,7 +217,7 @@ type TaskCreate struct {
 	SectionID   *uint
 	Status      models.TaskStatus
 	Priority    models.TaskPriority
-	DueDate     *string // ISO date optional
+	DueDate     *string // ISO-дата, необязательна
 }
 
 func (s *TaskService) Create(userID uint, role models.Role, in TaskCreate) (*models.Task, error) {
@@ -275,7 +275,7 @@ type TaskUpdate struct {
 	DueDate     *string
 }
 
-// executorAssigneeStatusOnly: executor member who is assignee may change status only (any transition).
+// executorAssigneeStatusOnly: участник-исполнитель, являющийся назначенным, может изменять только статус (любой переход).
 func (s *TaskService) executorAssigneeStatusOnly(t *models.Task, userID uint, in TaskUpdate) bool {
 	if in.Status == nil {
 		return false
@@ -333,7 +333,7 @@ func (s *TaskService) Update(id, userID uint, role models.Role, in TaskUpdate) (
 					return nil, ErrForbidden
 				}
 				t.ProjectID = newPID
-				// Section belongs to project; reset when moving task to another project.
+				// Секция принадлежит проекту; сбрасываем при перемещении задачи в другой проект.
 				t.SectionID = nil
 			}
 		}
@@ -375,7 +375,7 @@ type TaskMoveInput struct {
 	Position  *int
 }
 
-// Move changes task section and reorders by position inside destination section.
+// Move изменяет секцию задачи и переупорядочивает по позиции внутри целевой секции.
 func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*models.Task, error) {
 	if in.TaskID == 0 || in.ProjectID == 0 {
 		return nil, ErrInvalidInput
@@ -448,7 +448,7 @@ func (s *TaskService) Move(userID uint, role models.Role, in TaskMoveInput) (*mo
 		}
 	}
 
-	// Rebalance old section after moving task out.
+	// Перебалансируем старую секцию после перемещения задачи из неё.
 	sameSection := (currentSection == nil && in.SectionID == nil) ||
 		(currentSection != nil && in.SectionID != nil && *currentSection == *in.SectionID)
 	if !sameSection {
@@ -492,8 +492,8 @@ func (s *TaskService) Delete(id, userID uint, role models.Role) error {
 		}
 		return err
 	}
-	// SQLite does not reliably cascade FK deletes even with constraint tags, so
-	// we delete subtasks explicitly inside a transaction before removing the task.
+	// SQLite не обеспечивает каскадное удаление по FK даже с тегами constraint, поэтому
+	// подзадачи удаляются явно внутри транзакции перед удалением самой задачи.
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("task_id = ?", id).Delete(&models.Subtask{}).Error; err != nil {
 			return err
@@ -515,11 +515,11 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 		return nil, err
 	}
 	if assigneeID == 0 {
-		// Explicitly set AssigneeID to NULL using Update (GORM doesn't zero values on Save by default)
+		// Явно устанавливаем AssigneeID в NULL через Update (GORM не обнуляет значения через Save по умолчанию)
 		if err := s.DB.Model(&models.Task{}).Where("id = ?", t.ID).Update("assignee_id", nil).Error; err != nil {
 			return nil, err
 		}
-		// Reload fresh data into a new variable to avoid stale associations
+		// Перечитываем свежие данные в новую переменную, чтобы избежать устаревших ассоциаций
 		var fresh models.Task
 		if err := preloadTaskAll(s.DB).First(&fresh, t.ID).Error; err != nil {
 			return nil, err
@@ -541,13 +541,13 @@ func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigne
 	if !allowed {
 		return nil, ErrAssigneeNotProjectMember
 	}
-	// Clear old assignee association before saving new one
+	// Сбрасываем старую ассоциацию назначенного перед сохранением новой
 	t.Assignee = nil
 	t.AssigneeID = &assigneeID
 	if err := s.DB.Save(t).Error; err != nil {
 		return nil, err
 	}
-	// Reload fresh data into a new variable to avoid stale associations
+	// Перечитываем свежие данные в новую переменную, чтобы избежать устаревших ассоциаций
 	var fresh models.Task
 	if err := preloadTaskAll(s.DB).First(&fresh, t.ID).Error; err != nil {
 		return nil, err
@@ -577,7 +577,7 @@ func (s *TaskService) Complete(taskID, userID uint, role models.Role) (*models.T
 	return t, nil
 }
 
-// AttachCallerACL sets JSON-only ACL fields for the requesting user.
+// AttachCallerACL устанавливает JSON-only ACL-поля для запрашивающего пользователя.
 func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role models.Role) error {
 	m, err := s.CanManageProjectTasks(t.ProjectID, uid, role)
 	if err != nil {
@@ -599,7 +599,7 @@ func (s *TaskService) AttachCallerACL(t *models.Task, uid uint, role models.Role
 	return nil
 }
 
-// AttachCallerACLBatch sets ACL on each task (same caller).
+// AttachCallerACLBatch устанавливает ACL для каждой задачи (один и тот же вызывающий).
 func (s *TaskService) AttachCallerACLBatch(tasks []models.Task, uid uint, role models.Role) error {
 	for i := range tasks {
 		if err := s.AttachCallerACL(&tasks[i], uid, role); err != nil {

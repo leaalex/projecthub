@@ -26,7 +26,7 @@ var allowedUserLocales = map[string]struct{}{
 	"en": {},
 }
 
-// UserProfilePatch is a partial update for PUT /users/:id.
+// UserProfilePatch — частичное обновление для PUT /users/:id.
 type UserProfilePatch struct {
 	Name        *string
 	Email       *string
@@ -37,11 +37,11 @@ type UserProfilePatch struct {
 	JobTitle    *string
 	Phone       *string
 	Locale      *string
-	// Password: only applied when caller is admin; empty string ignored.
+	// Password: применяется только если вызывающий — admin; пустая строка игнорируется.
 	Password *string
 }
 
-// AdminCreateInput is used by POST /users (admin only).
+// AdminCreateInput используется POST /users (только admin).
 type AdminCreateInput struct {
 	Email      string
 	Password   string
@@ -218,7 +218,7 @@ func (s *UserService) Delete(id, adminID uint, adminRole models.Role) error {
 	return s.DB.Delete(u).Error
 }
 
-// SetGlobalRole assigns staff, creator, or user. Only admin; cannot target self; cannot assign admin.
+// SetGlobalRole назначает роль staff, creator или user. Только admin; не может менять роль самому себе; не может назначать admin.
 func (s *UserService) SetGlobalRole(targetID, callerID uint, callerRole models.Role, newRole models.Role) (*models.User, error) {
 	if callerRole != models.RoleAdmin {
 		return nil, ErrForbidden

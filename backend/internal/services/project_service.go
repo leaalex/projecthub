@@ -12,7 +12,7 @@ import (
 var ErrProjectNotFound = errors.New("project not found")
 var ErrForbidden = errors.New("forbidden")
 
-// ErrTeamProjectNotAllowed is returned when a global user tries to create a team project.
+// ErrTeamProjectNotAllowed возвращается, когда глобальный пользователь пытается создать командный проект.
 var ErrTeamProjectNotAllowed = errors.New("team projects require creator role or above")
 
 type ProjectService struct {
@@ -26,7 +26,7 @@ func (s *ProjectService) ListByOwner(ownerID uint) ([]models.Project, error) {
 	return list, err
 }
 
-// ListForCaller returns all projects for admin/staff; for creator: owned ∪ member; for user: owned ∪ member.
+// ListForCaller возвращает все проекты для admin/staff; для creator: собственные ∪ участник; для user: собственные ∪ участник.
 func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.Project, error) {
 	if models.IsSystemRole(role) {
 		var list []models.Project
@@ -48,7 +48,7 @@ func (s *ProjectService) ListForCaller(userID uint, role models.Role) ([]models.
 			q = s.DB.Preload("Owner").Where("owner_id = ? OR id IN ?", userID, memberIDs).Order("updated_at desc")
 		}
 	} else {
-		// creator and any other non-system non-user role: owned OR member
+		// creator и любая другая не-системная не-user роль: собственные ИЛИ участник
 		if len(memberIDs) == 0 {
 			return s.ListByOwner(userID)
 		}
@@ -92,7 +92,7 @@ func (s *ProjectService) Create(ownerID uint, role models.Role, name, descriptio
 	return &p, nil
 }
 
-// Get returns the project if caller is admin/staff, owner, or any member (viewer included).
+// Get возвращает проект, если вызывающий — admin/staff, владелец или любой участник (включая наблюдателя).
 func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Project, error) {
 	var p models.Project
 	if err := s.DB.Preload("Owner").First(&p, id).Error; err != nil {
@@ -113,7 +113,7 @@ func (s *ProjectService) Get(id, callerID uint, role models.Role) (*models.Proje
 	return nil, ErrForbidden
 }
 
-// canModifyProjectMetadata is true for admin/staff or project owner only.
+// canModifyProjectMetadata возвращает true для admin/staff или только владельца проекта.
 func (s *ProjectService) canModifyProjectMetadata(p *models.Project, callerID uint, role models.Role) bool {
 	if models.IsSystemRole(role) {
 		return true

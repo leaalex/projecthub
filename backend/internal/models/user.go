@@ -31,7 +31,7 @@ type User struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-// UserDisplayName returns "Фамилия Имя Отчество" when any part is set, otherwise legacy Name.
+// UserDisplayName возвращает «Фамилия Имя Отчество» при наличии любой из частей, иначе — устаревшее поле Name.
 func UserDisplayName(u *User) string {
 	parts := make([]string, 0, 3)
 	for _, s := range []string{
@@ -49,12 +49,12 @@ func UserDisplayName(u *User) string {
 	return strings.TrimSpace(u.Name)
 }
 
-// SyncNameFromFIO sets Name to UserDisplayName (keeps legacy Name when FIO empty).
+// SyncNameFromFIO присваивает Name результату UserDisplayName (сохраняет устаревшее Name, когда ФИО пусты).
 func SyncNameFromFIO(u *User) {
 	u.Name = UserDisplayName(u)
 }
 
-// IsSystemRole is true for roles that bypass normal project/task scoping (full visibility).
+// IsSystemRole возвращает true для ролей, обходящих обычную область видимости проектов/задач (полный доступ).
 func IsSystemRole(r Role) bool {
 	return r == RoleAdmin || r == RoleStaff
 }

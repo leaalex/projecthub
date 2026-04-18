@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// SavedReport is a generated export file stored on disk (metadata in DB).
+// SavedReport — сгенерированный файл экспорта, хранящийся на диске (метаданные в БД).
 type SavedReport struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	UserID      uint      `gorm:"not null;index" json:"user_id"`

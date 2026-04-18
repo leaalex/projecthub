@@ -1,9 +1,9 @@
-// Package user holds the User aggregate root (IAM Aggregate) together with
-// its value-objects: FullName, Email, Role, Locale.
+// Package user содержит корень агрегата User (IAM-агрегат) вместе
+// с его объектами-значениями: FullName, Email, Role, Locale.
 //
-// Invariants and transactional boundaries are documented in
-// docs/architecture/aggregates.md (section "IAM Aggregate — User").
+// Инварианты и транзакционные границы задокументированы в
+// docs/architecture/aggregates.md (раздел «IAM Aggregate — User»).
 //
-// Types are migrated here incrementally from backend/internal/models and
-// backend/internal/services/user_service.go in subsequent PRs.
+// Типы переносятся сюда инкрементально из backend/internal/models и
+// backend/internal/services/user_service.go в последующих PR.
 package user

@@ -1,6 +1,6 @@
-// Package httpserver wires all HTTP handlers and middleware into a Gin engine.
-// It is an importable package so that tests in internal/testutil can reuse
-// the exact same router configuration as the production binary.
+// Package httpserver подключает все HTTP-обработчики и middleware к Gin-движку.
+// Вынесен в отдельный импортируемый пакет, чтобы тесты в internal/testutil
+// использовали ту же конфигурацию роутера, что и продакшн-бинарник.
 package httpserver
 
 import (
@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Deps holds all dependencies required to build the HTTP router.
+// Deps содержит все зависимости, необходимые для сборки HTTP-роутера.
 type Deps struct {
 	DB         *gorm.DB
 	JWTSecret  string
@@ -29,8 +29,8 @@ type Deps struct {
 	ReportSvc  *services.ReportService
 }
 
-// BuildRouter assembles and returns a configured *gin.Engine.
-// The caller is responsible for calling r.Run() or using it in httptest.
+// BuildRouter собирает и возвращает настроенный *gin.Engine.
+// Вызывающий код отвечает за r.Run() или передачу движка в httptest.
 func BuildRouter(deps Deps) *gin.Engine {
 	authHandler := &handlers.AuthHandler{Auth: deps.AuthSvc}
 	projectHandler := &handlers.ProjectHandler{Svc: deps.ProjectSvc, Members: deps.MemberSvc, TaskSvc: deps.TaskSvc}
@@ -63,7 +63,7 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
 	projects.POST("", projectHandler.Create)
-	// Register longer /:id/... routes before /:id so Gin never mis-matches paths like /:id/tasks.
+	// Длинные маршруты /:id/... регистрируются до /:id, чтобы Gin не путал пути вида /:id/tasks.
 	projects.GET("/:id/tasks", projectHandler.Tasks)
 	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
 	projects.GET("/:id/task-sections", taskSectionHandler.List)

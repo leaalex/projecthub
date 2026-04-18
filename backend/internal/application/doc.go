@@ -1,21 +1,21 @@
-// Package application contains cross-aggregate orchestrators (application
-// services). Each service coordinates two or more aggregate roots within a
-// single transaction, enforcing invariants that span aggregate boundaries.
+// Package application содержит межагрегатные оркестраторы (сервисы приложения).
+// Каждый сервис координирует два и более корней агрегатов в рамках одной
+// транзакции, соблюдая инварианты, пересекающие границы агрегатов.
 //
-// Services planned for this package (see docs/architecture/aggregates.md,
-// section "Транзакционные границы"):
+// Сервисы, запланированные для этого пакета (см. docs/architecture/aggregates.md,
+// раздел «Транзакционные границы»):
 //
-//   - ProjectDeletionService  — soft/hard delete of a project, cascading
-//     to tasks, sections and members according to the chosen policy.
-//   - MemberRemovalService    — remove a project member and reassign their
-//     tasks according to the TaskTransferMode policy.
-//   - TaskMoveService         — move a task between sections or projects,
-//     validating that the target section belongs to the target project.
-//   - TaskAssignService       — assign a user to a task after verifying
-//     project membership.
-//   - ReportingService        — orchestrate report generation from Task and
-//     Project read-models and persist the resulting SavedReport.
+//   - ProjectDeletionService  — мягкое/жёсткое удаление проекта с каскадным
+//     применением к задачам, секциям и участникам в соответствии с выбранной политикой.
+//   - MemberRemovalService    — удаление участника проекта с переназначением его
+//     задач согласно политике TaskTransferMode.
+//   - TaskMoveService         — перемещение задачи между секциями или проектами
+//     с проверкой принадлежности целевой секции целевому проекту.
+//   - TaskAssignService       — назначение пользователя на задачу после проверки
+//     членства в проекте.
+//   - ReportingService        — оркестрация формирования отчёта по read-моделям Task и
+//     Project с сохранением результирующего SavedReport.
 //
-// All of these are migrated incrementally from backend/internal/services
-// in subsequent PRs.
+// Все сервисы переносятся инкрементально из backend/internal/services
+// в последующих PR.
 package application

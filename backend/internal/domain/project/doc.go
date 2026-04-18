@@ -1,11 +1,11 @@
-// Package project holds the Project aggregate root together with its
-// internal entities: ProjectMember and TaskSection.
+// Package project содержит корень агрегата Project вместе с
+// внутренними сущностями: ProjectMember и TaskSection.
 //
-// Invariants and transactional boundaries are documented in
-// docs/architecture/aggregates.md (section "Project Aggregate").
+// Инварианты и транзакционные границы задокументированы в
+// docs/architecture/aggregates.md (раздел «Project Aggregate»).
 //
-// Types are migrated here incrementally from backend/internal/models,
+// Типы переносятся сюда инкрементально из backend/internal/models,
 // backend/internal/services/project_service.go,
-// backend/internal/services/member_service.go, and
-// backend/internal/services/task_section_service.go in subsequent PRs.
+// backend/internal/services/member_service.go и
+// backend/internal/services/task_section_service.go в последующих PR.
 package project

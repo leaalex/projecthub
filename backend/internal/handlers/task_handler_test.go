@@ -120,7 +120,7 @@ func TestTask_Assign(t *testing.T) {
 
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 
-	// Add member to project via API.
+	// Добавляем участника в проект через API.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", p.ID), map[string]any{
 		"user_id": member.ID,
 		"role":    "executor",
@@ -161,14 +161,14 @@ func TestTask_MoveInProject(t *testing.T) {
 	token := app.Login(owner.Email, pass)
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 
-	// Create two tasks via API to get valid IDs.
+	// Создаём две задачи через API для получения валидных ID.
 	rec1, d1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{"title": "T1", "project_id": p.ID}, token)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("create T1: %d %v", rec1.Code, d1)
 	}
 	task1ID := uint(d1["task"].(map[string]any)["id"].(float64))
 
-	// Create a section.
+	// Создаём секцию.
 	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/task-sections", p.ID), map[string]any{
 		"name": "Section A",
 	}, token)

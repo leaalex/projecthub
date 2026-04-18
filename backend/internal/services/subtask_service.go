@@ -16,7 +16,7 @@ type SubtaskService struct {
 	Tasks *TaskService
 }
 
-// List returns subtasks for a task if the user can access the task.
+// List возвращает подзадачи задачи, если пользователь имеет к ней доступ.
 func (s *SubtaskService) List(taskID, userID uint, role models.Role) ([]models.Subtask, error) {
 	_, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
@@ -27,7 +27,7 @@ func (s *SubtaskService) List(taskID, userID uint, role models.Role) ([]models.S
 	return list, err
 }
 
-// Create adds a subtask at the end; only project owner.
+// Create добавляет подзадачу в конец; только владелец проекта.
 func (s *SubtaskService) Create(taskID, userID uint, role models.Role, title string) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
@@ -84,7 +84,7 @@ type SubtaskUpdate struct {
 	Position *int
 }
 
-// Update edits a subtask; only project owner.
+// Update редактирует подзадачу; только владелец проекта.
 func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role models.Role, in SubtaskUpdate) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *SubtaskService) Update(taskID, subtaskID, userID uint, role models.Role
 	return st, nil
 }
 
-// Delete removes a subtask; only project owner.
+// Delete удаляет подзадачу; только владелец проекта.
 func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role models.Role) error {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {
@@ -140,7 +140,7 @@ func (s *SubtaskService) Delete(taskID, subtaskID, userID uint, role models.Role
 	return s.DB.Delete(st).Error
 }
 
-// Toggle flips done; project owner or task assignee only.
+// Toggle инвертирует флаг done; только владелец проекта или назначенный на задачу.
 func (s *SubtaskService) Toggle(taskID, subtaskID, userID uint, role models.Role) (*models.Subtask, error) {
 	t, err := s.Tasks.Get(taskID, userID, role)
 	if err != nil {

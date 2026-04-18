@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// GenerateRequest configures custom task report export (JSON body).
+// GenerateRequest задаёт параметры экспорта пользовательского отчёта по задачам (тело JSON).
 type GenerateRequest struct {
 	Format      string   `json:"format"`
 	DateFrom    *string  `json:"date_from"`
@@ -28,11 +28,11 @@ type GenerateRequest struct {
 	Priorities  []string `json:"priorities"`
 	Fields      []string `json:"fields"`
 	GroupBy     string   `json:"group_by"`
-	// PdfLayout: "table" (default) or "list" — only used when format is pdf.
+	// PdfLayout: "table" (по умолчанию) или "list" — используется только при format=pdf.
 	PdfLayout string `json:"pdf_layout"`
 }
 
-// ErrSavedReportNotFound is returned when a saved export id does not exist.
+// ErrSavedReportNotFound возвращается, когда ID сохранённого экспорта не существует.
 var ErrSavedReportNotFound = errors.New("saved report not found")
 
 type ReportService struct {
@@ -60,7 +60,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 
 	var base *gorm.DB
 	if models.IsSystemRole(role) {
-		base = s.DB.Model(&models.Task{})
+		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	}
 	q := s.DB.Model(&models.Task{})
 	if models.IsSystemRole(role) {
-		// all tasks
+		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
@@ -108,7 +108,7 @@ func (s *ReportService) Weekly(userID uint, role models.Role) (*WeeklyReport, er
 	var completed int64
 	q2 := s.DB.Model(&models.Task{}).Where("status = ?", models.StatusDone)
 	if models.IsSystemRole(role) {
-		// all tasks
+		// все задачи
 	} else {
 		visibleIDs, err := (&TaskService{DB: s.DB}).visibleProjectIDs(userID)
 		if err != nil {
@@ -160,7 +160,7 @@ func parseReportDateStart(s string) (time.Time, error) {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), nil
 }
 
-// generateReportBytes builds report file bytes (query + export).
+// generateReportBytes строит байты файла отчёта (запрос + экспорт).
 func (s *ReportService) generateReportBytes(callerID uint, role models.Role, req GenerateRequest) ([]byte, string, string, error) {
 	format := strings.ToLower(strings.TrimSpace(req.Format))
 	if format != "csv" && format != "xlsx" && format != "pdf" && format != "txt" {
@@ -271,7 +271,7 @@ func reportFormatExt(format string) string {
 	}
 }
 
-// ReportMIME returns Content-Type for a saved report format.
+// ReportMIME возвращает Content-Type для сохранённого формата отчёта.
 func ReportMIME(format string) string {
 	switch strings.ToLower(format) {
 	case "csv":
@@ -287,7 +287,7 @@ func ReportMIME(format string) string {
 	}
 }
 
-// GenerateAndSave writes the report to ReportsDir and persists metadata.
+// GenerateAndSave записывает отчёт в ReportsDir и сохраняет метаданные.
 func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req GenerateRequest) (*models.SavedReport, error) {
 	if s.ReportsDir == "" {
 		return nil, fmt.Errorf("reports directory not configured")
@@ -330,7 +330,7 @@ func (s *ReportService) GenerateAndSave(callerID uint, role models.Role, req Gen
 	return &rec, nil
 }
 
-// ListSaved returns saved exports for the caller; admins see all.
+// ListSaved возвращает сохранённые экспорты вызывающего; администраторы видят все.
 func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.SavedReport, error) {
 	var list []models.SavedReport
 	q := s.DB.Model(&models.SavedReport{}).Order("created_at desc")
@@ -343,7 +343,7 @@ func (s *ReportService) ListSaved(callerID uint, role models.Role) ([]models.Sav
 	return list, nil
 }
 
-// SavedReportFilePath returns the on-disk path after ACL check; verifies file exists.
+// SavedReportFilePath возвращает путь на диске после проверки ACL; проверяет существование файла.
 func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role) (*models.SavedReport, string, error) {
 	var r models.SavedReport
 	if err := s.DB.First(&r, id).Error; err != nil {
@@ -365,7 +365,7 @@ func (s *ReportService) SavedReportFilePath(id, callerID uint, role models.Role)
 	return &r, full, nil
 }
 
-// DeleteSaved removes a saved export row and its file after the same ACL as download.
+// DeleteSaved удаляет строку сохранённого экспорта и его файл после той же проверки ACL, что и при скачивании.
 func (s *ReportService) DeleteSaved(id, callerID uint, role models.Role) error {
 	var r models.SavedReport
 	if err := s.DB.First(&r, id).Error; err != nil {

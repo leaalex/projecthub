@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// ProjectRole is a per-project permission level (not the global User.Role).
+// ProjectRole — уровень прав доступа внутри проекта (не глобальная User.Role).
 type ProjectRole string
 
 const (
@@ -11,8 +11,8 @@ const (
 	ProjectRoleViewer   ProjectRole = "viewer"
 )
 
-// ProjectMember links a user to a project with a project-level role.
-// The project owner is not stored here; owner has implicit full control.
+// ProjectMember связывает пользователя с проектом и задаёт его роль внутри проекта.
+// Владелец проекта здесь не хранится; у него неявный полный контроль.
 type ProjectMember struct {
 	ID        uint        `gorm:"primaryKey" json:"id"`
 	ProjectID uint        `gorm:"uniqueIndex:idx_pm_proj_user;not null" json:"project_id"`
@@ -23,7 +23,7 @@ type ProjectMember struct {
 	UpdatedAt time.Time   `json:"updated_at"`
 }
 
-// IsValidProjectRole reports whether r is a known project role constant.
+// IsValidProjectRole сообщает, является ли r известной константой роли проекта.
 func IsValidProjectRole(r ProjectRole) bool {
 	switch r {
 	case ProjectRoleManager, ProjectRoleExecutor, ProjectRoleViewer:

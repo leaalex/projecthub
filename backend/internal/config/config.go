@@ -24,7 +24,7 @@ type Config struct {
 
 func Load() (*Config, error) {
 	_ = godotenv.Load()
-	// Monorepo: `go run` from backend/ only loads ./.env; also try repo root.
+	// Монорепо: `go run` из backend/ загружает только ./.env; пробуем также корень репозитория.
 	_ = godotenv.Load("../.env")
 
 	expiry := 72

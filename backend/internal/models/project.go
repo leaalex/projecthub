@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// ProjectKind distinguishes personal (solo) vs team (collaboration) projects.
+// ProjectKind разграничивает личные (solo) и командные (collaboration) проекты.
 type ProjectKind string
 
 const (
@@ -10,7 +10,7 @@ const (
 	ProjectKindTeam     ProjectKind = "team"
 )
 
-// IsValidProjectKind reports whether k is a known project kind.
+// IsValidProjectKind сообщает, является ли k известным типом проекта.
 func IsValidProjectKind(k ProjectKind) bool {
 	switch k {
 	case ProjectKindPersonal, ProjectKindTeam:
@@ -31,28 +31,28 @@ type Project struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
-// TaskTransferMode defines how to handle tasks when removing a project member
+// TaskTransferMode определяет, как обрабатывать задачи при удалении участника проекта
 type TaskTransferMode string
 
 const (
-	TransferUnassigned TaskTransferMode = "unassigned" // Set all tasks to NULL
-	TransferSingleUser TaskTransferMode = "single_user" // Assign all to one user
-	TransferManual     TaskTransferMode = "manual"     // Manual per-task assignment
+	TransferUnassigned TaskTransferMode = "unassigned" // Установить все задачи в NULL
+	TransferSingleUser TaskTransferMode = "single_user" // Назначить все одному пользователю
+	TransferManual     TaskTransferMode = "manual"     // Ручное назначение по каждой задаче
 )
 
-// TaskTransferRequest represents the removal request with transfer options
+// TaskTransferRequest представляет запрос на удаление с параметрами переноса задач
 type TaskTransferRequest struct {
 	TransferMode     TaskTransferMode `json:"transfer_mode" binding:"required,oneof=unassigned single_user manual"`
-	TransferToUserID *uint            `json:"transfer_to_user_id,omitempty"` // Required for single_user mode
+	TransferToUserID *uint            `json:"transfer_to_user_id,omitempty"` // Обязательно для режима single_user
 }
 
-// TaskTransfer represents a single task reassignment in manual mode
+// TaskTransfer представляет одно переназначение задачи в ручном режиме
 type TaskTransfer struct {
 	TaskID     uint `json:"task_id" binding:"required"`
-	AssigneeID uint `json:"assignee_id" binding:"required,min=1"` // Must be valid member, 0 not allowed
+	AssigneeID uint `json:"assignee_id" binding:"required,min=1"` // Должен быть действительным участником, 0 не допускается
 }
 
-// TaskTransferBatch represents manual transfer request
+// TaskTransferBatch представляет запрос ручного переноса задач
 type TaskTransferBatch struct {
 	Transfers []TaskTransfer `json:"transfers" binding:"required,min=1"`
 }

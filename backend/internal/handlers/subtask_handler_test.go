@@ -91,8 +91,8 @@ func TestSubtask_CRUD(t *testing.T) {
 	})
 }
 
-// TestSubtask_CascadeOnTaskDelete verifies that subtasks are physically deleted
-// when their parent task is deleted (constraint:OnDelete:CASCADE in models/subtask.go).
+// TestSubtask_CascadeOnTaskDelete проверяет, что подзадачи физически удаляются
+// при удалении родительской задачи (constraint:OnDelete:CASCADE в models/subtask.go).
 func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
@@ -100,24 +100,24 @@ func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 	task := app.SeedTask(p.ID)
 
-	// Create subtasks.
+	// Создаём подзадачи.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), map[string]any{"title": "S1"}, token)
 	app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), map[string]any{"title": "S2"}, token)
 
-	// Verify subtasks exist.
+	// Проверяем, что подзадачи существуют.
 	var countBefore int64
 	app.DB.Model(&models.Subtask{}).Where("task_id = ?", task.ID).Count(&countBefore)
 	if countBefore != 2 {
 		t.Fatalf("expected 2 subtasks before task deletion, got %d", countBefore)
 	}
 
-	// Delete the parent task.
+	// Удаляем родительскую задачу.
 	rec, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d", task.ID), nil, token)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete task: expected 204, got %d", rec.Code)
 	}
 
-	// Subtasks must be gone (CASCADE).
+	// Подзадачи должны быть удалены (CASCADE).
 	var countAfter int64
 	app.DB.Model(&models.Subtask{}).Where("task_id = ?", task.ID).Count(&countAfter)
 	if countAfter != 0 {

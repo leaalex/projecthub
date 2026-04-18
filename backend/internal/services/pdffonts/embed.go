@@ -6,7 +6,7 @@ import (
 	"github.com/go-pdf/fpdf"
 )
 
-// DejaVu Sans Condensed from go-pdf/fpdf (Bitstream Vera / DejaVu license).
+// DejaVu Sans Condensed из go-pdf/fpdf (лицензия Bitstream Vera / DejaVu).
 //
 //go:embed DejaVuSansCondensed.ttf
 var dejaVuRegular []byte
@@ -14,11 +14,11 @@ var dejaVuRegular []byte
 //go:embed DejaVuSansCondensed-Bold.ttf
 var dejaVuBold []byte
 
-// Family is the fpdf font family name for SetFont.
+// Family — имя семейства шрифтов fpdf для SetFont.
 const Family = "DejaVu"
 
-// RegisterUTF8Fonts registers Unicode TTF fonts. Input slices are copied because
-// fpdf may mutate the byte buffer (see go-pdf/fpdf#316).
+// RegisterUTF8Fonts регистрирует Unicode TTF-шрифты. Срезы входных данных копируются, потому что
+// fpdf может изменять байтовый буфер (см. go-pdf/fpdf#316).
 func RegisterUTF8Fonts(pdf *fpdf.Fpdf) {
 	reg := append([]byte(nil), dejaVuRegular...)
 	bold := append([]byte(nil), dejaVuBold...)

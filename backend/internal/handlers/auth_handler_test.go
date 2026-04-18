@@ -133,8 +133,8 @@ func TestAuth_ChangePassword(t *testing.T) {
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("expected 204, got %d", rec.Code)
 		}
-		// Old token is still valid (JWT doesn't invalidate on password change)
-		// but new password should work for a fresh login.
+		// Старый токен по-прежнему валиден (JWT не инвалидируется при смене пароля),
+		// но новый пароль должен работать при повторном входе.
 		rec2, _ := app.Do(http.MethodPost, "/api/auth/login", map[string]string{
 			"email":    user.Email,
 			"password": "newpass456",

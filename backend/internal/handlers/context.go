@@ -11,19 +11,19 @@ import (
 
 func handleServiceError(c *gin.Context, err error) {
 	switch err {
-	// Not Found errors (404)
+	// Ошибки «не найдено» (404)
 	case services.ErrTaskNotFound, services.ErrProjectNotFound,
 		services.ErrSubtaskNotFound, services.ErrUserNotFound,
 		services.ErrSavedReportNotFound, services.ErrTargetUserNotFound,
 		services.ErrNotProjectMember, services.ErrTaskSectionNotFound:
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
-	// Forbidden errors (403)
+	// Ошибки доступа (403)
 	case services.ErrForbidden, services.ErrPersonalProjectMembersNotAllowed,
 		services.ErrTeamProjectNotAllowed:
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 
-	// Bad Request errors (400)
+	// Ошибки некорректного запроса (400)
 	case services.ErrInvalidInput, services.ErrAssigneeNotProjectMember,
 		services.ErrCannotRemoveOwner, services.ErrCannotChangeOwnRole,
 		services.ErrInvalidGlobalRole, services.ErrCannotTransferToSelf,
@@ -32,12 +32,12 @@ func handleServiceError(c *gin.Context, err error) {
 		services.ErrInvalidAssignee, services.ErrIncompleteTaskTransfer:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
-	// Conflict errors (409)
+	// Ошибки конфликта (409)
 	case services.ErrCannotDeleteSelf, services.ErrAlreadyProjectMember,
 		services.ErrEmailTaken:
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
-	// Unauthorized errors (401)
+	// Ошибки аутентификации (401)
 	case services.ErrInvalidCreds:
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 

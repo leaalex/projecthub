@@ -1,9 +1,9 @@
-// Package testutil provides helpers for integration tests.
+// Package testutil предоставляет вспомогательные средства для интеграционных тестов.
 //
-// NewTestApp spins up an isolated SQLite database (one per test in t.TempDir()),
-// runs the same schema migrations used in production, and wires the full Gin
-// router via internal/httpserver.BuildRouter. Tests can drive the HTTP layer
-// through httptest.NewRecorder without starting a network listener.
+// NewTestApp поднимает изолированную базу данных SQLite (по одной на тест в t.TempDir()),
+// выполняет те же миграции схемы, что и в продакшне, и подключает полный Gin-роутер
+// через internal/httpserver.BuildRouter. Тесты могут работать с HTTP-слоем
+// через httptest.NewRecorder без запуска сетевого слушателя.
 package testutil
 
 import (
@@ -29,15 +29,15 @@ import (
 const testJWTSecret = "test-secret-do-not-use-in-prod"
 const testJWTExpiryHrs = 24
 
-// TestApp is the test harness: an isolated DB and an assembled HTTP router.
+// TestApp — тестовый стенд: изолированная БД и собранный HTTP-роутер.
 type TestApp struct {
 	DB     *gorm.DB
 	Router *gin.Engine
 	t      *testing.T
 }
 
-// NewTestApp creates an isolated TestApp for one test or sub-test.
-// Each call gets its own SQLite file inside t.TempDir() so tests run in parallel.
+// NewTestApp создаёт изолированный TestApp для одного теста или суб-теста.
+// Каждый вызов получает свой файл SQLite внутри t.TempDir(), так что тесты выполняются параллельно.
 func NewTestApp(t *testing.T) *TestApp {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -78,8 +78,8 @@ func NewTestApp(t *testing.T) *TestApp {
 	return &TestApp{DB: db, Router: router, t: t}
 }
 
-// Login posts to /api/auth/login and returns the JWT token.
-// Fails the test immediately if login does not return 200.
+// Login выполняет POST /api/auth/login и возвращает JWT-токен.
+// Немедленно проваливает тест, если вход не вернул 200.
 func (a *TestApp) Login(email, password string) string {
 	a.t.Helper()
 	body := map[string]string{"email": email, "password": password}
@@ -94,11 +94,11 @@ func (a *TestApp) Login(email, password string) string {
 	return token
 }
 
-// Do sends an HTTP request to the test router.
-//   - body is JSON-encoded if non-nil.
-//   - token is added as "Authorization: Bearer <token>" if non-empty.
+// Do отправляет HTTP-запрос к тестовому роутеру.
+//   - body JSON-кодируется, если не nil.
+//   - token добавляется как "Authorization: Bearer <token>", если не пуст.
 //
-// Returns the ResponseRecorder and the parsed JSON response (nil if body is empty).
+// Возвращает ResponseRecorder и разобранный JSON-ответ (nil, если тело пусто).
 func (a *TestApp) Do(method, path string, body any, token string) (*httptest.ResponseRecorder, map[string]any) {
 	a.t.Helper()
 
@@ -127,8 +127,8 @@ func (a *TestApp) Do(method, path string, body any, token string) (*httptest.Res
 	return rec, result
 }
 
-// SeedUser creates a user with the given role directly in the DB.
-// The generated email is unique within the process; password is "password123".
+// SeedUser создаёт пользователя с заданной ролью непосредственно в БД.
+// Генерируемый email уникален в пределах процесса; пароль — "password123".
 func (a *TestApp) SeedUser(role models.Role) *models.User {
 	a.t.Helper()
 	n := nextID()
@@ -149,7 +149,7 @@ func (a *TestApp) SeedUser(role models.Role) *models.User {
 	return u
 }
 
-// SeedUserWithPassword creates a user with a specific known plaintext password.
+// SeedUserWithPassword создаёт пользователя с конкретным известным паролем.
 func (a *TestApp) SeedUserWithPassword(role models.Role, password string) (user *models.User, plainPassword string) {
 	a.t.Helper()
 	n := nextID()
@@ -170,7 +170,7 @@ func (a *TestApp) SeedUserWithPassword(role models.Role, password string) (user 
 	return u, password
 }
 
-// SeedProject creates a project owned by ownerID.
+// SeedProject создаёт проект, принадлежащий ownerID.
 func (a *TestApp) SeedProject(ownerID uint, kind models.ProjectKind) *models.Project {
 	a.t.Helper()
 	n := nextID()
@@ -185,7 +185,7 @@ func (a *TestApp) SeedProject(ownerID uint, kind models.ProjectKind) *models.Pro
 	return p
 }
 
-// SeedTask creates a task in the given project.
+// SeedTask создаёт задачу в заданном проекте.
 func (a *TestApp) SeedTask(projectID uint) *models.Task {
 	a.t.Helper()
 	n := nextID()
@@ -201,8 +201,8 @@ func (a *TestApp) SeedTask(projectID uint) *models.Task {
 	return task
 }
 
-// CountTasks returns the number of tasks with the given project_id.
-// Useful for baseline assertions (e.g. tasks survive project deletion).
+// CountTasks возвращает количество задач с заданным project_id.
+// Используется для базовых проверок (например, задачи сохраняются после удаления проекта).
 func (a *TestApp) CountTasks(projectID uint) int64 {
 	a.t.Helper()
 	var count int64
@@ -212,7 +212,7 @@ func (a *TestApp) CountTasks(projectID uint) int64 {
 	return count
 }
 
-// --- internal helpers ---
+// --- внутренние вспомогательные функции ---
 
 var idCounter atomic.Int64
 

@@ -10,10 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// sqliteDSN appends driver options:
-//   - _foreign_keys=on  — enforce FK constraints so ON DELETE CASCADE works
-//   - _busy_timeout     — reduce "database is locked" errors under concurrent writes
-//   - _journal_mode=WAL — better read concurrency
+// sqliteDSN добавляет параметры драйвера:
+//   - _foreign_keys=on  — включает проверку внешних ключей (FK), чтобы ON DELETE CASCADE работал
+//   - _busy_timeout     — снижает количество ошибок «database is locked» при параллельной записи
+//   - _journal_mode=WAL — улучшает параллелизм чтения
 func sqliteDSN(path string) string {
 	return path + "?_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL"
 }
@@ -33,7 +33,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	// SQLite: single writer; limit pool to avoid competing connections.
+	// SQLite: одиночный писатель; ограничиваем пул, чтобы избежать конкурирующих соединений.
 	sqlDB.SetMaxOpenConns(1)
 
 	if err := db.AutoMigrate(
@@ -48,7 +48,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// One-time migration of legacy global roles
+	// Одноразовая миграция устаревших глобальных ролей
 	_ = db.Model(&models.User{}).Where("role = ?", "member").Update("role", string(models.RoleUser)).Error
 	_ = db.Model(&models.User{}).Where("role = ?", "manager").Update("role", string(models.RoleCreator)).Error
 

@@ -15,7 +15,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// Report field keys (JSON / API).
+// Ключи полей отчёта (JSON / API).
 const (
 	ReportFieldTitle       = "title"
 	ReportFieldDescription = "description"
@@ -40,7 +40,7 @@ var allowedReportFields = map[string]bool{
 	ReportFieldUpdatedAt:   true,
 }
 
-// PDFLayoutTable draws a column grid; PDFLayoutList draws one block per task (label: value lines).
+// PDFLayoutTable рисует сетку колонок; PDFLayoutList рисует один блок на задачу (строки «метка: значение»).
 const (
 	PDFLayoutTable = "table"
 	PDFLayoutList  = "list"
@@ -83,7 +83,7 @@ func fieldHeader(key string) string {
 	}
 }
 
-// NormalizeReportFields returns a whitelisted ordered field list.
+// NormalizeReportFields возвращает отфильтрованный упорядоченный список полей.
 func NormalizeReportFields(fields []string) []string {
 	if len(fields) == 0 {
 		out := make([]string, len(defaultReportFields))
@@ -187,7 +187,7 @@ func groupLabel(t *models.Task, groupBy string) string {
 	}
 }
 
-// SortTasksByGroup sorts tasks in-place for stable group export order.
+// SortTasksByGroup сортирует задачи на месте для стабильного порядка при экспорте по группам.
 func SortTasksByGroup(tasks []models.Task, groupBy string) {
 	if groupBy == "" {
 		sort.SliceStable(tasks, func(i, j int) bool {
@@ -280,7 +280,7 @@ func buildXLSX(tasks []models.Task, fields []string, groupBy string) ([]byte, er
 	return buf.Bytes(), nil
 }
 
-// buildTXT writes a UTF-8 plain-text report (human-readable blocks per task).
+// buildTXT записывает отчёт в формате UTF-8 plain-text (читаемые блоки по каждой задаче).
 func buildTXT(tasks []models.Task, fields []string, groupBy string) ([]byte, error) {
 	fields = NormalizeReportFields(fields)
 	var b strings.Builder
@@ -470,8 +470,8 @@ func buildPDFList(pdf *fpdf.Fpdf, tasks []models.Task, fields []string, groupBy 
 	}
 }
 
-// BuildReportFile builds export bytes from preloaded tasks.
-// pdfLayout is PDFLayoutTable or PDFLayoutList; ignored for csv/xlsx.
+// BuildReportFile строит байты экспорта из предзагруженных задач.
+// pdfLayout — PDFLayoutTable или PDFLayoutList; игнорируется для csv/xlsx.
 func BuildReportFile(format string, tasks []models.Task, fields []string, groupBy, pdfLayout string) ([]byte, string, string, error) {
 	format = strings.ToLower(strings.TrimSpace(format))
 	fields = NormalizeReportFields(fields)

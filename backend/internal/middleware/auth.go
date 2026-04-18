@@ -14,7 +14,7 @@ import (
 const ContextUserIDKey = "user_id"
 const ContextRoleKey = "role"
 
-// JWTAuth validates Bearer token and sets user_id and role in context.
+// JWTAuth проверяет Bearer-токен и записывает user_id и role в контекст.
 func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := c.GetHeader("Authorization")
@@ -34,9 +34,9 @@ func JWTAuth(secret string) gin.HandlerFunc {
 	}
 }
 
-// SyncRoleFromDB overwrites context role with the current value from the database.
-// JWT may still carry an old role after an admin changes the user's global role;
-// /me already reads from DB, so without this, staff could see the UI but get 403 on /users.
+// SyncRoleFromDB перезаписывает роль в контексте актуальным значением из базы данных.
+// JWT может содержать устаревшую роль после того, как администратор изменил глобальную роль пользователя;
+// /me уже читает из БД, поэтому без этого сотрудники видели бы UI, но получали 403 на /users.
 func SyncRoleFromDB(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uid, ok := c.Get(ContextUserIDKey)
@@ -70,7 +70,7 @@ func normalizeRole(r models.Role) models.Role {
 	}
 }
 
-// RequireAdmin aborts with 403 unless JWT role is admin.
+// RequireAdmin прерывает запрос с ошибкой 403, если роль в JWT не admin.
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r, ok := c.Get(ContextRoleKey)
@@ -87,7 +87,7 @@ func RequireAdmin() gin.HandlerFunc {
 	}
 }
 
-// RequireStaffOrAdmin aborts with 403 unless JWT role is admin or staff.
+// RequireStaffOrAdmin прерывает запрос с ошибкой 403, если роль в JWT не admin и не staff.
 func RequireStaffOrAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r, ok := c.Get(ContextRoleKey)
@@ -104,7 +104,7 @@ func RequireStaffOrAdmin() gin.HandlerFunc {
 	}
 }
 
-// RequireCreatorOrAbove blocks global role "user" (read-only until invited to a project).
+// RequireCreatorOrAbove блокирует глобальную роль «user» (только чтение до приглашения в проект).
 func RequireCreatorOrAbove() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r, ok := c.Get(ContextRoleKey)

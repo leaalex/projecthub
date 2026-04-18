@@ -24,12 +24,12 @@ var (
 	ErrIncompleteTaskTransfer          = errors.New("all tasks must be reassigned before removing member")
 )
 
-// ProjectMemberService manages project_members rows and membership checks.
+// ProjectMemberService управляет строками project_members и проверками членства.
 type ProjectMemberService struct {
 	DB *gorm.DB
 }
 
-// ProjectKind returns the project's kind.
+// ProjectKind возвращает тип проекта.
 func (m *ProjectMemberService) ProjectKind(projectID uint) (models.ProjectKind, error) {
 	var p models.Project
 	if err := m.DB.Select("kind").First(&p, projectID).Error; err != nil {
@@ -41,14 +41,14 @@ func (m *ProjectMemberService) ProjectKind(projectID uint) (models.ProjectKind, 
 	return p.Kind, nil
 }
 
-// List returns all members for a project with User preloaded.
+// List возвращает всех участников проекта с предзагруженным User.
 func (m *ProjectMemberService) List(projectID uint) ([]models.ProjectMember, error) {
 	var list []models.ProjectMember
 	err := m.DB.Where("project_id = ?", projectID).Preload("User").Order("project_members.id ASC").Find(&list).Error
 	return list, err
 }
 
-// Add inserts a membership row; fails if user is already a member.
+// Add добавляет строку членства; возвращает ошибку, если пользователь уже является участником.
 func (m *ProjectMemberService) Add(projectID, userID uint, role models.ProjectRole) (*models.ProjectMember, error) {
 	if !models.IsValidProjectRole(role) {
 		return nil, ErrInvalidInput
@@ -87,7 +87,7 @@ func (m *ProjectMemberService) Add(projectID, userID uint, role models.ProjectRo
 	return &pm, nil
 }
 
-// UpdateRole changes a member's role; owner is not in this table.
+// UpdateRole изменяет роль участника; владелец в этой таблице не хранится.
 func (m *ProjectMemberService) UpdateRole(projectID, userID uint, newRole models.ProjectRole) (*models.ProjectMember, error) {
 	if !models.IsValidProjectRole(newRole) {
 		return nil, ErrInvalidInput
@@ -122,19 +122,19 @@ func (m *ProjectMemberService) UpdateRole(projectID, userID uint, newRole models
 	return &pm, nil
 }
 
-// RemoveResult contains the outcome of member removal attempt
+// RemoveResult содержит результат попытки удаления участника
 type RemoveResult struct {
 	Success     bool           `json:"success"`
 	MemberID    uint           `json:"member_id,omitempty"`
 	TaskCount   int            `json:"task_count,omitempty"`
-	Tasks       []models.Task  `json:"tasks,omitempty"`       // Populated for manual mode
-	Transferred int            `json:"transferred,omitempty"`   // Count of reassigned tasks
+	Tasks       []models.Task  `json:"tasks,omitempty"`       // Заполняется в ручном режиме
+	Transferred int            `json:"transferred,omitempty"`   // Количество переназначенных задач
 }
 
-// Remove removes a project member with optional task transfer
-// For manual mode, returns tasks list without removing member (two-step process)
+// Remove удаляет участника проекта с опциональным переносом задач.
+// В ручном режиме возвращает список задач без удаления участника (двухшаговый процесс).
 func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTransferMode, transferToUserID *uint) (*RemoveResult, error) {
-	// 1. Check project and member exist
+	// 1. Проверяем, что проект и участник существуют
 	var p models.Project
 	if err := m.DB.First(&p, projectID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -149,19 +149,19 @@ func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTr
 		return nil, ErrCannotRemoveOwner
 	}
 
-	// 2. Verify member exists
+	// 2. Проверяем, что участник существует
 	var pm models.ProjectMember
 	if err := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).First(&pm).Error; err != nil {
 		return nil, ErrNotProjectMember
 	}
 
-	// 3. Get member's tasks
+	// 3. Получаем задачи участника
 	var tasks []models.Task
 	if err := m.DB.Where("project_id = ? AND assignee_id = ?", projectID, userID).Find(&tasks).Error; err != nil {
 		return nil, err
 	}
 
-	// 4. No tasks - simple removal
+	// 4. Нет задач — простое удаление
 	if len(tasks) == 0 {
 		res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
 		if res.Error != nil {
@@ -173,19 +173,19 @@ func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTr
 		return &RemoveResult{Success: true, MemberID: userID}, nil
 	}
 
-	// 5. Has tasks - handle based on mode
+	// 5. Есть задачи — обрабатываем в зависимости от режима
 	switch mode {
 	case models.TransferManual:
-		// Return tasks without removing member (client will show UI)
+		// Возвращаем задачи без удаления участника (клиент покажет UI выбора)
 		return &RemoveResult{
-			Success:   false, // Not fully complete yet
+			Success:   false, // Операция ещё не завершена
 			MemberID:  userID,
 			TaskCount: len(tasks),
 			Tasks:     tasks,
 		}, nil
 
 	case models.TransferUnassigned:
-		// Set all tasks to NULL
+		// Устанавливаем всем задачам назначенного в NULL
 		if err := m.DB.Model(&models.Task{}).
 			Where("project_id = ? AND assignee_id = ?", projectID, userID).
 			Update("assignee_id", nil).Error; err != nil {
@@ -193,20 +193,20 @@ func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTr
 		}
 
 	case models.TransferSingleUser:
-		// Validate target user
+		// Проверяем целевого пользователя
 		if transferToUserID == nil || *transferToUserID == 0 {
 			return nil, ErrInvalidInput
 		}
 		if *transferToUserID == userID {
 			return nil, ErrCannotTransferToSelf
 		}
-		// Check target is project member or owner
+		// Проверяем, что цель — участник или владелец проекта
 		isMember := m.IsMember(projectID, *transferToUserID)
 		isOwner := p.OwnerID == *transferToUserID
 		if !isMember && !isOwner {
 			return nil, ErrTargetNotProjectMember
 		}
-		// Update all tasks
+		// Обновляем все задачи
 		if err := m.DB.Model(&models.Task{}).
 			Where("project_id = ? AND assignee_id = ?", projectID, userID).
 			Update("assignee_id", *transferToUserID).Error; err != nil {
@@ -214,7 +214,7 @@ func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTr
 		}
 	}
 
-	// 6. Remove member after successful transfer
+	// 6. Удаляем участника после успешного переноса
 	res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
 	if res.Error != nil {
 		return nil, res.Error
@@ -231,16 +231,16 @@ func (m *ProjectMemberService) Remove(projectID, userID uint, mode models.TaskTr
 	}, nil
 }
 
-// ApplyManualTaskTransfers applies task reassignments and removes member
-// Validation: all tasks must be reassigned, new assignees must be valid members
+// ApplyManualTaskTransfers применяет переназначения задач и удаляет участника.
+// Валидация: все задачи должны быть переназначены, новые назначенные должны быть действительными участниками.
 func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, transfers []models.TaskTransfer) (*RemoveResult, error) {
-	// 1. Get all tasks currently assigned to this member
+	// 1. Получаем все задачи, назначенные этому участнику
 	var memberTasks []models.Task
 	if err := m.DB.Where("project_id = ? AND assignee_id = ?", projectID, userID).Find(&memberTasks).Error; err != nil {
 		return nil, err
 	}
 	if len(memberTasks) == 0 {
-		// No tasks, just remove member
+		// Нет задач — просто удаляем участника
 		res := m.DB.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
 		if res.Error != nil {
 			return nil, res.Error
@@ -248,30 +248,30 @@ func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, 
 		return &RemoveResult{Success: true}, nil
 	}
 
-	// 2. Build map of expected task IDs
+	// 2. Строим карту ожидаемых ID задач
 	expectedTaskIDs := make(map[uint]bool)
 	for _, t := range memberTasks {
 		expectedTaskIDs[t.ID] = true
 	}
 
-	// 3. Validate transfers
+	// 3. Валидируем переносы
 	transferTaskIDs := make(map[uint]bool)
 	for _, tr := range transfers {
-		// Check task belongs to member
+		// Проверяем, что задача принадлежит участнику
 		if !expectedTaskIDs[tr.TaskID] {
 			return nil, ErrInvalidTaskTransfer
 		}
-		// Check for duplicates
+		// Проверяем дубликаты
 		if transferTaskIDs[tr.TaskID] {
 			return nil, ErrDuplicateTaskTransfer
 		}
 		transferTaskIDs[tr.TaskID] = true
 
-		// Validate new assignee
+		// Проверяем нового назначенного
 		if tr.AssigneeID == userID {
 			return nil, ErrCannotTransferToSameMember
 		}
-		// Check assignee is valid project member or owner
+		// Проверяем, что назначенный — действительный участник или владелец проекта
 		var p models.Project
 		m.DB.First(&p, projectID)
 		isMember := m.IsMember(projectID, tr.AssigneeID)
@@ -281,12 +281,12 @@ func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, 
 		}
 	}
 
-	// 4. Check ALL tasks are covered
+	// 4. Проверяем, что ВСЕ задачи охвачены
 	if len(transfers) != len(memberTasks) {
 		return nil, ErrIncompleteTaskTransfer
 	}
 
-	// 5. Apply updates in transaction
+	// 5. Применяем обновления в транзакции
 	tx := m.DB.Begin()
 	for _, tr := range transfers {
 		if err := tx.Model(&models.Task{}).
@@ -297,7 +297,7 @@ func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, 
 		}
 	}
 
-	// 6. Remove member
+	// 6. Удаляем участника
 	res := tx.Where("project_id = ? AND user_id = ?", projectID, userID).Delete(&models.ProjectMember{})
 	if res.Error != nil {
 		tx.Rollback()
@@ -317,7 +317,7 @@ func (m *ProjectMemberService) ApplyManualTaskTransfers(projectID, userID uint, 
 	}, nil
 }
 
-// GetMemberRole returns the member's role and true if they have a row in project_members.
+// GetMemberRole возвращает роль участника и true, если у него есть строка в project_members.
 func (m *ProjectMemberService) GetMemberRole(projectID, userID uint) (models.ProjectRole, bool) {
 	var pm models.ProjectMember
 	if err := m.DB.Select("role").Where("project_id = ? AND user_id = ?", projectID, userID).First(&pm).Error; err != nil {
@@ -326,13 +326,13 @@ func (m *ProjectMemberService) GetMemberRole(projectID, userID uint) (models.Pro
 	return pm.Role, true
 }
 
-// IsMember is true if user has a project_members row (not including owner).
+// IsMember возвращает true, если у пользователя есть строка в project_members (владелец не включается).
 func (m *ProjectMemberService) IsMember(projectID, userID uint) bool {
 	_, ok := m.GetMemberRole(projectID, userID)
 	return ok
 }
 
-// IsOwnerOrMember is true if user owns the project or has a membership row.
+// IsOwnerOrMember возвращает true, если пользователь владеет проектом или имеет строку в members.
 func (m *ProjectMemberService) IsOwnerOrMember(projectID, userID uint) bool {
 	var p models.Project
 	if err := m.DB.First(&p, projectID).Error; err != nil {
@@ -344,7 +344,7 @@ func (m *ProjectMemberService) IsOwnerOrMember(projectID, userID uint) bool {
 	return m.IsMember(projectID, userID)
 }
 
-// CanAccessProject is true for admin/staff, owner, or any member (including viewer).
+// CanAccessProject возвращает true для admin/staff, владельца или любого участника (включая наблюдателя).
 func (m *ProjectMemberService) CanAccessProject(projectID, userID uint, globalRole models.Role) bool {
 	if models.IsSystemRole(globalRole) {
 		return true
@@ -352,7 +352,7 @@ func (m *ProjectMemberService) CanAccessProject(projectID, userID uint, globalRo
 	return m.IsOwnerOrMember(projectID, userID)
 }
 
-// CanManageMembers is true for admin/staff, project owner, or manager member.
+// CanManageMembers возвращает true для admin/staff, владельца проекта или участника с ролью менеджера.
 func (m *ProjectMemberService) CanManageMembers(projectID, userID uint, globalRole models.Role) bool {
 	if models.IsSystemRole(globalRole) {
 		return true
@@ -368,7 +368,7 @@ func (m *ProjectMemberService) CanManageMembers(projectID, userID uint, globalRo
 	return ok && r == models.ProjectRoleManager
 }
 
-// CallerProjectRoleString is a stable label for API responses (owner / manager / executor / viewer / admin / staff).
+// CallerProjectRoleString возвращает стабильную метку для API-ответов (owner / manager / executor / viewer / admin / staff).
 func (m *ProjectMemberService) CallerProjectRoleString(projectID, callerID uint, globalRole models.Role) string {
 	switch globalRole {
 	case models.RoleAdmin:
@@ -389,15 +389,15 @@ func (m *ProjectMemberService) CallerProjectRoleString(projectID, callerID uint,
 	return ""
 }
 
-// MemberProjectIDs returns project IDs where the user has a membership row.
+// MemberProjectIDs возвращает ID проектов, в которых у пользователя есть строка членства.
 func (m *ProjectMemberService) MemberProjectIDs(userID uint) ([]uint, error) {
 	var ids []uint
 	err := m.DB.Model(&models.ProjectMember{}).Where("user_id = ?", userID).Pluck("project_id", &ids).Error
 	return ids, err
 }
 
-// TransferOwnership sets a new owner (admin/staff only at handler level).
-// The previous owner is ensured a manager membership so they retain access.
+// TransferOwnership устанавливает нового владельца (только admin/staff на уровне обработчика).
+// Предыдущему владельцу гарантируется членство в роли менеджера, чтобы он сохранил доступ.
 func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID uint, globalRole models.Role) error {
 	if !models.IsSystemRole(globalRole) {
 		return ErrForbidden
@@ -443,7 +443,7 @@ func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID
 		if err := tx.Model(&models.Project{}).Where("id = ?", projectID).Update("owner_id", newOwnerID).Error; err != nil {
 			return err
 		}
-		// New owner should not remain only as viewer/executor row without being owner — remove duplicate member row if any.
+		// Новый владелец не должен оставаться в таблице как viewer/executor — удаляем дубликат строки участника, если есть.
 		if err := tx.Where("project_id = ? AND user_id = ?", projectID, newOwnerID).Delete(&models.ProjectMember{}).Error; err != nil {
 			return err
 		}
@@ -451,7 +451,7 @@ func (m *ProjectMemberService) TransferOwnership(projectID, newOwnerID, callerID
 	})
 }
 
-// ResolveUserIDByEmail finds a user by email (case-insensitive trim).
+// ResolveUserIDByEmail находит пользователя по email (без учёта регистра и пробелов).
 func (m *ProjectMemberService) ResolveUserIDByEmail(email string) (uint, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
@@ -467,7 +467,7 @@ func (m *ProjectMemberService) ResolveUserIDByEmail(email string) (uint, error) 
 	return u.ID, nil
 }
 
-// AssigneeAllowedOnProject is true if assignee is the owner or a project member.
+// AssigneeAllowedOnProject возвращает true, если назначаемый — владелец или участник проекта.
 func (m *ProjectMemberService) AssigneeAllowedOnProject(projectID, assigneeID uint) (bool, error) {
 	var p models.Project
 	if err := m.DB.First(&p, projectID).Error; err != nil {

@@ -90,26 +90,26 @@ func TestProject_CRUD(t *testing.T) {
 	})
 }
 
-// TestProject_DeleteOrphansTasksBaseline documents the current behaviour when
-// a project that owns tasks is deleted.
+// TestProject_DeleteOrphansTasksBaseline документирует текущее поведение при удалении
+// проекта, которому принадлежат задачи.
 //
-// Since _foreign_keys=on was added to the SQLite DSN, the DELETE fails with a
-// FK constraint violation (tasks.project_id → projects.id has NO ACTION).
-// The service returns 500 Internal Server Error.
+// С момента добавления _foreign_keys=on в SQLite DSN DELETE завершается ошибкой
+// нарушения FK-ограничения (tasks.project_id → projects.id имеет NO ACTION).
+// Сервис возвращает 500 Internal Server Error.
 //
-// Expected behaviour after the soft-delete feature from
-// docs/architecture/aggregates.md is implemented:
-//   - DELETE /projects/:id soft-deletes the project (DeletedAt set).
-//   - Tasks remain in DB and retain their project_id.
-//   - Tasks are filtered out of list responses because the project is archived.
-//   - A permanent DELETE (/projects/:id?permanent=true) will cascade-delete tasks
-//     via ProjectDeletionService.
+// Ожидаемое поведение после реализации мягкого удаления из
+// docs/architecture/aggregates.md:
+//   - DELETE /projects/:id мягко удаляет проект (устанавливает DeletedAt).
+//   - Задачи остаются в БД и сохраняют свой project_id.
+//   - Задачи исключаются из ответов на список, т.к. проект архивирован.
+//   - Жёсткое удаление (/projects/:id?permanent=true) каскадно удалит задачи
+//     через ProjectDeletionService.
 func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
 	token := app.Login(owner.Email, pass)
 
-	// Create a project via API.
+	// Создаём проект через API.
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
 		"name": "ToDelete",
 		"kind": "team",
@@ -120,7 +120,7 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	p := data["project"].(map[string]any)
 	projectID := uint(p["id"].(float64))
 
-	// Seed tasks directly in this project.
+	// Создаём задачи в этом проекте напрямую.
 	app.SeedTask(projectID)
 	app.SeedTask(projectID)
 
@@ -129,17 +129,17 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 		t.Fatalf("expected 2 tasks before deletion, got %d", before)
 	}
 
-	// CURRENT BEHAVIOUR: DELETE fails because tasks.project_id references the project
-	// and the FK constraint has NO ACTION (not CASCADE). Service returns 500.
+	// ТЕКУЩЕЕ ПОВЕДЕНИЕ: DELETE завершается ошибкой, т.к. tasks.project_id ссылается на проект,
+	// а FK-ограничение имеет NO ACTION (не CASCADE). Сервис возвращает 500.
 	//
-	// This will change when soft-delete is implemented (project gets DeletedAt set
-	// instead of being physically removed, so no FK violation occurs).
+	// Изменится при реализации мягкого удаления (проект получает DeletedAt вместо
+	// физического удаления, поэтому нарушения FK не возникает).
 	rec2, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d", projectID), nil, token)
 	if rec2.Code != http.StatusInternalServerError {
 		t.Fatalf("BASELINE CHANGED: expected 500 (FK constraint) when deleting project with tasks, got %d", rec2.Code)
 	}
 
-	// Tasks still exist because project was NOT deleted.
+	// Задачи по-прежнему существуют, т.к. проект НЕ был удалён.
 	after := app.CountTasks(projectID)
 	if after != 2 {
 		t.Fatalf("BASELINE CHANGED: expected 2 tasks to remain (project not deleted), got %d", after)
@@ -154,7 +154,7 @@ func TestProject_Permissions(t *testing.T) {
 	ownerToken := app.Login(owner.Email, ownerPass)
 	otherToken := app.Login(other.Email, otherPass)
 
-	// Create project as owner.
+	// Создаём проект от имени владельца.
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
 		"name": "Private",
 		"kind": "team",

@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// TaskSection groups tasks within a project.
+// TaskSection группирует задачи внутри проекта.
 type TaskSection struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	ProjectID uint      `gorm:"not null;index" json:"project_id"`

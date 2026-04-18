@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// EnsureDefaultAdmin creates an admin user if ADMIN_EMAIL/ADMIN_PASSWORD are set
-// and no user with that email exists.
+// EnsureDefaultAdmin создаёт пользователя-администратора, если переменные ADMIN_EMAIL/ADMIN_PASSWORD заданы
+// и пользователя с таким email ещё не существует.
 func EnsureDefaultAdmin(db *gorm.DB, email, password, name string) error {
 	email = strings.TrimSpace(strings.ToLower(email))
 	password = strings.TrimSpace(password)

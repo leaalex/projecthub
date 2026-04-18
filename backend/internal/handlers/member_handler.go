@@ -178,14 +178,14 @@ func (h *MemberHandler) Remove(c *gin.Context) {
 		return
 	}
 
-	// Parse request body with transfer options
+	// Разбираем тело запроса с параметрами переноса
 	var body models.TaskTransferRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Validate single_user mode has target
+	// Проверяем, что в режиме single_user указан целевой пользователь
 	if body.TransferMode == models.TransferSingleUser && body.TransferToUserID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "transfer_to_user_id required for single_user mode"})
 		return

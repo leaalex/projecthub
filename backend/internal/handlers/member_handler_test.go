@@ -71,7 +71,7 @@ func TestMember_AddUpdateRemove(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 		}
-		// Remove endpoint returns RemoveResult directly (no wrapper key).
+		// Эндпоинт Remove возвращает RemoveResult напрямую (без ключа-обёртки).
 		if data["success"] != true {
 			t.Fatalf("expected success:true, got %v", data)
 		}
@@ -87,24 +87,24 @@ func TestMember_RemoveWithTasks_Unassigned(t *testing.T) {
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 	pid := p.ID
 
-	// Add member.
+	// Добавляем участника.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
 		"user_id": member.ID,
 		"role":    "executor",
 	}, ownerToken)
 
-	// Seed task assigned to member.
+	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
 	app.DB.Model(task).Update("assignee_id", member.ID)
 
-	// Remove with unassigned mode.
+	// Удаляем в режиме unassigned.
 	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
 		map[string]any{"transfer_mode": "unassigned"}, ownerToken)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 	}
 
-	// Verify task is unassigned.
+	// Проверяем, что задача снята с назначения.
 	var updated models.Task
 	app.DB.First(&updated, task.ID)
 	if updated.AssigneeID != nil {
@@ -122,7 +122,7 @@ func TestMember_RemoveWithTasks_SingleUser(t *testing.T) {
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 	pid := p.ID
 
-	// Add both users as members.
+	// Добавляем обоих пользователей как участников.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
 		"user_id": member.ID, "role": "executor",
 	}, ownerToken)
@@ -130,11 +130,11 @@ func TestMember_RemoveWithTasks_SingleUser(t *testing.T) {
 		"user_id": newAssignee.ID, "role": "executor",
 	}, ownerToken)
 
-	// Seed task assigned to member.
+	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
 	app.DB.Model(task).Update("assignee_id", member.ID)
 
-	// Remove with single_user mode → reassign all to newAssignee.
+	// Удаляем в режиме single_user → переназначаем всё на newAssignee.
 	rec, data := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
 		map[string]any{
 			"transfer_mode":      "single_user",
@@ -144,7 +144,7 @@ func TestMember_RemoveWithTasks_SingleUser(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 	}
 
-	// Verify task is reassigned.
+	// Проверяем, что задача переназначена.
 	var updated models.Task
 	app.DB.First(&updated, task.ID)
 	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID {
@@ -162,7 +162,7 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
 	pid := p.ID
 
-	// Add both users.
+	// Добавляем обоих пользователей.
 	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", pid), map[string]any{
 		"user_id": member.ID, "role": "executor",
 	}, ownerToken)
@@ -170,22 +170,22 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 		"user_id": newAssignee.ID, "role": "executor",
 	}, ownerToken)
 
-	// Seed task assigned to member.
+	// Создаём задачу, назначенную участнику.
 	task := app.SeedTask(pid)
 	app.DB.Model(task).Update("assignee_id", member.ID)
 
-	// Step 1: manual mode returns tasks (does NOT remove member).
+	// Шаг 1: ручной режим возвращает задачи (участника НЕ удаляет).
 	rec1, data1 := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d/members/%d", pid, member.ID),
 		map[string]any{"transfer_mode": "manual"}, ownerToken)
 	if rec1.Code != http.StatusOK {
 		t.Fatalf("step1: expected 200, got %d: %v", rec1.Code, data1)
 	}
-	// Manual mode returns RemoveResult directly; success==false because member not removed yet.
+	// Ручной режим возвращает RemoveResult напрямую; success==false, т.к. участник ещё не удалён.
 	if data1["success"] != false {
 		t.Fatalf("step1: expected success:false (member not removed yet), got %v", data1)
 	}
 
-	// Step 2: apply manual transfers. This also removes the member.
+	// Шаг 2: применяем ручные переносы. Это также удаляет участника.
 	rec2, data2 := app.Do(http.MethodPost,
 		fmt.Sprintf("/api/projects/%d/members/%d/transfer-tasks", pid, member.ID),
 		map[string]any{
@@ -196,15 +196,15 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("step2: expected 200, got %d: %v", rec2.Code, data2)
 	}
-	// ApplyManualTaskTransfers removes the member as part of the same operation.
-	// Verify task was reassigned.
+	// ApplyManualTaskTransfers удаляет участника в рамках той же операции.
+	// Проверяем, что задача была переназначена.
 	var updated models.Task
 	app.DB.First(&updated, task.ID)
 	if updated.AssigneeID == nil || *updated.AssigneeID != newAssignee.ID {
 		t.Fatalf("expected assignee_id %d, got %v", newAssignee.ID, updated.AssigneeID)
 	}
 
-	// Member should no longer exist (removed by ApplyManualTaskTransfers).
+	// Участник должен больше не существовать (удалён через ApplyManualTaskTransfers).
 	var count int64
 	app.DB.Model(&models.ProjectMember{}).Where("project_id = ? AND user_id = ?", pid, member.ID).Count(&count)
 	if count != 0 {
@@ -214,7 +214,7 @@ func TestMember_RemoveWithTasks_Manual(t *testing.T) {
 
 func TestMember_TransferOwnership(t *testing.T) {
 	app := testutil.NewTestApp(t)
-	// Ownership transfer requires staff or admin role.
+	// Передача владения требует роли staff или admin.
 	admin, adminPass := app.SeedUserWithPassword(models.RoleAdmin, "adminpass1")
 	owner := app.SeedUser(models.RoleCreator)
 	newOwner := app.SeedUser(models.RoleCreator)
@@ -226,11 +226,11 @@ func TestMember_TransferOwnership(t *testing.T) {
 	t.Run("admin can transfer ownership", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPatch, fmt.Sprintf("/api/projects/%d/owner", pid),
 			map[string]any{"new_owner_id": newOwner.ID}, adminToken)
-		// TransferOwnership returns 204 No Content (no body).
+		// TransferOwnership возвращает 204 No Content (без тела).
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("expected 204, got %d: %v", rec.Code, data)
 		}
-		// Verify new owner in DB.
+		// Проверяем нового владельца в БД.
 		var updated models.Project
 		app.DB.First(&updated, pid)
 		if updated.OwnerID != newOwner.ID {
