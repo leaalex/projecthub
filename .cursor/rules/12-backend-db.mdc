@@ -1,0 +1,43 @@
+---
+description: Правила работы со схемой БД, GORM и SQLite
+globs: backend/internal/database/**,backend/internal/models/**,backend/internal/infrastructure/**
+alwaysApply: false
+---
+
+# SQLite DSN
+
+- В DSN обязательны флаги `_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL` — см. [backend/internal/database/database.go](backend/internal/database/database.go).
+- `sqlDB.SetMaxOpenConns(1)` остаётся: SQLite — один писатель.
+
+# Каскады и FK
+
+GORM + SQLite через `AutoMigrate` создаёт FK с `NO ACTION`, даже если в модели указано `constraint:OnDelete:CASCADE`. Поэтому:
+
+- **Не полагаться** на тег `constraint:OnDelete:CASCADE` как на единственный механизм.
+- Каскадное удаление делать явно в сервисе в одной транзакции:
+
+```go
+func (s *TaskService) Delete(id, userID uint, role models.Role) error {
+    // ... проверки доступа ...
+    return s.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Where("task_id = ?", id).Delete(&models.Subtask{}).Error; err != nil {
+            return err
+        }
+        return tx.Delete(&models.Task{}, id).Error
+    })
+}
+```
+
+# Миграции
+
+- Используется `AutoMigrate` — он **не удаляет** столбцы и **не меняет** типы существующих столбцов. Для таких операций нужна явная миграция, обсуждаемая отдельно.
+- Одноразовые data-миграции (напр. перенос legacy-ролей) — пишутся в [backend/internal/database/database.go](backend/internal/database/database.go) после `AutoMigrate`, с комментарием «one-time».
+
+# Soft-delete
+
+Для агрегатов верхнего уровня предпочтительный способ «удаления» — `gorm.DeletedAt` (`DELETE /projects/:id` должен соответствовать soft-delete). Физическое удаление — отдельной командой «Удалить навсегда» через сервис в `internal/application/`. См. раздел «Политика удаления проекта» в [docs/architecture/aggregates.md](docs/architecture/aggregates.md).
+
+# Запреты
+
+- Не писать raw SQL в хэндлерах или доменном слое.
+- Не использовать `db.Exec` для бизнес-логики — только через GORM-методы в репозитории.

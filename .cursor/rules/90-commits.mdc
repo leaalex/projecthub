@@ -1,0 +1,53 @@
+---
+description: Формат git-коммитов
+alwaysApply: true
+---
+
+# Формат
+
+Conventional Commits. Заголовок — на английском в императиве (коротко, до 72 символов), тело — при необходимости на русском.
+
+# Префиксы
+
+- `feat:` — новая фича
+- `fix:` — исправление бага
+- `refactor:` — рефакторинг без изменения поведения
+- `test:` — добавление/изменение тестов
+- `docs:` — документация
+- `chore:` — инфраструктура, зависимости, конфиги
+- `style:` — форматирование, пробелы, без изменений логики
+- `perf:` — оптимизация производительности
+
+# Примеры (из истории ветки)
+
+```
+docs: add domain aggregate map with invariants and soft-delete policy
+refactor: add skeleton domain/application packages with doc.go stubs
+refactor: extract BuildRouter to internal/httpserver; add testutil.TestApp harness
+test: add characterization tests for auth, projects, tasks, subtasks, members
+```
+
+# Тело коммита
+
+Если коммит нетривиальный — добавить тело списком на русском:
+
+```
+fix: prevent orphaned subtasks on task deletion
+
+- Включён _foreign_keys=on в SQLite DSN.
+- TaskService.Delete теперь явно удаляет subtasks в транзакции,
+  поскольку GORM создаёт FK с NO ACTION вместо CASCADE.
+```
+
+# Запреты
+
+- Не коммитить: `.env`, локальные `*.db`, секреты, content/артефакты отчётов.
+- Не делать `git commit --amend` после `push` в общую ветку.
+- Не делать `push --force` в `main`/`master`.
+- Не менять `git config` без явного запроса.
+
+# Правила по ветке перед коммитом
+
+- `go build ./...` и `make backend-test` должны быть зелёными.
+- Фронтенд: `npm run build` (или соответствующая команда) без ошибок.
+- i18n-check (см. `21-frontend-i18n.mdc`) без ошибок, если трогали строки/локали.

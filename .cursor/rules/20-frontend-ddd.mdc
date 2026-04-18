@@ -1,0 +1,50 @@
+---
+description: Целевая архитектура фронтенда — зеркало бэкенд-доменов
+globs: frontend/src/**/*.ts,frontend/src/**/*.vue
+alwaysApply: false
+---
+
+# Целевая структура
+
+Фронтенд зеркалит агрегаты бэкенда (см. [docs/architecture/aggregates.md](docs/architecture/aggregates.md)):
+
+```
+frontend/src/
+  domain/
+    user/       { api.ts, types.ts, store.ts, composables/ }
+    project/    { api.ts, types.ts, store.ts, composables/, components/ }
+    task/       { api.ts, types.ts, store.ts, composables/, components/ }
+    report/     { api.ts, types.ts, store.ts, composables/, components/ }
+  views/        # страницы, собранные из domain/*
+  components/
+    ui/         # переиспользуемый kit, без бизнес-знаний
+    layout/     # AppShell, Sidebar, TopBar
+  router/
+  i18n/
+  utils/        # общие утилиты без предметного знания
+```
+
+# Инкрементальный переезд
+
+Из текущей структуры в `domain/*` переезжают:
+
+- [frontend/src/stores/task.store.ts](frontend/src/stores/task.store.ts) → `domain/task/store.ts`
+- [frontend/src/stores/project.store.ts](frontend/src/stores/project.store.ts) → `domain/project/store.ts`
+- [frontend/src/components/tasks/](frontend/src/components/tasks/) → `domain/task/components/`
+- [frontend/src/components/projects/](frontend/src/components/projects/) → `domain/project/components/`
+- [frontend/src/composables/useTaskListPresentation.ts](frontend/src/composables/useTaskListPresentation.ts), [frontend/src/composables/useCanEditTask.ts](frontend/src/composables/useCanEditTask.ts) → `domain/task/composables/`
+- [frontend/src/components/admin/](frontend/src/components/admin/) → `domain/user/components/`
+
+Переезд делается небольшими PR, никакого big-bang.
+
+# Границы
+
+- `domain/<X>/` **не импортирует** из `domain/<Y>/` напрямую. Cross-domain связи — через `views/` или отдельные композабли уровня приложения.
+- `views/` не делает `axios`-вызовов напрямую — только через сторы и композабли из `domain/*`.
+- `components/ui/` ничего не знает про `domain/*` (см. `22-frontend-ui.mdc`).
+- `utils/` — без импортов из `domain/*` и `stores/*`.
+
+# API-слой
+
+- Каждый домен имеет свой `api.ts` с экспортом функций-обёрток над [frontend/src/utils/api.ts](frontend/src/utils/api.ts) (Axios инстанс).
+- Типы ответов/запросов — в `types.ts` рядом, без смешивания с UI-моделями.

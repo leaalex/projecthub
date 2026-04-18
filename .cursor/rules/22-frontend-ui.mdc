@@ -1,0 +1,49 @@
+---
+description: Правила для UI-kit (frontend/src/components/ui)
+globs: frontend/src/components/ui/**
+alwaysApply: false
+---
+
+# Принцип
+
+Компоненты в `components/ui/` — чистые «представления». Никакого предметного знания, никакой асинхронности.
+
+# Запреты
+
+UI-компонент **не должен**:
+
+- импортировать сторы (`useTaskStore`, `useAuthStore` и т.п.);
+- импортировать из `domain/*`;
+- делать HTTP-запросы (Axios/fetch);
+- знать про `router`/`useRouter`;
+- хардкодить пользовательские строки (см. `21-frontend-i18n.mdc`).
+
+# Что разрешено
+
+- `props` и `emits` с явными TS-типами (`defineProps<{ ... }>`, `defineEmits<{ ... }>`).
+- Слоты (`<slot />`), scoped-слоты.
+- Композабли общего назначения: [frontend/src/composables/useToast.ts](frontend/src/composables/useToast.ts) и подобные — только если они сами не тянут сторы и API.
+
+# Пример
+
+```vue
+<script setup lang="ts">
+defineProps<{
+  label: string
+  variant?: 'primary' | 'secondary' | 'danger'
+  disabled?: boolean
+}>()
+defineEmits<{
+  click: [event: MouseEvent]
+}>()
+</script>
+```
+
+# Стили
+
+- Tailwind-классы в `class`. `<style scoped>` — только когда Tailwind недостаточно (анимации, сложные псевдоэлементы).
+- Не смешивать kit-компоненты с доменной стилизацией; доменные варианты делать обёртками в `domain/<X>/components/`.
+
+# Showcase
+
+Для каждого нового UI-компонента добавлять пример использования в [frontend/src/views/UiShowcase.vue](frontend/src/views/UiShowcase.vue).

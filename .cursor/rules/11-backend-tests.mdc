@@ -1,0 +1,45 @@
+---
+description: Правила написания тестов бэкенда
+globs: backend/internal/**/*_test.go
+alwaysApply: false
+---
+
+# Harness
+
+- Для HTTP-тестов — только [backend/internal/testutil/app.go](backend/internal/testutil/app.go). Не создавать параллельные harness'ы.
+- Каждый тест/подтест независим: свой `t.TempDir()`-SQLite через `app := testutil.NewTestApp(t)`.
+- Сидим через `app.SeedUser / SeedProject / SeedTask`, токен получаем через `app.Login(email, password)`.
+
+Шаблон:
+
+```go
+func TestTask_Create(t *testing.T) {
+    app := testutil.NewTestApp(t)
+    owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
+    token := app.Login(owner.Email, pass)
+    p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+
+    rec, data := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+        "title": "First", "project_id": p.ID,
+    }, token)
+    if rec.Code != http.StatusCreated {
+        t.Fatalf("expected 201, got %d: %v", rec.Code, data)
+    }
+}
+```
+
+# Характеризующие тесты
+
+- Если тест фиксирует текущее (возможно странное) поведение — пометить комментарием `// BASELINE:` с описанием, что изменится после реализации фичи/фикса.
+- Пример: [backend/internal/handlers/project_handler_test.go](backend/internal/handlers/project_handler_test.go) — `TestProject_DeleteOrphansTasksBaseline`.
+
+# Покрытие
+
+- Happy-path + минимум один error-path на хэндлер (401 / 403 / 404 / 400 / 409).
+- Не мокать БД в handler-тестах — только реальный SQLite через testutil.
+- Для cross-aggregate операций проверять состояние БД после (например, `app.DB.First(&task)`).
+
+# Что НЕ делаем
+
+- Не вызываем сервисы напрямую в handler-тестах — только через HTTP.
+- Не вводим `t.Parallel()` без крайней нужды (SQLite с `SetMaxOpenConns(1)` — последовательные тесты).

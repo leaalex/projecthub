@@ -1,0 +1,47 @@
+---
+description: Интернационализация фронтенда (vue-i18n)
+globs: frontend/src/**/*.vue,frontend/src/**/*.ts
+alwaysApply: false
+---
+
+# Правила
+
+- Любая пользовательская строка — через `t('...')` из `vue-i18n`. Хардкод русского/английского в шаблонах и скриптах недопустим.
+- При добавлении ключа — синхронно в обе локали: [frontend/src/i18n/locales/en.json](frontend/src/i18n/locales/en.json) и [frontend/src/i18n/locales/ru.json](frontend/src/i18n/locales/ru.json).
+- Ключи строятся иерархически: `<domain>.<view/component>.<element>`, например `task.card.title`, `project.settings.save`.
+
+# Примеры
+
+```vue
+<!-- НЕ ТАК -->
+<button>Сохранить</button>
+
+<!-- ТАК -->
+<button>{{ t('common.save') }}</button>
+```
+
+```ts
+// НЕ ТАК
+toast.error('Ошибка при загрузке')
+
+// ТАК
+toast.error(t('task.errors.loadFailed'))
+```
+
+# Проверка
+
+Перед коммитом, затрагивающим шаблоны или локали, прогонять:
+
+```
+cd frontend && node scripts/i18n-check.mjs
+```
+
+См. [frontend/scripts/i18n-check.mjs](frontend/scripts/i18n-check.mjs) — скрипт ловит сиротские и отсутствующие ключи, а также рассинхронизацию между `en.json` и `ru.json`.
+
+# Исключения
+
+Технические строки не локализуем:
+
+- `console.log`, `console.error`.
+- Имена событий в `emits`.
+- Ключи объектов, коды ошибок API.
