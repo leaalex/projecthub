@@ -1,0 +1,126 @@
+package handlers_test
+
+import (
+	"fmt"
+	"net/http"
+	"testing"
+
+	"task-manager/backend/internal/models"
+	"task-manager/backend/internal/testutil"
+)
+
+func TestSubtask_CRUD(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
+	token := app.Login(owner.Email, pass)
+	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	task := app.SeedTask(p.ID)
+
+	var subtaskID float64
+
+	t.Run("create subtask", func(t *testing.T) {
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), map[string]any{
+			"title": "Sub one",
+		}, token)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %v", rec.Code, data)
+		}
+		s := data["subtask"].(map[string]any)
+		subtaskID = s["id"].(float64)
+		if s["title"] != "Sub one" {
+			t.Fatalf("unexpected title: %v", s["title"])
+		}
+		if s["done"].(bool) {
+			t.Fatalf("new subtask should not be done")
+		}
+	})
+
+	t.Run("list subtasks", func(t *testing.T) {
+		rec, data := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), nil, token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
+		}
+		subs := data["subtasks"].([]any)
+		if len(subs) == 0 {
+			t.Fatalf("expected at least one subtask")
+		}
+	})
+
+	t.Run("toggle subtask done", func(t *testing.T) {
+		rec, data := app.Do(http.MethodPost,
+			fmt.Sprintf("/api/tasks/%d/subtasks/%.0f/toggle", task.ID, subtaskID), nil, token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
+		}
+		s := data["subtask"].(map[string]any)
+		if !s["done"].(bool) {
+			t.Fatalf("expected subtask to be done after toggle")
+		}
+	})
+
+	t.Run("update subtask title", func(t *testing.T) {
+		rec, data := app.Do(http.MethodPut,
+			fmt.Sprintf("/api/tasks/%d/subtasks/%.0f", task.ID, subtaskID),
+			map[string]any{"title": "Sub one renamed"}, token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
+		}
+		s := data["subtask"].(map[string]any)
+		if s["title"] != "Sub one renamed" {
+			t.Fatalf("unexpected title: %v", s["title"])
+		}
+	})
+
+	t.Run("delete subtask", func(t *testing.T) {
+		rec, _ := app.Do(http.MethodDelete,
+			fmt.Sprintf("/api/tasks/%d/subtasks/%.0f", task.ID, subtaskID), nil, token)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected 204, got %d", rec.Code)
+		}
+	})
+
+	t.Run("subtask list is empty after delete", func(t *testing.T) {
+		rec, data := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), nil, token)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		subs := data["subtasks"].([]any)
+		if len(subs) != 0 {
+			t.Fatalf("expected empty subtasks list, got %d items", len(subs))
+		}
+	})
+}
+
+// TestSubtask_CascadeOnTaskDelete verifies that subtasks are physically deleted
+// when their parent task is deleted (constraint:OnDelete:CASCADE in models/subtask.go).
+func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(models.RoleCreator, "creator123")
+	token := app.Login(owner.Email, pass)
+	p := app.SeedProject(owner.ID, models.ProjectKindTeam)
+	task := app.SeedTask(p.ID)
+
+	// Create subtasks.
+	app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), map[string]any{"title": "S1"}, token)
+	app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID), map[string]any{"title": "S2"}, token)
+
+	// Verify subtasks exist.
+	var countBefore int64
+	app.DB.Model(&models.Subtask{}).Where("task_id = ?", task.ID).Count(&countBefore)
+	if countBefore != 2 {
+		t.Fatalf("expected 2 subtasks before task deletion, got %d", countBefore)
+	}
+
+	// Delete the parent task.
+	rec, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d", task.ID), nil, token)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete task: expected 204, got %d", rec.Code)
+	}
+
+	// Subtasks must be gone (CASCADE).
+	var countAfter int64
+	app.DB.Model(&models.Subtask{}).Where("task_id = ?", task.ID).Count(&countAfter)
+	if countAfter != 0 {
+		t.Fatalf("expected 0 subtasks after task deletion (CASCADE), got %d", countAfter)
+	}
+}

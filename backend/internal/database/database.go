@@ -10,9 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// sqliteDSN appends driver options to reduce "database is locked" under concurrent writes.
+// sqliteDSN appends driver options:
+//   - _foreign_keys=on  — enforce FK constraints so ON DELETE CASCADE works
+//   - _busy_timeout     — reduce "database is locked" errors under concurrent writes
+//   - _journal_mode=WAL — better read concurrency
 func sqliteDSN(path string) string {
-	return path + "?_busy_timeout=5000&_journal_mode=WAL"
+	return path + "?_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL"
 }
 
 func Open(databasePath string) (*gorm.DB, error) {

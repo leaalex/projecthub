@@ -492,7 +492,14 @@ func (s *TaskService) Delete(id, userID uint, role models.Role) error {
 		}
 		return err
 	}
-	return s.DB.Delete(t).Error
+	// SQLite does not reliably cascade FK deletes even with constraint tags, so
+	// we delete subtasks explicitly inside a transaction before removing the task.
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("task_id = ?", id).Delete(&models.Subtask{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(t).Error
+	})
 }
 
 func (s *TaskService) Assign(taskID, ownerUserID uint, role models.Role, assigneeID uint) (*models.Task, error) {
