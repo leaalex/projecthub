@@ -114,7 +114,7 @@ async function onAdd() {
 </script>
 
 <template>
-  <Modal v-model="open" :title="t('addMemberModal.title')" wide>
+  <Modal v-model="open" :title="t('addMemberModal.title')">
     <div class="space-y-4">
       <div
         v-if="isPrivilegedRole(auth.user?.role)"

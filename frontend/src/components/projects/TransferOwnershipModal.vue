@@ -81,7 +81,7 @@ async function doTransfer() {
 </script>
 
 <template>
-  <Modal v-model="open" :title="t('transferOwnershipModal.title')" wide>
+  <Modal v-model="open" :title="t('transferOwnershipModal.title')">
     <div class="space-y-4">
       <p class="text-sm text-muted">
         {{ t('transferOwnershipModal.body') }}

@@ -203,7 +203,6 @@ async function submit() {
   <Modal
     :model-value="modelValue"
     :title="title"
-    wide
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >
     <form class="space-y-4" @submit.prevent="submit">

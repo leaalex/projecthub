@@ -202,7 +202,7 @@ const tableHeaders = computed(() => [
       </Card>
     </div>
 
-    <Modal v-model="modalOpen" :title="t('reports.modal.newTitle')" wide>
+    <Modal v-model="modalOpen" :title="t('reports.modal.newTitle')">
       <ReportSettings :generating="generating" @generate="onCreateReport" />
     </Modal>
   </div>

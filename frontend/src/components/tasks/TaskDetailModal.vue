@@ -346,7 +346,6 @@ async function purgeFromTrash() {
   <Modal
     :model-value="modelValue"
     :title="t('taskDetailModal.title')"
-    wide
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div v-if="loading" class="space-y-3">

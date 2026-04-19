@@ -8,15 +8,10 @@ import {
   watch,
 } from 'vue'
 
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean
-    title?: string
-    /** Wider panel for dense forms (e.g. report settings) */
-    wide?: boolean
-  }>(),
-  { wide: false },
-)
+const props = defineProps<{
+  modelValue: boolean
+  title?: string
+}>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -88,8 +83,7 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
         />
         <div
           ref="panelRef"
-          class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
-          :class="wide ? 'max-w-2xl' : 'max-w-lg'"
+          class="modal-panel relative z-10 flex h-full max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-surface"
           @keydown="onPanelKeydown"
         >
           <div
