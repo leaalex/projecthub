@@ -17,7 +17,6 @@ import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import SectionEditModal from '../components/projects/SectionEditModal.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
-import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
 import {
   presentProjectItems,
   type ProjectItemGroup,
@@ -641,16 +640,6 @@ async function onReopen(taskId: number) {
             :aria-label="t('common.search')"
           />
         </div>
-        <UiSegmentedControl
-          v-model="itemKind"
-          class="shrink-0"
-          :aria-label="t('projectDetail.itemKind.region')"
-          :options="[
-            { value: 'all', label: t('project.itemKind.all') },
-            { value: 'tasks', label: t('project.itemKind.tasks') },
-            { value: 'notes', label: t('project.itemKind.notes') },
-          ]"
-        />
         <Button
           type="button"
           variant="secondary"
@@ -664,10 +653,6 @@ async function onReopen(taskId: number) {
         </Button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label v-if="itemKind !== 'notes'" class="flex items-center gap-2 text-xs text-muted">
-          <input v-model="manualOrder" type="checkbox" class="rounded border-border" />
-          {{ t('projectDetail.manualSectionOrder') }}
-        </label>
         <Button
           v-if="canCreateTasks"
           type="button"
@@ -699,7 +684,7 @@ async function onReopen(taskId: number) {
     </div>
 
     <div
-      v-show="filtersOpen && itemKind !== 'notes'"
+      v-show="filtersOpen"
       id="project-workspace-filters"
       role="region"
       class="mt-4"
@@ -713,11 +698,14 @@ async function onReopen(taskId: number) {
         v-model:sort-key="sortKey"
         v-model:sort-dir="sortDir"
         v-model:group-by="groupBy"
+        v-model:project-item-kind="itemKind"
+        v-model:manual-section-order="manualOrder"
         :projects="projectOptions"
         :assignable-users="assignableUsers"
         :show-assignee-filter="showAssigneeFilter"
         hide-project-filter
         hide-group-by
+        show-project-workspace-options
         @reset="resetTaskFilters"
       />
     </div>

@@ -5,7 +5,6 @@ import { useI18n } from 'vue-i18n'
 import type { ProjectItemGroup, WorkspaceItem } from '@app/composables/useProjectItemsPresentation'
 import { useProjectStore } from '@app/project.store'
 import { extractNoteAxiosError } from '@app/note.store'
-import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { Note } from '@domain/note/types'
 import type { Task } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
@@ -60,6 +59,8 @@ const dragItem = ref<{ kind: 'task' | 'note'; id: number } | null>(null)
 const dragOver = ref<string | null>(null)
 
 const dragSectionId = ref<number | null>(null)
+
+const isSectionDragging = computed(() => dragSectionId.value !== null)
 
 const manageSectionsActive = computed(
   () =>
@@ -133,12 +134,6 @@ function onDropAt(sectionKey: string, position: number) {
   })
 }
 
-function tasksInGroup(items: WorkspaceItem[]) {
-  return items
-    .filter((x): x is { kind: 'task'; task: Task } => x.kind === 'task')
-    .map((x) => x.task)
-}
-
 function onSectionDragStart(e: DragEvent, sectionId: number) {
   if (!manageSectionsActive.value) {
     e.preventDefault()
@@ -158,16 +153,33 @@ function onSectionDragEnd() {
 function onSectionHeaderDragOver(e: DragEvent, g: ProjectItemGroup) {
   if (dragSectionId.value == null) return
   e.preventDefault()
-  dragOver.value = `sec-head:${g.key}`
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  const el = e.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const after = e.clientY >= rect.top + rect.height / 2
+  dragOver.value = dragOverKeyFor(g, after)
+}
+
+function onSectionHeaderDragLeave(e: DragEvent) {
+  if (dragSectionId.value == null) return
+  const el = e.currentTarget as HTMLElement
+  const related = e.relatedTarget as Node | null
+  if (related && el.contains(related)) return
+  const group = el.parentElement
+  if (related && group && group.contains(related)) return
+  dragOver.value = null
 }
 
 function onSectionHeaderDrop(e: DragEvent, g: ProjectItemGroup) {
   if (dragSectionId.value == null) return
   e.preventDefault()
-  void onSectionDropOnHeader(sectionIdForGroup(g)!)
+  const el = e.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const placeAfter = e.clientY >= rect.top + rect.height / 2
+  void onSectionDropAt(sectionIdForGroup(g)!, placeAfter)
 }
 
-async function onSectionDropOnHeader(targetSectionId: number) {
+async function onSectionDropAt(targetSectionId: number, placeAfter: boolean) {
   const dragged = dragSectionId.value
   const pid = props.projectId
   if (!manageSectionsActive.value || dragged == null || pid <= 0) {
@@ -180,11 +192,12 @@ async function onSectionDropOnHeader(targetSectionId: number) {
   }
   const ids = sectionIdsInDisplayOrder()
   const next = ids.filter(id => id !== dragged)
-  const insertAt = next.indexOf(targetSectionId)
+  let insertAt = next.indexOf(targetSectionId)
   if (insertAt < 0) {
     onSectionDragEnd()
     return
   }
+  if (placeAfter) insertAt += 1
   next.splice(insertAt, 0, dragged)
   try {
     await projectStore.reorderSections(pid, next)
@@ -206,8 +219,107 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
   return parseSectionKey(g.key)
 }
 
+/** Единый ключ индикатора: «до B» = `sec-after:A`, чтобы не было двух линий на границе. */
+function dragOverKeyFor(g: ProjectItemGroup, placeAfter: boolean): string {
+  if (placeAfter) return `sec-after:${g.key}`
+  const groups = props.groups
+  const idx = groups.findIndex(x => x.key === g.key)
+  if (idx <= 0) return `sec-before:${g.key}`
+  let prev: ProjectItemGroup | null = null
+  for (let i = idx - 1; i >= 0; i--) {
+    if (groups[i].key.startsWith('s-')) {
+      prev = groups[i]
+      break
+    }
+  }
+  if (prev) return `sec-after:${prev.key}`
+  return `sec-before:${g.key}`
+}
+
 function rowDragOverKey(item: WorkspaceItem): string {
   return item.kind === 'task' ? `task:${item.task.id}` : `note:${item.note.id}`
+}
+
+function onBodyDragOver(e: DragEvent, g: ProjectItemGroup) {
+  if (dragSectionId.value != null) {
+    const sid = sectionIdForGroup(g)
+    if (sid == null) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    dragOver.value = dragOverKeyFor(g, true)
+    return
+  }
+  if (!props.enableItemDrag) return
+  e.preventDefault()
+  dragOver.value = `section:${g.key}`
+}
+
+function onBodyDrop(e: DragEvent, g: ProjectItemGroup) {
+  if (dragSectionId.value != null) {
+    const sid = sectionIdForGroup(g)
+    if (sid == null) return
+    e.preventDefault()
+    void onSectionDropAt(sid, true)
+    return
+  }
+  if (!props.enableItemDrag) return
+  e.preventDefault()
+  onDropAt(g.key, g.items.length)
+}
+
+function onBodyDragLeave(e: DragEvent) {
+  if (dragSectionId.value != null) {
+    const el = e.currentTarget as HTMLElement
+    const related = e.relatedTarget as Node | null
+    if (related && el.contains(related)) return
+    const group = el.parentElement
+    if (related && group && group.contains(related)) return
+    dragOver.value = null
+    return
+  }
+  if (props.enableItemDrag) dragOver.value = null
+}
+
+function onRowDragOver(e: DragEvent, item: WorkspaceItem, g: ProjectItemGroup) {
+  if (dragSectionId.value != null) {
+    const sid = sectionIdForGroup(g)
+    if (sid == null) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    dragOver.value = dragOverKeyFor(g, true)
+    return
+  }
+  if (!props.enableItemDrag) return
+  e.preventDefault()
+  dragOver.value = rowDragOverKey(item)
+}
+
+function onRowDrop(e: DragEvent, g: ProjectItemGroup, idx: number) {
+  if (dragSectionId.value != null) {
+    const sid = sectionIdForGroup(g)
+    if (sid == null) return
+    e.preventDefault()
+    e.stopPropagation()
+    void onSectionDropAt(sid, true)
+    return
+  }
+  if (!props.enableItemDrag) return
+  e.preventDefault()
+  e.stopPropagation()
+  onDropAt(g.key, idx)
+}
+
+function onRowDragLeave(e: DragEvent) {
+  if (dragSectionId.value != null) {
+    const el = e.currentTarget as HTMLElement
+    const related = e.relatedTarget as Node | null
+    if (related && el.contains(related)) return
+    const group = el.parentElement?.parentElement?.parentElement
+    if (related && group && group.contains(related)) return
+    dragOver.value = null
+    return
+  }
+  if (props.enableItemDrag) dragOver.value = null
 }
 </script>
 
@@ -216,16 +328,23 @@ function rowDragOverKey(item: WorkspaceItem): string {
     <div
       v-for="g in groups"
       :key="g.key"
-      class="space-y-2"
+      class="relative space-y-2"
     >
+      <div
+        v-if="isSectionDragging && dragOver === `sec-before:${g.key}`"
+        class="pointer-events-none absolute inset-x-0 -top-4 z-10 h-0.5 bg-primary"
+      />
+      <div
+        v-if="isSectionDragging && dragOver === `sec-after:${g.key}`"
+        class="pointer-events-none absolute inset-x-0 -bottom-4 z-10 h-0.5 bg-primary"
+      />
       <template
         v-if="manageSectionsActive && sectionIdForGroup(g) != null"
       >
         <div
-          class="group flex flex-wrap items-center gap-2 rounded-md px-0.5 py-0.5"
-          :class="dragOver === `sec-head:${g.key}` ? 'bg-surface-muted/40' : ''"
+          class="group relative flex flex-wrap items-center gap-2 rounded-md px-0.5 py-0.5"
           @dragover="onSectionHeaderDragOver($event, g)"
-          @dragleave="dragOver = null"
+          @dragleave="onSectionHeaderDragLeave"
           @drop="onSectionHeaderDrop($event, g)"
         >
           <div
@@ -237,9 +356,6 @@ function rowDragOverKey(item: WorkspaceItem): string {
             <span class="shrink-0 select-none text-muted" aria-hidden="true">⠿</span>
             <h2 class="min-w-0 flex-1">
               {{ g.label }}
-              <span class="font-normal text-muted">{{
-                taskSectionHeaderStats(tasksInGroup(g.items))
-              }}</span>
             </h2>
           </div>
           <div
@@ -264,17 +380,14 @@ function rowDragOverKey(item: WorkspaceItem): string {
         class="text-sm font-semibold text-foreground"
       >
         {{ g.label }}
-        <span class="font-normal text-muted">{{
-          taskSectionHeaderStats(tasksInGroup(g.items))
-        }}</span>
       </h2>
 
       <div
         class="overflow-hidden rounded-lg border border-border bg-surface"
         :class="dragOver === `section:${g.key}` ? 'ring-1 ring-primary/40 border-primary' : ''"
-        @dragover.prevent="enableItemDrag ? (dragOver = `section:${g.key}`) : undefined"
-        @dragleave="enableItemDrag ? (dragOver = null) : undefined"
-        @drop.prevent="enableItemDrag ? onDropAt(g.key, g.items.length) : undefined"
+        @dragover="onBodyDragOver($event, g)"
+        @dragleave="onBodyDragLeave"
+        @drop="onBodyDrop($event, g)"
       >
         <div class="divide-y divide-border">
           <div
@@ -292,14 +405,12 @@ function rowDragOverKey(item: WorkspaceItem): string {
                 : onNoteDragStart($event, item.note)
             "
             @dragend="enableItemDrag ? onDragEnd() : undefined"
-            @dragover.prevent="
-              enableItemDrag ? (dragOver = rowDragOverKey(item)) : undefined
-            "
-            @dragleave="enableItemDrag ? (dragOver = null) : undefined"
-            @drop.stop.prevent="enableItemDrag ? onDropAt(g.key, idx) : undefined"
+            @dragover="onRowDragOver($event, item, g)"
+            @dragleave="onRowDragLeave"
+            @drop="onRowDrop($event, g, idx)"
           >
             <div
-              v-if="enableItemDrag && dragOver === rowDragOverKey(item)"
+              v-if="enableItemDrag && !isSectionDragging && dragOver === rowDragOverKey(item)"
               class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
             />
             <ProjectItemCard

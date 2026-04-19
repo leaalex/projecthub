@@ -170,7 +170,7 @@
     },
     "section": {
       "heading": "Разделы",
-      "add": "Добавить раздел",
+      "add": "Новый раздел",
       "namePlaceholder": "Название раздела…",
       "nameLabel": "Название раздела",
       "editModalTitle": "Редактировать раздел",
@@ -214,8 +214,13 @@
     "empty": "Корзина пуста",
     "kindTask": "Задача",
     "kindNote": "Заметка",
-    "backToProject": "Назад к проекту",
-    "loadError": "Не удалось загрузить страницу корзины"
+    "loadError": "Не удалось загрузить страницу корзины",
+    "emptyTrash": "Очистить корзину",
+    "emptyTrashConfirmTitle": "Очистить корзину?",
+    "emptyTrashConfirmMessage": "Все удалённые задачи и заметки этого проекта будут безвозвратно удалены.",
+    "emptyTrashConfirm": "Очистить",
+    "emptyTrashSuccess": "Корзина очищена",
+    "emptyTrashSomeFailed": "Не удалось удалить часть элементов. Повторите попытку."
   },
   "projectDetail": {
     "members": "Участники",
@@ -229,7 +234,7 @@
     },
     "emptyWorkspaceTitle": "Пока нет задач и заметок",
     "emptyWorkspaceDescription": "Создайте задачу или заметку, чтобы начать.",
-    "addSection": "Добавить раздел",
+    "addSection": "Новый раздел",
     "sectionNamePlaceholder": "Название раздела…",
     "taskFiltersRegion": "Фильтры и сортировка задач",
     "emptyNoMatchTitle": "Нет задач по фильтрам",
@@ -786,7 +791,7 @@
     "section": {
       "none": "Без раздела",
       "heading": "Разделы заметок",
-      "add": "Добавить раздел",
+      "add": "Новый раздел",
       "namePlaceholder": "Название раздела…",
       "empty": "Разделов пока нет.",
       "created": "Раздел создан",

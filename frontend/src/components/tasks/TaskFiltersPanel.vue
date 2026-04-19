@@ -13,6 +13,7 @@ import type {
   TaskGroupBy,
   TaskSortKey,
 } from '@app/composables/useTaskListPresentation'
+import type { ProjectItemKindFilter } from '@app/composables/useProjectItemsPresentation'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
@@ -27,12 +28,15 @@ const props = withDefaults(
     hideProjectFilter?: boolean
     /** Hide “Group list only” (e.g. mixed project workspace is always by section). */
     hideGroupBy?: boolean
+    /** Страница проекта: переключатель «Все / Задачи / Заметки» и ручной порядок секций — в панели фильтров. */
+    showProjectWorkspaceOptions?: boolean
   }>(),
   {
     showAssigneeFilter: false,
     assignableUsers: () => [],
     hideProjectFilter: false,
     hideGroupBy: false,
+    showProjectWorkspaceOptions: false,
   },
 )
 
@@ -53,6 +57,22 @@ const sortKey = defineModel<TaskSortKey>('sortKey', {
 })
 const sortDir = defineModel<SortDir>('sortDir', { default: 'desc' })
 const groupBy = defineModel<TaskGroupBy>('groupBy', { default: 'none' })
+const projectItemKind = defineModel<ProjectItemKindFilter>('projectItemKind', {
+  default: 'all',
+})
+const manualSectionOrder = defineModel<boolean>('manualSectionOrder', {
+  default: true,
+})
+
+const itemKindSegmented = computed<{ value: ProjectItemKindFilter; label: string }[]>(() => [
+  { value: 'all', label: t('project.itemKind.all') },
+  { value: 'tasks', label: t('project.itemKind.tasks') },
+  { value: 'notes', label: t('project.itemKind.notes') },
+])
+
+const showTaskFilterFields = computed(
+  () => !props.showProjectWorkspaceOptions || projectItemKind.value !== 'notes',
+)
 
 watch(
   () => props.hideProjectFilter,
@@ -153,7 +173,34 @@ const clearBtnClass =
 <template>
   <UiCard padding="p-4 sm:p-5">
     <div class="space-y-4">
-      <div :class="filterGridClass">
+      <div
+        v-if="showProjectWorkspaceOptions"
+        class="space-y-3 border-b border-border pb-4"
+      >
+        <div>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{
+            t('projectDetail.itemKind.region')
+          }}</label>
+          <UiSegmentedControl
+            v-model="projectItemKind"
+            class="max-w-full"
+            :aria-label="t('projectDetail.itemKind.region')"
+            :options="itemKindSegmented"
+          />
+        </div>
+        <label
+          v-if="projectItemKind !== 'notes'"
+          class="flex cursor-pointer items-center gap-2 text-xs text-muted"
+        >
+          <input
+            v-model="manualSectionOrder"
+            type="checkbox"
+            class="rounded border-border"
+          />
+          {{ t('projectDetail.manualSectionOrder') }}
+        </label>
+      </div>
+      <div v-if="showTaskFilterFields" :class="filterGridClass">
         <div v-if="!hideProjectFilter">
           <label class="mb-1 block text-xs font-medium text-foreground">{{
             t('taskFiltersPanel.labels.project')
@@ -260,6 +307,7 @@ const clearBtnClass =
       </div>
 
       <div
+        v-if="showTaskFilterFields"
         class="-mx-1 flex max-w-full flex-nowrap items-end gap-4 overflow-x-auto px-1 pb-0.5"
         role="group"
         :aria-label="t('taskFiltersPanel.aria.sortOrderGrouping')"

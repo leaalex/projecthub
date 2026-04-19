@@ -30,7 +30,6 @@ import { useTasksPageAssignableUsers } from '@app/composables/useAdminAssignable
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
-import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
@@ -525,9 +524,6 @@ async function onSectionMove(payload: {
           >
             <h2 class="text-sm font-semibold text-foreground">
               {{ g.label }}
-              <span class="font-normal text-muted">{{
-                taskSectionHeaderStats(g.tasks)
-              }}</span>
             </h2>
             <TaskList
               :tasks="g.tasks"

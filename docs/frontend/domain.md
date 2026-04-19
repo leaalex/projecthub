@@ -119,12 +119,6 @@
 | `groupTasks(tasks, by, labels)` | Группировка по ключу с i18n-метками |
 | `presentTasks(tasks, opts)` | Единая точка входа: filter → sort → group |
 
-### [`stats.ts`](../../frontend/src/domain/task/stats.ts)
-
-| Экспорт | Описание |
-|---------|----------|
-| `taskSectionHeaderStats(tasks)` | Строка-суммари для заголовка секции: `"N задач, X выполнено (Y%)"` |
-
 ---
 
 ## `domain/note/`

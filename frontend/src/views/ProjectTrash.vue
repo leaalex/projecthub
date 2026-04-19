@@ -63,6 +63,7 @@ const taskTrashModalOpen = ref(false)
 const taskTrashModalId = ref<number | null>(null)
 const noteTrashModalOpen = ref(false)
 const noteTrashModalId = ref<number | null>(null)
+const clearingTrash = ref(false)
 
 type TrashRow = {
   kind: 'task' | 'note'
@@ -233,6 +234,47 @@ async function hardDeleteNote(noteId: number) {
   }
 }
 
+async function clearEntireTrash() {
+  if (!canManageTrash.value || mixedRows.value.length === 0) return
+  const pid = id.value
+  if (!Number.isFinite(pid) || pid <= 0) return
+  const ok = await confirm({
+    title: t('projectTrash.emptyTrashConfirmTitle'),
+    message: t('projectTrash.emptyTrashConfirmMessage'),
+    confirmLabelKey: 'projectTrash.emptyTrashConfirm',
+    danger: true,
+  })
+  if (!ok) return
+  clearingTrash.value = true
+  const taskIds = trashTasksStore.tasks.map(t => t.id)
+  const noteIds = trashNotesStore.notes.map(n => n.id)
+  let failed = 0
+  try {
+    for (const tid of taskIds) {
+      try {
+        await trashTasksStore.permanentDeleteTask(tid)
+      } catch {
+        failed++
+      }
+    }
+    for (const nid of noteIds) {
+      try {
+        await trashNotesStore.permanentDeleteNote(pid, nid)
+      } catch {
+        failed++
+      }
+    }
+    if (failed === 0) {
+      toast.success(t('projectTrash.emptyTrashSuccess'))
+    } else {
+      toast.error(t('projectTrash.emptyTrashSomeFailed'))
+      await loadTrashInternal()
+    }
+  } finally {
+    clearingTrash.value = false
+  }
+}
+
 async function onModalSaved() {
   await loadTrash()
 }
@@ -257,7 +299,7 @@ async function onModalSaved() {
     <Breadcrumb class="mb-4" :items="breadcrumbItems" />
 
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0 flex-1">
+      <div class="min-w-0">
         <h1 class="text-2xl font-semibold text-foreground">
           {{ t('projectTrash.title') }}
         </h1>
@@ -265,12 +307,16 @@ async function onModalSaved() {
           {{ projectStore.current.name }}
         </p>
       </div>
-      <router-link
-        :to="{ name: 'project-detail', params: { id } }"
-        class="text-sm font-medium text-primary underline"
+      <Button
+        v-if="canManageTrash && mixedRows.length > 0"
+        type="button"
+        variant="ghost-danger"
+        class="shrink-0"
+        :disabled="clearingTrash || loading"
+        @click="void clearEntireTrash()"
       >
-        {{ t('projectTrash.backToProject') }}
-      </router-link>
+        {{ t('projectTrash.emptyTrash') }}
+      </Button>
     </div>
 
     <div class="mt-6 rounded-lg border border-border bg-surface p-4">

@@ -170,7 +170,7 @@
     },
     "section": {
       "heading": "Sections",
-      "add": "Add section",
+      "add": "New section",
       "namePlaceholder": "Section name…",
       "nameLabel": "Section name",
       "editModalTitle": "Edit section",
@@ -214,8 +214,13 @@
     "empty": "Trash is empty",
     "kindTask": "Task",
     "kindNote": "Note",
-    "backToProject": "Back to project",
-    "loadError": "Could not load the trash page"
+    "loadError": "Could not load the trash page",
+    "emptyTrash": "Empty trash",
+    "emptyTrashConfirmTitle": "Empty the trash?",
+    "emptyTrashConfirmMessage": "All deleted tasks and notes in this project will be permanently removed. This cannot be undone.",
+    "emptyTrashConfirm": "Empty trash",
+    "emptyTrashSuccess": "Trash emptied",
+    "emptyTrashSomeFailed": "Some items could not be deleted. Try again."
   },
   "projectDetail": {
     "members": "Members",
@@ -229,7 +234,7 @@
     },
     "emptyWorkspaceTitle": "No tasks or notes yet",
     "emptyWorkspaceDescription": "Create a task or a note to get started.",
-    "addSection": "Add section",
+    "addSection": "New section",
     "sectionNamePlaceholder": "Section name…",
     "taskFiltersRegion": "Task filters and sort",
     "emptyNoMatchTitle": "No tasks match filters",
@@ -786,7 +791,7 @@
     "section": {
       "none": "No section",
       "heading": "Note sections",
-      "add": "Add section",
+      "add": "New section",
       "namePlaceholder": "Section name…",
       "empty": "No sections yet.",
       "created": "Section created",
