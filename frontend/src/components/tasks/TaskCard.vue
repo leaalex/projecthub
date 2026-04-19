@@ -44,7 +44,15 @@ const updatedLabel = computed(() =>
 </script>
 
 <template>
-  <div class="group flex items-center gap-2.5 py-2">
+  <div
+    class="group flex cursor-pointer items-center gap-2.5 rounded-md py-2 transition-colors hover:bg-surface-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    role="button"
+    tabindex="0"
+    :aria-label="task.title"
+    @click="emit('view', task.id)"
+    @keydown.enter.prevent="emit('view', task.id)"
+    @keydown.space.prevent="emit('view', task.id)"
+  >
     <div class="flex shrink-0 flex-col self-center">
       <button
         v-if="task.status !== 'done'"
@@ -64,27 +72,25 @@ const updatedLabel = computed(() =>
       </button>
     </div>
 
-    <button
-      type="button"
-      class="min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground transition-colors hover:bg-surface-muted/60 rounded-md px-0.5 -mx-0.5"
+    <span
+      class="min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground"
       :class="task.status === 'done' && 'text-muted line-through'"
-      @click="emit('view', task.id)"
     >
       {{ task.title }}
-    </button>
+    </span>
 
     <span class="shrink-0 text-xs text-muted">{{ updatedLabel }}</span>
 
     <div
       v-if="canOpenEditModal"
-      class="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      class="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 has-[:focus-visible]:opacity-100"
       @click.stop
     >
       <button
         type="button"
         class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         :aria-label="t('taskCard.aria.edit')"
-        @click="emit('edit', task.id)"
+        @click.stop="emit('edit', task.id)"
       >
         <PencilSquareIcon class="h-5 w-5" aria-hidden="true" />
       </button>
