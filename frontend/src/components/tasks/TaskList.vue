@@ -14,12 +14,8 @@ withDefaults(
     canEditTask?: (task: Task) => boolean
     /** Status changes (executors, managers, etc.). */
     canChangeStatusTask?: (task: Task) => boolean
-    /** Owned projects for inline “move task” (optional). */
-    projects?: { id: number; name: string }[]
-    /** Users shown in assignee dropdown (e.g. admin-loaded); empty = read-only assignee. */
-    assignableUsers?: { id: number; email: string; name: string }[]
   }>(),
-  { emptyMessage: '', projects: () => [], assignableUsers: () => [] },
+  { emptyMessage: '' },
 )
 
 const emit = defineEmits<{
@@ -27,7 +23,6 @@ const emit = defineEmits<{
   reopen: [id: number]
   viewTask: [id: number]
   editTask: [id: number]
-  openNote: [payload: { noteId: number; projectId: number }]
 }>()
 </script>
 
@@ -51,13 +46,10 @@ const emit = defineEmits<{
         :can-change-status="
           canChangeStatusTask?.(task) ?? canEditTask?.(task) ?? false
         "
-        :projects="projects"
-        :assignable-users="assignableUsers"
         @complete="emit('complete', $event)"
         @reopen="emit('reopen', $event)"
         @view="emit('viewTask', $event)"
         @edit="emit('editTask', $event)"
-        @open-note="emit('openNote', $event)"
       />
       <p
         v-if="tasks.length === 0"

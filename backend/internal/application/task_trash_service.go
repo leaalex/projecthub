@@ -34,6 +34,18 @@ func (s *TaskTrashService) canManage(ctx context.Context, projectID, callerID ui
 	return r == project.RoleManager, nil
 }
 
+// Get возвращает одну мягко удалённую задачу проекта (для просмотра в корзине).
+func (s *TaskTrashService) Get(ctx context.Context, taskID, projectID, callerID uint, role user.Role) (*task.Task, error) {
+	ok, err := s.canManage(ctx, projectID, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, project.ErrForbidden
+	}
+	return s.Tasks.FindDeletedByIDInProject(ctx, project.ID(projectID), task.ID(taskID))
+}
+
 // ListDeleted возвращает мягко удалённые задачи проекта.
 func (s *TaskTrashService) ListDeleted(ctx context.Context, projectID, callerID uint, role user.Role) ([]*task.Task, error) {
 	ok, err := s.canManage(ctx, projectID, callerID, role)

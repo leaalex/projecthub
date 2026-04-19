@@ -9,6 +9,7 @@ import UiInput from '../ui/UiInput.vue'
 import TaskForm from './TaskForm.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { useTaskStore } from '@app/task.store'
+import { useTrashTasksStore } from '@app/trashTasks.store'
 import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
 import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
@@ -29,8 +30,14 @@ const props = withDefaults(
     taskId: number | null
     /** When user opened modal via Edit on the card. */
     initialMode?: 'view' | 'edit'
+    /** Загрузка из корзины проекта (GET .../trash/tasks/:id). */
+    trashed?: boolean
+    /** project_id для корзины; обязателен при `trashed`. */
+    trashProjectId?: number | null
+    /** Restore / удалить навсегда в корзине (как права на заметки в проекте). */
+    canManageTrash?: boolean
   }>(),
-  { initialMode: 'view' },
+  { initialMode: 'view', trashed: false, trashProjectId: null, canManageTrash: true },
 )
 
 const emit = defineEmits<{
@@ -40,6 +47,7 @@ const emit = defineEmits<{
 }>()
 
 const taskStore = useTaskStore()
+const trashTasksStore = useTrashTasksStore()
 const auth = useAuthStore()
 const projectStore = useProjectStore()
 const noteStore = useNoteStore()
@@ -51,6 +59,8 @@ const loading = ref(false)
 const loadError = ref<string | null>(null)
 const saving = ref(false)
 const removing = ref(false)
+const restoring = ref(false)
+const purging = ref(false)
 /** Edit form vs read-only dl (only when `canEdit`). */
 const editing = ref(false)
 
@@ -107,13 +117,34 @@ async function refreshLinkedNotes() {
 }
 
 watch(
-  () => [props.modelValue, props.taskId] as const,
-  async ([open, id]) => {
+  () =>
+    [props.modelValue, props.taskId, props.trashed, props.trashProjectId] as const,
+  async ([open, id, trashed, trashPid]) => {
     if (!open || id == null) {
       task.value = null
       loadError.value = null
       linkedNotes.value = []
       editing.value = false
+      return
+    }
+    if (trashed) {
+      if (trashPid == null || !Number.isFinite(trashPid) || trashPid <= 0) {
+        task.value = null
+        loadError.value = t('taskDetailModal.loadError')
+        return
+      }
+      loading.value = true
+      loadError.value = null
+      task.value = null
+      linkedNotes.value = []
+      editing.value = false
+      try {
+        task.value = await trashTasksStore.fetchOne(trashPid, id)
+      } catch {
+        loadError.value = t('taskDetailModal.loadError')
+      } finally {
+        loading.value = false
+      }
       return
     }
     loading.value = true
@@ -269,6 +300,46 @@ async function removeTask() {
     removing.value = false
   }
 }
+
+async function restoreFromTrash() {
+  const cur = task.value
+  const pid = props.trashProjectId
+  if (!cur || pid == null) return
+  restoring.value = true
+  try {
+    await trashTasksStore.restoreTask(pid, cur.id)
+    toast.success(t('notes.trash.taskRestored'))
+    close()
+    emit('saved')
+  } catch {
+    toast.error(t('notes.trash.restoreFailed'))
+  } finally {
+    restoring.value = false
+  }
+}
+
+async function purgeFromTrash() {
+  const cur = task.value
+  if (!cur) return
+  const ok = await confirm({
+    title: t('notes.trash.confirmPermanentTitle'),
+    message: t('notes.trash.confirmPermanentTask'),
+    confirmLabelKey: 'notes.trash.confirmPermanent',
+    danger: true,
+  })
+  if (!ok) return
+  purging.value = true
+  try {
+    await trashTasksStore.permanentDeleteTask(cur.id)
+    toast.success(t('notes.trash.taskPurged'))
+    close()
+    emit('saved')
+  } catch {
+    toast.error(t('notes.trash.purgeFailed'))
+  } finally {
+    purging.value = false
+  }
+}
 </script>
 
 <template>
@@ -285,7 +356,7 @@ async function removeTask() {
     <p v-else-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
     <template v-else-if="task">
       <dl
-        v-if="!canEdit || !editing"
+        v-if="!canEdit || !editing || trashed"
         class="space-y-4 text-sm"
       >
         <div>
@@ -370,7 +441,31 @@ async function removeTask() {
       </dl>
 
       <div
-        v-if="canEdit && !editing"
+        v-if="trashed && canManageTrash"
+        class="mt-4 flex flex-wrap gap-2"
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          :loading="restoring"
+          :disabled="purging"
+          @click="restoreFromTrash"
+        >
+          {{ t('notes.restore') }}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost-danger"
+          :loading="purging"
+          :disabled="restoring"
+          @click="purgeFromTrash"
+        >
+          {{ t('notes.trash.deleteForever') }}
+        </Button>
+      </div>
+
+      <div
+        v-if="canEdit && !editing && !trashed"
         class="mt-4 flex justify-end"
       >
         <Button
@@ -383,7 +478,7 @@ async function removeTask() {
         </Button>
       </div>
 
-      <div v-else-if="canEdit && editing" class="space-y-4">
+      <div v-else-if="canEdit && editing && !trashed" class="space-y-4">
         <div class="rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-sm">
           <div class="text-muted">{{ t('taskDetailModal.labels.project') }}</div>
           <div class="font-medium text-foreground">
@@ -446,7 +541,7 @@ async function removeTask() {
         <TaskSubtasksPanel :task="task" @updated="refreshTask" />
       </div>
 
-      <div class="mt-6 border-t border-border pt-4">
+      <div v-if="!trashed" class="mt-6 border-t border-border pt-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-semibold text-foreground">
             {{ t('taskDetailModal.linkedNotes.heading') }}

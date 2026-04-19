@@ -98,6 +98,19 @@ func (m *memTasks) ListDeletedByProject(ctx context.Context, projectID project.I
 	return out, nil
 }
 
+func (m *memTasks) FindDeletedByIDInProject(ctx context.Context, projectID project.ID, id task.ID) (*task.Task, error) {
+	list, err := m.ListDeletedByProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for _, tk := range list {
+		if tk.ID() == id {
+			return tk, nil
+		}
+	}
+	return nil, task.ErrTaskNotFound
+}
+
 func (m *memTasks) DeleteByProject(ctx context.Context, projectID project.ID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

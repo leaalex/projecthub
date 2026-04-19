@@ -297,6 +297,18 @@ func (s *NoteService) HardDeleteInProject(ctx context.Context, projectID, noteID
 	return s.Notes.HardDelete(ctx, note.ID(noteID))
 }
 
+// GetDeleted возвращает одну мягко удалённую заметку проекта (для просмотра в корзине).
+func (s *NoteService) GetDeleted(ctx context.Context, noteID, projectID, callerID uint, role user.Role) (*note.Note, error) {
+	ok, err := s.canManage(ctx, projectID, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+	return s.Notes.FindDeletedByIDInProject(ctx, project.ID(projectID), note.ID(noteID))
+}
+
 // ListDeleted возвращает мягко удалённые заметки проекта.
 func (s *NoteService) ListDeleted(ctx context.Context, projectID, callerID uint, role user.Role) ([]*note.Note, error) {
 	ok, err := s.canManage(ctx, projectID, callerID, role)

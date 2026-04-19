@@ -16,7 +16,6 @@ const emit = defineEmits<{
   reopen: [id: number]
   viewTask: [id: number]
   editTask: [id: number]
-  openNote: [payload: { noteId: number; projectId: number }]
   viewNote: [id: number]
   editNote: [id: number]
 }>()
@@ -34,12 +33,10 @@ const emit = defineEmits<{
       @reopen="emit('reopen', $event)"
       @view="emit('viewTask', $event)"
       @edit="emit('editTask', $event)"
-      @open-note="emit('openNote', $event)"
     />
     <NoteCard
       v-else
-      variant="list"
-      class="px-3 py-1"
+      class="px-3"
       :note="item.note"
       :can-manage="canManageNote"
       @view="emit('viewNote', $event)"

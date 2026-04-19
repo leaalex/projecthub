@@ -44,6 +44,19 @@ func (r *GormRepository) FindByIDUnscoped(ctx context.Context, id note.ID) (*not
 	return toDomain(&rec), nil
 }
 
+func (r *GormRepository) FindDeletedByIDInProject(ctx context.Context, projectID project.ID, id note.ID) (*note.Note, error) {
+	var rec NoteRecord
+	if err := r.db.WithContext(ctx).Unscoped().
+		Where("id = ? AND project_id = ? AND deleted_at IS NOT NULL", id.Uint(), projectID.Uint()).
+		First(&rec).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, note.ErrNoteNotFound
+		}
+		return nil, err
+	}
+	return toDomain(&rec), nil
+}
+
 func (r *GormRepository) Save(ctx context.Context, n *note.Note) error {
 	rec := fromDomain(n)
 	if rec.ID == 0 {

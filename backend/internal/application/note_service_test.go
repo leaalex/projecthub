@@ -147,6 +147,14 @@ func (m *memNotes) ListDeletedByProject(_ context.Context, projectID project.ID)
 	return out, nil
 }
 
+func (m *memNotes) FindDeletedByIDInProject(_ context.Context, projectID project.ID, id note.ID) (*note.Note, error) {
+	n, ok := m.deleted[id.Uint()]
+	if !ok || n.ProjectID() != projectID {
+		return nil, note.ErrNoteNotFound
+	}
+	return n, nil
+}
+
 func (m *memNotes) NextPosition(_ context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
 	return 1, nil
 }

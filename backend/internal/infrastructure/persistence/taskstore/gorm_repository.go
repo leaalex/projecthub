@@ -178,6 +178,23 @@ func (r *GormRepository) ListDeletedByProject(ctx context.Context, projectID pro
 	return out, nil
 }
 
+func (r *GormRepository) FindDeletedByIDInProject(ctx context.Context, projectID project.ID, id task.ID) (*task.Task, error) {
+	var tr TaskRecord
+	if err := r.db.WithContext(ctx).Unscoped().
+		Where("id = ? AND project_id = ? AND deleted_at IS NOT NULL", id.Uint(), projectID.Uint()).
+		First(&tr).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, task.ErrTaskNotFound
+		}
+		return nil, err
+	}
+	var subRows []SubtaskRecord
+	if err := r.db.WithContext(ctx).Where("task_id = ?", tr.ID).Order("position ASC, id ASC").Find(&subRows).Error; err != nil {
+		return nil, err
+	}
+	return recordToDomain(&tr, subRows)
+}
+
 func (r *GormRepository) DeleteByProject(ctx context.Context, projectID project.ID) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		subQ := tx.Unscoped().Model(&TaskRecord{}).Select("id").Where("project_id = ?", projectID.Uint())

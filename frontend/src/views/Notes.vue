@@ -393,31 +393,39 @@ async function onCreateSubmit(payload: {
       <div v-else class="mt-6 space-y-6">
         <div
           v-if="effectiveGroupBy === 'none'"
-          class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+          class="overflow-hidden rounded-lg border border-border bg-surface"
         >
-          <NoteCard
-            v-for="n in displayFlat"
-            :key="n.id"
-            :note="n"
-            :can-manage="canManageNoteForProject(n.project_id)"
-            @view="openNoteView(n.id, n.project_id)"
-            @edit="openNoteEdit(n.id, n.project_id)"
-          />
+          <div class="divide-y divide-border">
+            <NoteCard
+              v-for="n in displayFlat"
+              :key="n.id"
+              class="px-3"
+              :note="n"
+              :can-manage="canManageNoteForProject(n.project_id)"
+              @view="openNoteView(n.id, n.project_id)"
+              @edit="openNoteEdit(n.id, n.project_id)"
+            />
+          </div>
         </div>
         <template v-else>
           <div v-for="g in displayGroups" :key="g.key" class="space-y-2">
             <h2 v-if="g.label" class="text-sm font-semibold text-foreground">
               {{ g.label }}
             </h2>
-            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <NoteCard
-                v-for="n in g.notes"
-                :key="n.id"
-                :note="n"
-                :can-manage="canManageNoteForProject(n.project_id)"
-                @view="openNoteView(n.id, n.project_id)"
-                @edit="openNoteEdit(n.id, n.project_id)"
-              />
+            <div
+              class="overflow-hidden rounded-lg border border-border bg-surface"
+            >
+              <div class="divide-y divide-border">
+                <NoteCard
+                  v-for="n in g.notes"
+                  :key="n.id"
+                  class="px-3"
+                  :note="n"
+                  :can-manage="canManageNoteForProject(n.project_id)"
+                  @view="openNoteView(n.id, n.project_id)"
+                  @edit="openNoteEdit(n.id, n.project_id)"
+                />
+              </div>
             </div>
           </div>
         </template>

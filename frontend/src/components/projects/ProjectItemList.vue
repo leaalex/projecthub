@@ -6,6 +6,7 @@ import type { ProjectItemGroup, WorkspaceItem } from '@app/composables/useProjec
 import { useProjectStore } from '@app/project.store'
 import { extractNoteAxiosError } from '@app/note.store'
 import { taskSectionHeaderStats } from '@domain/task/stats'
+import type { Note } from '@domain/note/types'
 import type { Task } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
 import { useToast } from '@app/composables/useToast'
@@ -22,15 +23,15 @@ const props = withDefaults(
     canEditTask?: (task: Task) => boolean
     canChangeStatusTask?: (task: Task) => boolean
     emptyMessage?: string
-    /** Включает drag-and-drop перемещение задач между секциями / позициями (Tasks.vue). */
-    enableTaskDrag?: boolean
+    /** Включает DnD задач и заметок между секциями / позициями. */
+    enableItemDrag?: boolean
     /** Управление разделами проекта в заголовках групп (только страница проекта). */
     canManageSections?: boolean
     projectId?: number
   }>(),
   {
     emptyMessage: '',
-    enableTaskDrag: true,
+    enableItemDrag: true,
     canManageSections: false,
     projectId: 0,
   },
@@ -41,15 +42,21 @@ const emit = defineEmits<{
   reopen: [id: number]
   viewTask: [id: number]
   editTask: [id: number]
-  openNote: [payload: { noteId: number; projectId: number }]
   viewNote: [id: number]
   editNote: [id: number]
-  move: [payload: { taskId: number; sectionId: number | null; position: number }]
+  move: [
+    payload: {
+      kind: 'task' | 'note'
+      id: number
+      sectionId: number | null
+      position: number
+    },
+  ]
   sectionsUpdated: []
   editSection: [payload: { sectionId: number; name: string }]
 }>()
 
-const dragTaskId = ref<number | null>(null)
+const dragItem = ref<{ kind: 'task' | 'note'; id: number } | null>(null)
 const dragOver = ref<string | null>(null)
 
 const dragSectionId = ref<number | null>(null)
@@ -59,12 +66,6 @@ const manageSectionsActive = computed(
     props.canManageSections
     && Number.isFinite(props.projectId)
     && props.projectId > 0,
-)
-
-const allTasks = computed(() =>
-  props.groups.flatMap((g) =>
-    g.items.filter((x): x is { kind: 'task'; task: Task } => x.kind === 'task').map((x) => x.task),
-  ),
 )
 
 function parseSectionKey(key: string): number | null {
@@ -84,36 +85,52 @@ function sectionIdsInDisplayOrder(): number[] {
 }
 
 function canDragTask(task: Task): boolean {
-  if (!props.enableTaskDrag) return false
+  if (!props.enableItemDrag) return false
   return props.canEditTask?.(task) ?? false
 }
 
-function onDragStart(e: DragEvent, task: Task) {
+function canDragNote(_note: Note): boolean {
+  if (!props.enableItemDrag) return false
+  return props.canManageNote
+}
+
+function onTaskDragStart(e: DragEvent, task: Task) {
   if (!canDragTask(task)) {
     e.preventDefault()
     return
   }
-  dragTaskId.value = task.id
+  dragItem.value = { kind: 'task', id: task.id }
   dragSectionId.value = null
-  e.dataTransfer?.setData('text/plain', String(task.id))
+  e.dataTransfer?.setData('text/plain', `task:${task.id}`)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+
+function onNoteDragStart(e: DragEvent, note: Note) {
+  if (!canDragNote(note)) {
+    e.preventDefault()
+    return
+  }
+  dragItem.value = { kind: 'note', id: note.id }
+  dragSectionId.value = null
+  e.dataTransfer?.setData('text/plain', `note:${note.id}`)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 
 function onDragEnd() {
-  dragTaskId.value = null
+  dragItem.value = null
   dragOver.value = null
 }
 
-function draggedTask(): Task | undefined {
-  if (dragTaskId.value == null) return undefined
-  return allTasks.value.find((t) => t.id === dragTaskId.value)
-}
-
 function onDropAt(sectionKey: string, position: number) {
-  const task = draggedTask()
-  if (!task) return
+  const item = dragItem.value
+  if (!item) return
   const sectionId = parseSectionKey(sectionKey)
-  emit('move', { taskId: task.id, sectionId, position })
+  emit('move', {
+    kind: item.kind,
+    id: item.id,
+    sectionId,
+    position,
+  })
 }
 
 function tasksInGroup(items: WorkspaceItem[]) {
@@ -128,7 +145,7 @@ function onSectionDragStart(e: DragEvent, sectionId: number) {
     return
   }
   dragSectionId.value = sectionId
-  dragTaskId.value = null
+  dragItem.value = null
   e.dataTransfer?.setData('text/plain', String(sectionId))
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
@@ -188,6 +205,10 @@ function openSectionEdit(g: ProjectItemGroup) {
 function sectionIdForGroup(g: ProjectItemGroup): number | null {
   return parseSectionKey(g.key)
 }
+
+function rowDragOverKey(item: WorkspaceItem): string {
+  return item.kind === 'task' ? `task:${item.task.id}` : `note:${item.note.id}`
+}
 </script>
 
 <template>
@@ -201,7 +222,7 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
         v-if="manageSectionsActive && sectionIdForGroup(g) != null"
       >
         <div
-          class="flex flex-wrap items-center gap-2 rounded-md px-0.5 py-0.5"
+          class="group flex flex-wrap items-center gap-2 rounded-md px-0.5 py-0.5"
           :class="dragOver === `sec-head:${g.key}` ? 'bg-surface-muted/40' : ''"
           @dragover="onSectionHeaderDragOver($event, g)"
           @dragleave="dragOver = null"
@@ -221,7 +242,10 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
               }}</span>
             </h2>
           </div>
-          <div class="flex shrink-0 items-center gap-0.5" @mousedown.stop>
+          <div
+            class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            @mousedown.stop
+          >
             <Button
               type="button"
               variant="ghost"
@@ -248,24 +272,34 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
       <div
         class="overflow-hidden rounded-lg border border-border bg-surface"
         :class="dragOver === `section:${g.key}` ? 'ring-1 ring-primary/40 border-primary' : ''"
-        @dragover.prevent="enableTaskDrag ? (dragOver = `section:${g.key}`) : undefined"
-        @dragleave="enableTaskDrag ? (dragOver = null) : undefined"
-        @drop.prevent="enableTaskDrag ? onDropAt(g.key, g.items.length) : undefined"
+        @dragover.prevent="enableItemDrag ? (dragOver = `section:${g.key}`) : undefined"
+        @dragleave="enableItemDrag ? (dragOver = null) : undefined"
+        @drop.prevent="enableItemDrag ? onDropAt(g.key, g.items.length) : undefined"
       >
         <div class="divide-y divide-border">
           <div
             v-for="(item, idx) in g.items"
             :key="item.kind === 'task' ? `t-${item.task.id}` : `n-${item.note.id}`"
-            :draggable="item.kind === 'task' ? canDragTask(item.task) : false"
+            :draggable="
+              item.kind === 'task'
+                ? canDragTask(item.task)
+                : canDragNote(item.note)
+            "
             class="relative"
-            @dragstart="item.kind === 'task' ? onDragStart($event, item.task) : undefined"
-            @dragend="enableTaskDrag ? onDragEnd() : undefined"
-            @dragover.prevent="enableTaskDrag && item.kind === 'task' ? (dragOver = `task:${item.task.id}`) : undefined"
-            @dragleave="enableTaskDrag ? (dragOver = null) : undefined"
-            @drop.stop.prevent="enableTaskDrag && item.kind === 'task' ? onDropAt(g.key, idx) : undefined"
+            @dragstart="
+              item.kind === 'task'
+                ? onTaskDragStart($event, item.task)
+                : onNoteDragStart($event, item.note)
+            "
+            @dragend="enableItemDrag ? onDragEnd() : undefined"
+            @dragover.prevent="
+              enableItemDrag ? (dragOver = rowDragOverKey(item)) : undefined
+            "
+            @dragleave="enableItemDrag ? (dragOver = null) : undefined"
+            @drop.stop.prevent="enableItemDrag ? onDropAt(g.key, idx) : undefined"
           >
             <div
-              v-if="enableTaskDrag && item.kind === 'task' && dragOver === `task:${item.task.id}`"
+              v-if="enableItemDrag && dragOver === rowDragOverKey(item)"
               class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
             />
             <ProjectItemCard
@@ -277,7 +311,6 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
               @reopen="emit('reopen', $event)"
               @view-task="emit('viewTask', $event)"
               @edit-task="emit('editTask', $event)"
-              @open-note="emit('openNote', $event)"
               @view-note="emit('viewNote', $event)"
               @edit-note="emit('editNote', $event)"
             />

@@ -30,6 +30,8 @@ type Repository interface {
 	HardDelete(ctx context.Context, id ID) error
 	// ListDeletedByProject — мягко удалённые задачи проекта.
 	ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*Task, error)
+	// FindDeletedByIDInProject — мягко удалённая задача в проекте (для корзины).
+	FindDeletedByIDInProject(ctx context.Context, projectID project.ID, id ID) (*Task, error)
 	DeleteByProject(ctx context.Context, projectID project.ID) error
 	ListVisible(ctx context.Context, filter ListFilter) ([]*Task, error)
 	NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error)

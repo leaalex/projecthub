@@ -7,7 +7,7 @@ import type {
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
-import type { NoteTrashItem } from '@domain/note/types'
+import type { Note, NoteTrashItem } from '@domain/note/types'
 import type { Task } from '@domain/task/types'
 import { api } from '@infra/http/client'
 
@@ -244,6 +244,26 @@ export const projectsApi = {
     notes: (projectId: number) =>
       api.get<{ notes?: NoteTrashItem[] | null }>(
         `/projects/${projectId}/trash/notes`,
+      ),
+
+    /**
+     * Одна удалённая задача (полное тело).
+     *
+     * @http GET /projects/:projectId/trash/tasks/:taskId
+     */
+    getTask: (projectId: number, taskId: number) =>
+      api.get<{ task?: Task | null }>(
+        `/projects/${projectId}/trash/tasks/${taskId}`,
+      ),
+
+    /**
+     * Одна удалённая заметка (включая body).
+     *
+     * @http GET /projects/:projectId/trash/notes/:noteId
+     */
+    getNote: (projectId: number, noteId: number) =>
+      api.get<{ note?: Note | null }>(
+        `/projects/${projectId}/trash/notes/${noteId}`,
       ),
 
     /**

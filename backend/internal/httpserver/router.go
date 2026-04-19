@@ -66,7 +66,12 @@ func BuildRouter(deps Deps) *gin.Engine {
 		Users:     deps.UserRepo,
 	}
 	noteHandler := &handler.NoteHandler{Notes: deps.Notes}
-	trashHandler := &handler.TrashHandler{Tasks: deps.TaskTrash, Notes: deps.Notes}
+	trashHandler := &handler.TrashHandler{
+		TaskTrash: deps.TaskTrash,
+		Notes:     deps.Notes,
+		TaskSvc:   deps.Tasks,
+		Users:     deps.UserRepo,
+	}
 	projectSectionHandler := &handler.ProjectSectionHandler{Projects: deps.Projects, SectionItems: deps.SectionItems}
 	subtaskHandler := &handler.SubtaskHandler{Tasks: deps.Tasks}
 	userHandler := &handler.UserHandler{Svc: deps.Users}
@@ -114,7 +119,9 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects.POST("/:id/notes/:noteId/links", noteHandler.LinkTask)
 	projects.DELETE("/:id/notes/:noteId/links/:taskId", noteHandler.UnlinkTask)
 	projects.GET("/:id/trash/tasks", trashHandler.ListDeletedTasks)
+	projects.GET("/:id/trash/tasks/:taskId", trashHandler.GetDeletedTask)
 	projects.GET("/:id/trash/notes", trashHandler.ListDeletedNotes)
+	projects.GET("/:id/trash/notes/:noteId", trashHandler.GetDeletedNote)
 	projects.POST("/:id/trash/tasks/:taskId/restore", taskHandler.RestoreTask)
 	projects.GET("/:id/members", memberHandler.List)
 	projects.POST("/:id/members", memberHandler.Add)

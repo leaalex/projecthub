@@ -12,15 +12,17 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
-import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
-import NoteInlineComposer from '../components/notes/NoteInlineComposer.vue'
+import NoteForm from '../components/notes/NoteForm.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import SectionEditModal from '../components/projects/SectionEditModal.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
-import ProjectTrashPanel from '../components/notes/ProjectTrashPanel.vue'
 import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
-import { presentProjectItems, type ProjectItemKindFilter } from '@app/composables/useProjectItemsPresentation'
+import {
+  presentProjectItems,
+  type ProjectItemGroup,
+  type ProjectItemKindFilter,
+} from '@app/composables/useProjectItemsPresentation'
 import {
   type AssigneeFilterValue,
   type SortDir,
@@ -31,8 +33,6 @@ import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
 import { extractNoteAxiosError, useNoteStore } from '@app/note.store'
-import { useTrashTasksStore } from '@app/trashTasks.store'
-import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useProjectScopedAssignableUsers } from '@app/composables/useAdminAssignableUsers'
 import { useConfirm } from '@app/composables/useConfirm'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
@@ -51,9 +51,6 @@ const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const noteStore = useNoteStore()
-const trashTasksStore = useTrashTasksStore()
-const trashNotesStore = useTrashNotesStore()
-
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
@@ -79,12 +76,6 @@ const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
 const noteDetailOpen = ref(false)
 const noteDetailId = ref<number | null>(null)
-const trashModalOpen = ref(false)
-
-const showSectionAdd = ref(false)
-const newSectionName = ref('')
-const savingSection = ref(false)
-
 const itemKind = ref<ProjectItemKindFilter>('all')
 const manualOrder = ref(true)
 
@@ -130,8 +121,8 @@ const noteDetailModalMode = ref<'view' | 'edit'>('view')
 const sectionEditOpen = ref(false)
 const sectionEditId = ref<number | null>(null)
 const sectionEditName = ref('')
-const showTaskComposer = ref(false)
-const showNoteComposer = ref(false)
+const showNoteModal = ref(false)
+const savingNote = ref(false)
 const filtersOpen = ref(false)
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus[]>([])
@@ -283,9 +274,8 @@ async function load() {
 watch(
   () => route.params.id,
   () => {
-    showTaskComposer.value = false
-    showNoteComposer.value = false
-    trashModalOpen.value = false
+    showModal.value = false
+    showNoteModal.value = false
     resetTaskFilters()
     void load()
   },
@@ -383,6 +373,111 @@ function onEditSection(payload: { sectionId: number; name: string }) {
   sectionEditOpen.value = true
 }
 
+function openSectionCreate() {
+  sectionEditId.value = null
+  sectionEditName.value = ''
+  sectionEditOpen.value = true
+}
+
+function sectionKeyFromSectionId(sectionId: number | null): string {
+  return sectionId == null ? 'unsectioned' : `s-${sectionId}`
+}
+
+function currentSectionIdForItem(
+  kind: 'task' | 'note',
+  itemId: number,
+): number | null | undefined {
+  if (kind === 'task') {
+    const task = projectStore.tasks.find(t => t.id === itemId)
+    return task ? task.section_id ?? null : undefined
+  }
+  const note = noteStore.notes.find(n => n.id === itemId)
+  return note ? note.section_id ?? null : undefined
+}
+
+/**
+ * Строит новый порядок kind+id в целевой секции по drop-индексу (как в ProjectItemList).
+ */
+function buildOrderedSectionItems(
+  groups: ProjectItemGroup[],
+  targetSectionId: number | null,
+  payload: { kind: 'task' | 'note'; id: number; position: number },
+): { kind: 'task' | 'note'; id: number }[] {
+  const key = sectionKeyFromSectionId(targetSectionId)
+  const g = groups.find(x => x.key === key)
+  if (!g) return []
+
+  const current = g.items.map((it): { kind: 'task' | 'note'; id: number } =>
+    it.kind === 'task'
+      ? { kind: 'task', id: it.task.id }
+      : { kind: 'note', id: it.note.id },
+  )
+  const filtered = current.filter(
+    x => !(x.kind === payload.kind && x.id === payload.id),
+  )
+  const oldIdx = current.findIndex(
+    x => x.kind === payload.kind && x.id === payload.id,
+  )
+  let insertAt = payload.position
+  if (oldIdx >= 0 && oldIdx < insertAt) {
+    insertAt -= 1
+  }
+  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+  filtered.splice(insertAt, 0, { kind: payload.kind, id: payload.id })
+  return filtered
+}
+
+async function onItemMove(payload: {
+  kind: 'task' | 'note'
+  id: number
+  sectionId: number | null
+  position: number
+}) {
+  const pid = id.value
+  if (!Number.isFinite(pid) || pid <= 0) return
+
+  const currentSec = currentSectionIdForItem(payload.kind, payload.id)
+  if (currentSec === undefined) return
+
+  const targetSec = payload.sectionId
+
+  try {
+    if (currentSec !== targetSec) {
+      if (payload.kind === 'task') {
+        await taskStore.moveTask(pid, {
+          task_id: payload.id,
+          section_id: targetSec,
+          position: payload.position,
+        })
+      } else {
+        await noteStore.move(
+          pid,
+          payload.id,
+          { section_id: targetSec, position: payload.position },
+          { refetch: false },
+        )
+      }
+    }
+
+    const ordered = buildOrderedSectionItems(
+      itemGroups.value,
+      targetSec,
+      payload,
+    )
+    if (ordered.length === 0) {
+      await onNotesChanged()
+      return
+    }
+    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+  } catch (e: unknown) {
+    toast.error(extractNoteAxiosError(e, t('tasks.toasts.moveFailed')))
+    await Promise.all([
+      projectStore.fetchTasks(pid),
+      noteStore.fetchList(pid, { quiet: true }),
+    ])
+  }
+}
+
 watch(detailOpen, (open) => {
   if (!open) detailTaskId.value = null
 })
@@ -402,38 +497,30 @@ async function onNotesChanged() {
   await onWorkspaceRefreshed()
 }
 
-async function onTrashRestored() {
-  await onWorkspaceRefreshed()
-}
-
 async function refreshProjectTasks() {
   await projectStore.fetchTasks(id.value)
 }
 
-async function onInlineComposerCreated() {
-  await refreshProjectTasks()
-  showTaskComposer.value = false
-}
-
-async function onNoteInlineCreated() {
-  await onNotesChanged()
-  showNoteComposer.value = false
-}
-
-async function createSectionFromToolbar() {
-  const name = newSectionName.value.trim()
-  if (!name || !Number.isFinite(id.value) || id.value <= 0) return
-  savingSection.value = true
+async function createNoteFromModal(payload: {
+  title: string
+  body: string
+  section_id: number | null
+}) {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  savingNote.value = true
   try {
-    await projectStore.createSection(id.value, name)
-    newSectionName.value = ''
-    showSectionAdd.value = false
-    toast.success(t('project.section.created'))
+    await noteStore.create(id.value, {
+      title: payload.title,
+      body: payload.body,
+      section_id: payload.section_id ?? undefined,
+    })
+    showNoteModal.value = false
     await onNotesChanged()
+    toast.success(t('notes.toasts.created'))
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.createFailed')))
+    toast.error(extractNoteAxiosError(e, t('notes.toasts.createFailed')))
   } finally {
-    savingSection.value = false
+    savingNote.value = false
   }
 }
 
@@ -490,16 +577,6 @@ async function onReopen(taskId: number) {
   }
 }
 
-async function openTrashModal() {
-  if (!Number.isFinite(id.value) || id.value <= 0) return
-  trashModalOpen.value = true
-  try {
-    await trashTasksStore.fetchTasks(id.value)
-    await trashNotesStore.fetchNotes(id.value)
-  } catch {
-    toast.error(t('notes.trash.loadFailed'))
-  }
-}
 </script>
 
 <template>
@@ -532,15 +609,14 @@ async function openTrashModal() {
           <UsersIcon class="inline h-4 w-4 shrink-0" aria-hidden="true" />
           <span class="ml-1.5">{{ t('projectDetail.members') }}</span>
         </router-link>
-        <Button
-          type="button"
-          variant="secondary"
-          class="inline-flex shrink-0 items-center gap-1"
-          @click="openTrashModal"
+        <router-link
+          v-if="Number.isFinite(id) && id > 0"
+          :to="{ name: 'project-trash', params: { id } }"
+          class="box-border inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/65 bg-surface-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArchiveBoxIcon class="h-4 w-4" aria-hidden="true" />
           {{ t('projectDetail.tabs.trash') }}
-        </Button>
+        </router-link>
         <Button
           v-if="canEditProject"
           type="button"
@@ -597,7 +673,7 @@ async function openTrashModal() {
           type="button"
           class="shrink-0"
           :disabled="!Number.isFinite(id) || id <= 0"
-          @click="showTaskComposer = true"
+          @click="showModal = true"
         >
           {{ t('projectDetail.newTask') }}
         </Button>
@@ -606,7 +682,7 @@ async function openTrashModal() {
           type="button"
           variant="secondary"
           class="shrink-0"
-          @click="showNoteComposer = !showNoteComposer"
+          @click="showNoteModal = true"
         >
           {{ t('projectDetail.newNote') }}
         </Button>
@@ -615,26 +691,11 @@ async function openTrashModal() {
           type="button"
           variant="secondary"
           class="shrink-0"
-          @click="showSectionAdd = !showSectionAdd"
+          @click="openSectionCreate"
         >
-          {{ showSectionAdd ? t('common.cancel') : t('projectDetail.addSection') }}
+          {{ t('projectDetail.addSection') }}
         </Button>
       </div>
-    </div>
-
-    <div
-      v-if="canManageNoteOnProject && showSectionAdd"
-      class="mt-3 flex flex-wrap items-center gap-2"
-    >
-      <UiInput
-        v-model="newSectionName"
-        class="min-w-[12rem] max-w-md flex-1"
-        :placeholder="t('project.section.namePlaceholder')"
-        @keydown.enter.prevent="createSectionFromToolbar"
-      />
-      <Button type="button" :loading="savingSection" @click="createSectionFromToolbar">
-        {{ t('common.create') }}
-      </Button>
     </div>
 
     <div
@@ -661,28 +722,6 @@ async function openTrashModal() {
       />
     </div>
 
-    <div v-if="canCreateTasks && showTaskComposer" class="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
-      <div class="border-b border-border px-3 py-3">
-        <TaskInlineComposer
-          variant="plain"
-          :project-id="id"
-          :disabled="!Number.isFinite(id) || id <= 0"
-          @created="onInlineComposerCreated"
-          @dismiss="showTaskComposer = false"
-        />
-      </div>
-    </div>
-
-    <div v-if="canManageNoteOnProject && showNoteComposer" class="mt-6 overflow-hidden rounded-lg border border-border bg-surface p-3">
-      <NoteInlineComposer
-        :project-id="id"
-        :sections="projectStore.sections"
-        :section-id="null"
-        :can-manage="canManageNoteOnProject"
-        @created="onNoteInlineCreated"
-      />
-    </div>
-
     <template v-if="totalItemCount === 0 && (projectStore.tasks.length > 0 || noteStore.notes.length > 0)">
       <EmptyState
         class="mt-6"
@@ -701,7 +740,6 @@ async function openTrashModal() {
         :description="t('projectDetail.emptyWorkspaceDescription')"
       />
     </template>
-    <!-- TODO(items-reorder): wire task DnD to unified section items reorder endpoint -->
     <ProjectItemList
       v-else
       class="mt-6"
@@ -711,13 +749,12 @@ async function openTrashModal() {
       :can-manage-note="canManageNoteOnProject"
       :can-edit-task="canManageTask"
       :can-change-status-task="canChangeTaskStatus"
-      :enable-task-drag="false"
       @sections-updated="onNotesChanged"
+      @move="onItemMove"
       @complete="onComplete"
       @reopen="onReopen"
       @view-task="openTaskView"
       @edit-task="openTaskEdit"
-      @open-note="openLinkedNote"
       @view-note="openNoteView"
       @edit-note="openNoteEdit"
       @edit-section="onEditSection"
@@ -751,14 +788,6 @@ async function openTrashModal() {
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
     />
-
-    <Modal v-model="trashModalOpen" :title="t('projectDetail.tabs.trash')">
-      <ProjectTrashPanel
-        :project-id="id"
-        :can-manage="canManageNoteOnProject"
-        @restored="onTrashRestored"
-      />
-    </Modal>
 
     <Modal v-model="editProjectModalOpen" :title="t('projectDetail.modalEditTitle')">
       <ProjectForm
@@ -794,6 +823,20 @@ async function openTrashModal() {
         :submit-label="t('projectDetail.submitCreate')"
         @submit="createTaskFromModal"
         @cancel="showModal = false"
+      />
+    </Modal>
+
+    <Modal
+      v-if="canManageNoteOnProject"
+      v-model="showNoteModal"
+      :title="t('notes.create')"
+    >
+      <NoteForm
+        :sections="projectStore.sections"
+        :loading="savingNote"
+        :submit-label="t('notes.create')"
+        @submit="createNoteFromModal"
+        @cancel="showNoteModal = false"
       />
     </Modal>
   </div>

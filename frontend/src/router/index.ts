@@ -49,6 +49,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/projects/:id/trash',
+      name: 'project-trash',
+      component: () => import('../views/ProjectTrash.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/projects/:id/settings',
       name: 'project-settings',
       component: () => import('../views/ProjectSettings.vue'),

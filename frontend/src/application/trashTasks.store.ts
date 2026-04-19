@@ -33,11 +33,21 @@ export const useTrashTasksStore = defineStore('trashTasks', () => {
     tasks.value = tasks.value.filter(t => t.id !== taskId)
   }
 
+  async function fetchOne(projectId: number, taskId: number): Promise<Task> {
+    const { data } = await projectsApi.trash.getTask(projectId, taskId)
+    const t = data.task
+    if (!t) {
+      throw new Error('no task')
+    }
+    return t
+  }
+
   return {
     tasks,
     loading,
     error,
     fetchTasks,
+    fetchOne,
     restoreTask,
     permanentDeleteTask,
   }

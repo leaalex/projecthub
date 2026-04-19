@@ -12,7 +12,6 @@ import Modal from '../components/ui/UiModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
-import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
@@ -101,9 +100,6 @@ const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
 const detailTaskModalMode = ref<'view' | 'edit'>('view')
 const noteDetailModalMode = ref<'view' | 'edit'>('view')
-/** List view: inline create form toggled by "New task". */
-const showListComposer = ref(false)
-
 const noteDetailOpen = ref(false)
 const noteDetailId = ref<number | null>(null)
 const noteDetailProjectId = ref(0)
@@ -135,12 +131,6 @@ const projectTasksForNoteModal = computed(() => {
   return taskStore.tasks
     .filter(t => t.project_id === pid)
     .map(t => ({ id: t.id, title: t.title }))
-})
-
-const inlineComposerProjectId = computed(() => {
-  if (filterProject.value === '') return undefined
-  const n = Number(filterProject.value)
-  return Number.isFinite(n) && n > 0 ? n : undefined
 })
 
 const inlineComposerProjects = computed(() =>
@@ -323,11 +313,6 @@ async function load() {
   await taskStore.fetchList(params)
 }
 
-async function onListComposerCreated() {
-  await load()
-  showListComposer.value = false
-}
-
 function resetToolbar() {
   filtersOpen.value = false
   searchQuery.value = ''
@@ -394,15 +379,17 @@ async function onReopen(id: number) {
 }
 
 async function onSectionMove(payload: {
-  taskId: number
+  kind: 'task' | 'note'
+  id: number
   sectionId: number | null
   position: number
 }) {
-  const task = taskStore.tasks.find((t) => t.id === payload.taskId)
+  if (payload.kind !== 'task') return
+  const task = taskStore.tasks.find((t) => t.id === payload.id)
   if (!task) return
   try {
     await taskStore.moveTask(task.project_id, {
-      task_id: payload.taskId,
+      task_id: payload.id,
       section_id: payload.sectionId,
       position: payload.position,
     })
@@ -457,7 +444,7 @@ async function onSectionMove(payload: {
         v-if="canCreateTasks"
         class="shrink-0"
         :disabled="!projectStore.projects.length"
-        @click="showListComposer = true"
+        @click="showModal = true"
       >
         {{ t('tasks.newTask') }}
       </Button>
@@ -518,22 +505,6 @@ async function onSectionMove(payload: {
         </Button>
       </EmptyState>
       <div v-else class="mt-6 space-y-4">
-        <div
-          v-if="canCreateTasks && showListComposer"
-          class="overflow-hidden rounded-lg border border-border bg-surface"
-        >
-          <div class="border-b border-border px-3 py-3">
-            <TaskInlineComposer
-              variant="plain"
-              :project-id="inlineComposerProjectId"
-              :projects="inlineComposerProjects"
-              :disabled="!projectStore.projects.length"
-              @created="onListComposerCreated"
-              @dismiss="showListComposer = false"
-            />
-          </div>
-        </div>
-
         <ProjectItemList
           :groups="sectionWorkspaceGroups"
           :can-manage-note="false"
@@ -544,7 +515,6 @@ async function onSectionMove(payload: {
           @reopen="onReopen"
           @view-task="openTaskView"
           @edit-task="openTaskEdit"
-          @open-note="openLinkedNote"
           @move="onSectionMove"
         />
         <template v-if="groupBy !== 'section' && groupBy !== 'none'">
@@ -568,7 +538,6 @@ async function onSectionMove(payload: {
               @reopen="onReopen"
               @view-task="openTaskView"
               @edit-task="openTaskEdit"
-              @open-note="openLinkedNote"
             />
           </div>
         </template>

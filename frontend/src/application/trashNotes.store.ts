@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { NoteTrashItem } from '@domain/note/types'
+import type { Note, NoteTrashItem } from '@domain/note/types'
 import { projectsApi } from '@infra/api/projects'
 
 /** Удалённые заметки проекта (корзина). */
@@ -33,11 +33,21 @@ export const useTrashNotesStore = defineStore('trashNotes', () => {
     notes.value = notes.value.filter(n => n.id !== noteId)
   }
 
+  async function fetchOne(projectId: number, noteId: number): Promise<Note> {
+    const { data } = await projectsApi.trash.getNote(projectId, noteId)
+    const n = data.note
+    if (!n) {
+      throw new Error('no note')
+    }
+    return n
+  }
+
   return {
     notes,
     loading,
     error,
     fetchNotes,
+    fetchOne,
     restoreNote,
     permanentDeleteNote,
   }

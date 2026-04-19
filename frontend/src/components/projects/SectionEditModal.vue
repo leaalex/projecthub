@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
@@ -31,6 +31,8 @@ const nameDraft = ref('')
 const saving = ref(false)
 const removing = ref(false)
 
+const isCreate = computed(() => props.sectionId == null)
+
 watch(
   () => [props.modelValue, props.sectionId, props.initialName] as const,
   ([open]) => {
@@ -47,7 +49,24 @@ async function save() {
   const trimmed = nameDraft.value.trim()
   const sid = props.sectionId
   const pid = props.projectId
-  if (!trimmed || sid == null || pid <= 0 || saving.value) return
+  if (!trimmed || pid <= 0 || saving.value) return
+
+  if (isCreate.value) {
+    saving.value = true
+    try {
+      await projectStore.createSection(pid, trimmed)
+      toast.success(t('project.section.created'))
+      close()
+      emit('saved')
+    } catch (e: unknown) {
+      toast.error(extractNoteAxiosError(e, t('project.section.createFailed')))
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+
+  if (sid == null) return
   saving.value = true
   try {
     await projectStore.updateSection(pid, sid, trimmed)
@@ -89,7 +108,7 @@ async function remove() {
 <template>
   <Modal
     :model-value="modelValue"
-    :title="t('project.section.editModalTitle')"
+    :title="isCreate ? t('project.section.createModalTitle') : t('project.section.editModalTitle')"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div class="space-y-4">
@@ -106,6 +125,7 @@ async function remove() {
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <Button
+          v-if="!isCreate"
           type="button"
           variant="ghost-danger"
           :loading="removing"
@@ -119,7 +139,7 @@ async function remove() {
             {{ t('common.cancel') }}
           </Button>
           <Button type="button" :loading="saving" :disabled="removing || !nameDraft.trim()" @click="save">
-            {{ t('common.save') }}
+            {{ isCreate ? t('common.create') : t('common.save') }}
           </Button>
         </div>
       </div>

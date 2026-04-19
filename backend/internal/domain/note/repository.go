@@ -29,6 +29,8 @@ type Repository interface {
 	ListByProject(ctx context.Context, projectID project.ID) ([]*Note, error)
 	// ListDeletedByProject возвращает мягко удалённые заметки проекта.
 	ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*Note, error)
+	// FindDeletedByIDInProject — мягко удалённая заметка в проекте (для корзины).
+	FindDeletedByIDInProject(ctx context.Context, projectID project.ID, id ID) (*Note, error)
 
 	// NextPosition возвращает следующую позицию в секции/проекте для новой заметки.
 	NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error)

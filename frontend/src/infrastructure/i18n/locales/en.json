@@ -174,6 +174,7 @@
       "namePlaceholder": "Section name…",
       "nameLabel": "Section name",
       "editModalTitle": "Edit section",
+      "createModalTitle": "Create section",
       "editSectionAria": "Edit section",
       "confirmDeleteTitle": "Delete section?",
       "confirmDeleteMessage": "Delete “{name}”? Tasks and notes will become unsectioned.",
@@ -207,6 +208,14 @@
     "open": "Open",
     "editAria": "Edit project {name}",
     "editSr": "Edit project"
+  },
+  "projectTrash": {
+    "title": "Project trash",
+    "empty": "Trash is empty",
+    "kindTask": "Task",
+    "kindNote": "Note",
+    "backToProject": "Back to project",
+    "loadError": "Could not load the trash page"
   },
   "projectDetail": {
     "members": "Members",
@@ -577,8 +586,6 @@
       "description": "Description (optional)"
     },
     "meta": {
-      "updated": "Updated {time}",
-      "due": "Due {date}",
       "projectNum": "Project #{n}"
     },
     "sections": {
@@ -607,9 +614,6 @@
       "assigneeFailed": "Could not update assignee",
       "deleteFailed": "Could not delete task",
       "deleted": "Task deleted"
-    },
-    "linkedNotes": {
-      "open": "Open linked note: {title}"
     },
     "confirm": {
       "deleteTitle": "Delete task",
@@ -816,7 +820,6 @@
       }
     },
     "card": {
-      "linkedTasks": "{n} linked tasks",
       "noteActions": "Note actions"
     },
     "detail": {

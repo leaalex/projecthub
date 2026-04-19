@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { Note } from '@domain/note/types'
 import type { ProjectSection } from '@domain/project/types'
 import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
+import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useToast } from '@app/composables/useToast'
 import { useConfirm } from '@app/composables/useConfirm'
 import Modal from '../ui/UiModal.vue'
@@ -28,8 +29,10 @@ const props = withDefaults(
     canManage: boolean
     /** Opens modal in edit form when true and `canManage`. */
     initialMode?: 'view' | 'edit'
+    /** Загрузка из корзины (GET .../trash/notes/:id). */
+    trashed?: boolean
   }>(),
-  { initialMode: 'view' },
+  { initialMode: 'view', trashed: false },
 )
 
 const emit = defineEmits<{
@@ -39,12 +42,15 @@ const emit = defineEmits<{
 }>()
 
 const noteStore = useNoteStore()
+const trashNotesStore = useTrashNotesStore()
 
 const note = ref<Note | null>(null)
 const loading = ref(false)
 const editing = ref(false)
 const saving = ref(false)
 const removing = ref(false)
+const restoring = ref(false)
+const purging = ref(false)
 const linkBusy = ref(false)
 
 const linkedIds = computed(() => note.value?.linked_task_ids ?? [])
@@ -54,8 +60,9 @@ const linkedTasks = computed(() =>
 )
 
 watch(
-  () => [props.modelValue, props.noteId, props.projectId] as const,
-  async ([open, nid]) => {
+  () =>
+    [props.modelValue, props.noteId, props.projectId, props.trashed] as const,
+  async ([open, nid, , trashed]) => {
     if (!open || nid == null) {
       note.value = null
       editing.value = false
@@ -63,10 +70,16 @@ watch(
     }
     loading.value = true
     try {
-      const n = await noteStore.fetchOne(props.projectId, nid)
-      note.value = n
-      noteStore.patchNoteInList(n.id, { linked_task_ids: n.linked_task_ids })
-      editing.value = props.canManage && props.initialMode === 'edit'
+      if (trashed) {
+        const n = await trashNotesStore.fetchOne(props.projectId, nid)
+        note.value = n
+        editing.value = false
+      } else {
+        const n = await noteStore.fetchOne(props.projectId, nid)
+        note.value = n
+        noteStore.patchNoteInList(n.id, { linked_task_ids: n.linked_task_ids })
+        editing.value = props.canManage && props.initialMode === 'edit'
+      }
     } catch {
       toast.error(t('notes.detail.loadError'))
       note.value = null
@@ -170,6 +183,45 @@ async function onUnlinkTask(taskId: number) {
     linkBusy.value = false
   }
 }
+
+async function restoreFromTrash() {
+  const n = note.value
+  if (!n || !props.canManage) return
+  restoring.value = true
+  try {
+    await trashNotesStore.restoreNote(props.projectId, n.id)
+    toast.success(t('notes.trash.noteRestored'))
+    close()
+    emit('saved')
+  } catch {
+    toast.error(t('notes.trash.restoreFailed'))
+  } finally {
+    restoring.value = false
+  }
+}
+
+async function purgeFromTrash() {
+  const n = note.value
+  if (!n || !props.canManage) return
+  const ok = await confirm({
+    title: t('notes.trash.confirmPermanentTitle'),
+    message: t('notes.trash.confirmPermanentNote'),
+    confirmLabelKey: 'notes.trash.confirmPermanent',
+    danger: true,
+  })
+  if (!ok) return
+  purging.value = true
+  try {
+    await trashNotesStore.permanentDeleteNote(props.projectId, n.id)
+    toast.success(t('notes.trash.notePurged'))
+    close()
+    emit('saved')
+  } catch {
+    toast.error(t('notes.trash.purgeFailed'))
+  } finally {
+    purging.value = false
+  }
+}
 </script>
 
 <template>
@@ -184,7 +236,7 @@ async function onUnlinkTask(taskId: number) {
       <Skeleton variant="line" :lines="4" />
     </div>
     <template v-else-if="note">
-      <div v-if="editing" class="space-y-3">
+      <div v-if="editing && !trashed" class="space-y-3">
         <NoteForm
           :initial="note"
           :sections="sections"
@@ -212,7 +264,7 @@ async function onUnlinkTask(taskId: number) {
             <h2 class="text-lg font-semibold text-foreground">
               {{ note.title }}
             </h2>
-            <div v-if="canManage" class="flex flex-wrap gap-2">
+            <div v-if="canManage && !trashed" class="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="secondary"
@@ -220,6 +272,29 @@ async function onUnlinkTask(taskId: number) {
               >
                 <PencilSquareIcon class="h-4 w-4" />
                 <span class="ml-1">{{ t('common.edit') }}</span>
+              </Button>
+            </div>
+            <div
+              v-if="trashed && canManage"
+              class="flex flex-wrap gap-2"
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                :loading="restoring"
+                :disabled="purging"
+                @click="restoreFromTrash"
+              >
+                {{ t('notes.restore') }}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost-danger"
+                :loading="purging"
+                :disabled="restoring"
+                @click="purgeFromTrash"
+              >
+                {{ t('notes.trash.deleteForever') }}
               </Button>
             </div>
           </div>
@@ -231,7 +306,7 @@ async function onUnlinkTask(taskId: number) {
           </div>
         </div>
 
-        <div class="mt-6 border-t border-border pt-4">
+        <div v-if="!trashed" class="mt-6 border-t border-border pt-4">
           <h3 class="text-sm font-semibold text-foreground">
             {{ t('notes.detail.linkedTasks') }}
           </h3>
