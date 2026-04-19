@@ -9,20 +9,16 @@ defineProps<{
   canEditTask?: (task: Task) => boolean
   canChangeStatusTask?: (task: Task) => boolean
   canManageNote: boolean
-  projects?: { id: number; name: string }[]
-  assignableUsers?: { id: number; email: string; name: string }[]
 }>()
 
 const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
-  info: [id: number]
+  viewTask: [id: number]
+  editTask: [id: number]
   openNote: [payload: { noteId: number; projectId: number }]
-  taskUpdated: []
-  taskExpandedChange: [expanded: boolean]
-  openNoteDetail: [noteId: number]
-  editNote: [noteId: number]
-  removeNote: [noteId: number]
+  viewNote: [id: number]
+  editNote: [id: number]
 }>()
 </script>
 
@@ -34,14 +30,11 @@ const emit = defineEmits<{
       :task="item.task"
       :can-edit="canEditTask?.(item.task) ?? false"
       :can-change-status="canChangeStatusTask?.(item.task) ?? canEditTask?.(item.task) ?? false"
-      :projects="projects"
-      :assignable-users="assignableUsers"
       @complete="emit('complete', $event)"
       @reopen="emit('reopen', $event)"
-      @info="emit('info', $event)"
+      @view="emit('viewTask', $event)"
+      @edit="emit('editTask', $event)"
       @open-note="emit('openNote', $event)"
-      @updated="emit('taskUpdated')"
-      @expanded-change="emit('taskExpandedChange', $event)"
     />
     <NoteCard
       v-else
@@ -49,9 +42,8 @@ const emit = defineEmits<{
       class="px-3 py-1"
       :note="item.note"
       :can-manage="canManageNote"
-      @open="emit('openNoteDetail', $event)"
+      @view="emit('viewNote', $event)"
       @edit="emit('editNote', $event)"
-      @remove="emit('removeNote', $event)"
     />
   </div>
 </template>

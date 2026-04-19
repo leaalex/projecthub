@@ -156,13 +156,16 @@ function onSubmit() {
         :placeholder="t('notes.form.bodyPlaceholder')"
       />
     </div>
-    <div class="flex flex-wrap justify-end gap-2">
-      <Button type="button" variant="secondary" :disabled="loading" @click="emit('cancel')">
-        {{ t('common.cancel') }}
-      </Button>
-      <Button type="submit" :loading="loading" :disabled="!title.trim()">
-        {{ submitLabel }}
-      </Button>
+    <div class="flex flex-wrap items-center gap-2">
+      <slot name="actions-start" />
+      <div class="ml-auto flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="secondary" :disabled="loading" @click="emit('cancel')">
+          {{ t('common.cancel') }}
+        </Button>
+        <Button type="submit" :loading="loading" :disabled="!title.trim()">
+          {{ submitLabel }}
+        </Button>
+      </div>
     </div>
   </form>
 </template>

@@ -99,6 +99,8 @@ const allowServerFilterWatch = ref(false)
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
+const detailTaskModalMode = ref<'view' | 'edit'>('view')
+const noteDetailModalMode = ref<'view' | 'edit'>('view')
 /** List view: inline create form toggled by "New task". */
 const showListComposer = ref(false)
 
@@ -231,14 +233,22 @@ const tasksBreadcrumbItems = computed(() => [
   { label: t('tasks.breadcrumb') },
 ])
 
-function openTaskDetail(taskId: number) {
+function openTaskView(taskId: number) {
   detailTaskId.value = taskId
+  detailTaskModalMode.value = 'view'
+  detailOpen.value = true
+}
+
+function openTaskEdit(taskId: number) {
+  detailTaskId.value = taskId
+  detailTaskModalMode.value = 'edit'
   detailOpen.value = true
 }
 
 async function openLinkedNote(payload: { noteId: number; projectId: number }) {
   noteDetailProjectId.value = payload.projectId
   noteDetailId.value = payload.noteId
+  noteDetailModalMode.value = 'view'
   noteDetailOpen.value = true
   try {
     await projectStore.fetchOne(payload.projectId).catch(() => {})
@@ -529,14 +539,12 @@ async function onSectionMove(payload: {
           :can-manage-note="false"
           :can-edit-task="canManageTask"
           :can-change-status-task="canChangeTaskStatus"
-          :projects="inlineComposerProjects"
-          :assignable-users="assignableUsers"
           :empty-message="t('tasks.emptySection')"
           @complete="onComplete"
           @reopen="onReopen"
-          @info="openTaskDetail"
+          @view-task="openTaskView"
+          @edit-task="openTaskEdit"
           @open-note="openLinkedNote"
-          @task-updated="load"
           @move="onSectionMove"
         />
         <template v-if="groupBy !== 'section' && groupBy !== 'none'">
@@ -555,14 +563,12 @@ async function onSectionMove(payload: {
               :tasks="g.tasks"
               :can-edit-task="canManageTask"
               :can-change-status-task="canChangeTaskStatus"
-              :projects="inlineComposerProjects"
-              :assignable-users="assignableUsers"
               :empty-message="t('tasks.emptyGroup')"
               @complete="onComplete"
               @reopen="onReopen"
-              @info="openTaskDetail"
+              @view-task="openTaskView"
+              @edit-task="openTaskEdit"
               @open-note="openLinkedNote"
-              @task-updated="load"
             />
           </div>
         </template>
@@ -587,6 +593,7 @@ async function onSectionMove(payload: {
     <TaskDetailModal
       v-model="detailOpen"
       :task-id="detailTaskId"
+      :initial-mode="detailTaskModalMode"
       @saved="load"
       @open-note="openLinkedNote"
     />
@@ -598,6 +605,7 @@ async function onSectionMove(payload: {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageNotesForNoteModal"
+      :initial-mode="noteDetailModalMode"
       @saved="load"
       @deleted="load"
     />

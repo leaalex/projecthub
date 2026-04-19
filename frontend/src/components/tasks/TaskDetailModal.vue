@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { PencilSquareIcon } from '@heroicons/vue/24/outline'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
@@ -22,10 +23,15 @@ import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t, locale } = useI18n()
 
-const props = defineProps<{
-  modelValue: boolean
-  taskId: number | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    taskId: number | null
+    /** When user opened modal via Edit on the card. */
+    initialMode?: 'view' | 'edit'
+  }>(),
+  { initialMode: 'view' },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -45,6 +51,8 @@ const loading = ref(false)
 const loadError = ref<string | null>(null)
 const saving = ref(false)
 const removing = ref(false)
+/** Edit form vs read-only dl (only when `canEdit`). */
+const editing = ref(false)
 
 const formTitle = ref('')
 const formDescription = ref('')
@@ -105,14 +113,19 @@ watch(
       task.value = null
       loadError.value = null
       linkedNotes.value = []
+      editing.value = false
       return
     }
     loading.value = true
     loadError.value = null
     task.value = null
+    editing.value = props.initialMode === 'edit'
     try {
       task.value = await taskStore.fetchOne(id)
       await refreshLinkedNotes()
+      await nextTick()
+      editing.value = canEdit.value && props.initialMode === 'edit'
+      if (!canEdit.value) editing.value = false
     } catch {
       loadError.value = t('taskDetailModal.loadError')
     } finally {
@@ -161,6 +174,7 @@ async function save() {
       priority: formPriority.value,
     })
     task.value = updated
+    editing.value = false
     toast.success(t('taskDetailModal.toasts.updated'))
     emit('saved')
   } catch (e: unknown) {
@@ -271,7 +285,7 @@ async function removeTask() {
     <p v-else-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
     <template v-else-if="task">
       <dl
-        v-if="!canEdit"
+        v-if="!canEdit || !editing"
         class="space-y-4 text-sm"
       >
         <div>
@@ -355,7 +369,21 @@ async function removeTask() {
         </div>
       </dl>
 
-      <div v-else class="space-y-4">
+      <div
+        v-if="canEdit && !editing"
+        class="mt-4 flex justify-end"
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          @click="editing = true"
+        >
+          <PencilSquareIcon class="h-4 w-4" />
+          <span class="ml-1">{{ t('common.edit') }}</span>
+        </Button>
+      </div>
+
+      <div v-else-if="canEdit && editing" class="space-y-4">
         <div class="rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-sm">
           <div class="text-muted">{{ t('taskDetailModal.labels.project') }}</div>
           <div class="font-medium text-foreground">
@@ -401,7 +429,7 @@ async function removeTask() {
           :submit-label="t('common.save')"
           :loading="saving"
           @submit="save"
-          @cancel="close"
+          @cancel="editing = false"
         >
           <template #actions-start>
             <Button

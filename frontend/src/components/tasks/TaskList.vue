@@ -25,9 +25,9 @@ withDefaults(
 const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
-  info: [id: number]
+  viewTask: [id: number]
+  editTask: [id: number]
   openNote: [payload: { noteId: number; projectId: number }]
-  taskUpdated: []
 }>()
 </script>
 
@@ -55,9 +55,9 @@ const emit = defineEmits<{
         :assignable-users="assignableUsers"
         @complete="emit('complete', $event)"
         @reopen="emit('reopen', $event)"
-        @info="emit('info', $event)"
+        @view="emit('viewTask', $event)"
+        @edit="emit('editTask', $event)"
         @open-note="emit('openNote', $event)"
-        @updated="emit('taskUpdated')"
       />
       <p
         v-if="tasks.length === 0"

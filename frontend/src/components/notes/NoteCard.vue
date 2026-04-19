@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { DocumentTextIcon, EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
-import { computed, ref } from 'vue'
+import {
+  DocumentTextIcon,
+  InformationCircleIcon,
+  PencilSquareIcon,
+} from '@heroicons/vue/24/outline'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Note } from '@domain/note/types'
 import { noteBodyPlainPreview } from '@domain/note/preview'
 import { formatDate } from '@infra/formatters/date'
-import UiMenuButton from '../ui/UiMenuButton.vue'
 
 const { t, locale } = useI18n()
 
@@ -21,14 +24,13 @@ const props = withDefaults(
 
 const rootClass = computed(() =>
   props.variant === 'list'
-    ? 'flex gap-3 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none transition-colors hover:bg-surface-muted/25'
-    : 'flex gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-muted/30',
+    ? 'flex items-stretch gap-2.5 py-2'
+    : 'flex items-stretch gap-2.5 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-muted/30',
 )
 
 const emit = defineEmits<{
-  open: [id: number]
+  view: [id: number]
   edit: [id: number]
-  remove: [id: number]
 }>()
 
 const preview = computed(() => noteBodyPlainPreview(props.note.body ?? '', 140))
@@ -40,26 +42,20 @@ const linkedCount = computed(
 const updatedLabel = computed(() =>
   formatDate(props.note.updated_at, locale.value),
 )
-
-const menuVal = ref<string | number>('')
-const menuOptions = computed(() => [
-  { value: 'edit', label: t('common.edit') },
-  { value: 'delete', label: t('common.delete') },
-])
-
-function onMenuSelect(v: string | number) {
-  if (v === 'edit') emit('edit', props.note.id)
-  if (v === 'delete') emit('remove', props.note.id)
-  menuVal.value = ''
-}
 </script>
 
 <template>
   <div :class="rootClass">
+    <div class="flex shrink-0 flex-col self-start pt-0.5">
+      <DocumentTextIcon
+        class="h-5 w-5 shrink-0 text-muted"
+        aria-hidden="true"
+      />
+    </div>
     <button
       type="button"
       class="min-w-0 flex-1 text-left"
-      @click="emit('open', note.id)"
+      @click="emit('view', note.id)"
     >
       <div class="flex items-start justify-between gap-2">
         <span class="line-clamp-2 font-medium text-foreground">{{ note.title }}</span>
@@ -76,16 +72,27 @@ function onMenuSelect(v: string | number) {
         <span>{{ t('notes.card.linkedTasks', { n: linkedCount }) }}</span>
       </div>
     </button>
-    <div v-if="canManage" class="flex shrink-0 items-start">
-      <UiMenuButton
-        v-model="menuVal"
-        :options="menuOptions"
-        :ariaLabel="t('notes.card.noteActions')"
-        placement="bottom-end"
-        @select="onMenuSelect"
+    <div
+      class="flex shrink-0 flex-row items-center justify-center gap-0.5 self-stretch border-l border-border/50 pl-2"
+      @click.stop
+    >
+      <button
+        type="button"
+        class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        :aria-label="t('taskCard.aria.view')"
+        @click="emit('view', note.id)"
       >
-        <EllipsisVerticalIcon class="h-5 w-5 text-muted" aria-hidden="true" />
-      </UiMenuButton>
+        <InformationCircleIcon class="h-5 w-5" aria-hidden="true" />
+      </button>
+      <button
+        v-if="canManage"
+        type="button"
+        class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        :aria-label="t('taskCard.aria.edit')"
+        @click="emit('edit', note.id)"
+      >
+        <PencilSquareIcon class="h-5 w-5" aria-hidden="true" />
+      </button>
     </div>
   </div>
 </template>

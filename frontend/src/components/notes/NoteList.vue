@@ -18,9 +18,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  open: [noteId: number]
+  view: [noteId: number]
   edit: [noteId: number]
-  remove: [noteId: number]
   refreshed: []
 }>()
 
@@ -194,9 +193,8 @@ async function onDropAt(destKey: string, destIndex: number) {
                 variant="list"
                 :note="n"
                 :can-manage="canManage"
-                @open="emit('open', $event)"
+                @view="emit('view', $event)"
                 @edit="emit('edit', $event)"
-                @remove="emit('remove', $event)"
               />
             </div>
             <p

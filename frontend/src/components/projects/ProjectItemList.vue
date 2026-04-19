@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ProjectItemGroup, WorkspaceItem } from '@app/composables/useProjectItemsPresentation'
@@ -8,7 +8,6 @@ import { extractNoteAxiosError } from '@app/note.store'
 import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { Task } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
-import UiInput from '../ui/UiInput.vue'
 import { useToast } from '@app/composables/useToast'
 import ProjectItemCard from './ProjectItemCard.vue'
 
@@ -22,8 +21,6 @@ const props = withDefaults(
     canManageNote: boolean
     canEditTask?: (task: Task) => boolean
     canChangeStatusTask?: (task: Task) => boolean
-    projects?: { id: number; name: string }[]
-    assignableUsers?: { id: number; email: string; name: string }[]
     emptyMessage?: string
     /** Включает drag-and-drop перемещение задач между секциями / позициями (Tasks.vue). */
     enableTaskDrag?: boolean
@@ -32,8 +29,6 @@ const props = withDefaults(
     projectId?: number
   }>(),
   {
-    projects: () => [],
-    assignableUsers: () => [],
     emptyMessage: '',
     enableTaskDrag: true,
     canManageSections: false,
@@ -44,24 +39,20 @@ const props = withDefaults(
 const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
-  info: [id: number]
+  viewTask: [id: number]
+  editTask: [id: number]
   openNote: [payload: { noteId: number; projectId: number }]
-  taskUpdated: []
-  openNoteDetail: [noteId: number]
-  editNote: [noteId: number]
-  removeNote: [noteId: number]
+  viewNote: [id: number]
+  editNote: [id: number]
   move: [payload: { taskId: number; sectionId: number | null; position: number }]
   sectionsUpdated: []
+  editSection: [payload: { sectionId: number; name: string }]
 }>()
 
 const dragTaskId = ref<number | null>(null)
 const dragOver = ref<string | null>(null)
-const expandedTaskIds = ref<Set<number>>(new Set())
 
 const dragSectionId = ref<number | null>(null)
-
-const renamingSectionId = ref<number | null>(null)
-const renameDraft = ref('')
 
 const manageSectionsActive = computed(
   () =>
@@ -94,16 +85,7 @@ function sectionIdsInDisplayOrder(): number[] {
 
 function canDragTask(task: Task): boolean {
   if (!props.enableTaskDrag) return false
-  if (!(props.canEditTask?.(task) ?? false)) return false
-  if (expandedTaskIds.value.has(task.id)) return false
-  return true
-}
-
-function onTaskExpandedChange(taskId: number, open: boolean) {
-  const next = new Set(expandedTaskIds.value)
-  if (open) next.add(taskId)
-  else next.delete(taskId)
-  expandedTaskIds.value = next
+  return props.canEditTask?.(task) ?? false
 }
 
 function onDragStart(e: DragEvent, task: Task) {
@@ -138,11 +120,6 @@ function tasksInGroup(items: WorkspaceItem[]) {
   return items
     .filter((x): x is { kind: 'task'; task: Task } => x.kind === 'task')
     .map((x) => x.task)
-}
-
-function onItemExpanded(item: WorkspaceItem, open: boolean) {
-  if (item.kind !== 'task') return
-  onTaskExpandedChange(item.task.id, open)
 }
 
 function onSectionDragStart(e: DragEvent, sectionId: number) {
@@ -202,37 +179,10 @@ async function onSectionDropOnHeader(targetSectionId: number) {
   }
 }
 
-function startRename(s: { id: number; name: string }) {
-  renamingSectionId.value = s.id
-  renameDraft.value = s.name
-}
-
-async function commitRename() {
-  const sid = renamingSectionId.value
-  const pid = props.projectId
-  if (sid == null || !manageSectionsActive.value || pid <= 0) return
-  const name = renameDraft.value.trim()
-  if (!name) return
-  try {
-    await projectStore.updateSection(pid, sid, name)
-    renamingSectionId.value = null
-    toast.success(t('project.section.renamed'))
-    emit('sectionsUpdated')
-  } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.renameFailed')))
-  }
-}
-
-async function removeSection(sectionId: number) {
-  const pid = props.projectId
-  if (!manageSectionsActive.value || pid <= 0) return
-  try {
-    await projectStore.deleteSection(pid, sectionId)
-    toast.success(t('project.section.removed'))
-    emit('sectionsUpdated')
-  } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.removeFailed')))
-  }
+function openSectionEdit(g: ProjectItemGroup) {
+  const sid = sectionIdForGroup(g)
+  if (sid == null) return
+  emit('editSection', { sectionId: sid, name: g.label })
 }
 
 function sectionIdForGroup(g: ProjectItemGroup): number | null {
@@ -257,62 +207,32 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
           @dragleave="dragOver = null"
           @drop="onSectionHeaderDrop($event, g)"
         >
-          <template v-if="renamingSectionId === sectionIdForGroup(g)">
-            <UiInput
-              v-model="renameDraft"
-              class="min-w-[8rem] flex-1 text-sm"
-              @keydown.enter.prevent="commitRename"
-            />
-            <Button type="button" class="shrink-0 text-xs" @click="commitRename">
-              {{ t('common.save') }}
-            </Button>
+          <div
+            class="flex min-w-0 flex-1 cursor-grab items-baseline gap-1.5 text-sm font-semibold text-foreground active:cursor-grabbing"
+            draggable="true"
+            @dragstart="onSectionDragStart($event, sectionIdForGroup(g)!)"
+            @dragend="onSectionDragEnd"
+          >
+            <span class="shrink-0 select-none text-muted" aria-hidden="true">⠿</span>
+            <h2 class="min-w-0 flex-1">
+              {{ g.label }}
+              <span class="font-normal text-muted">{{
+                taskSectionHeaderStats(tasksInGroup(g.items))
+              }}</span>
+            </h2>
+          </div>
+          <div class="flex shrink-0 items-center gap-0.5" @mousedown.stop>
             <Button
               type="button"
-              variant="secondary"
-              class="shrink-0 text-xs"
-              @click="renamingSectionId = null"
+              variant="ghost"
+              class="h-8 min-h-8 w-8 min-w-8 !px-0"
+              :aria-label="t('project.section.editSectionAria')"
+              :title="t('common.edit')"
+              @click="openSectionEdit(g)"
             >
-              {{ t('common.cancel') }}
+              <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
             </Button>
-          </template>
-          <template v-else>
-            <div
-              class="flex min-w-0 flex-1 cursor-grab items-baseline gap-1.5 text-sm font-semibold text-foreground active:cursor-grabbing"
-              draggable="true"
-              @dragstart="onSectionDragStart($event, sectionIdForGroup(g)!)"
-              @dragend="onSectionDragEnd"
-            >
-              <span class="shrink-0 select-none text-muted" aria-hidden="true">⠿</span>
-              <h2 class="min-w-0 flex-1">
-                {{ g.label }}
-                <span class="font-normal text-muted">{{
-                  taskSectionHeaderStats(tasksInGroup(g.items))
-                }}</span>
-              </h2>
-            </div>
-            <div class="flex shrink-0 items-center gap-0.5" @mousedown.stop>
-              <Button
-                type="button"
-                variant="ghost"
-                class="h-8 min-h-8 w-8 min-w-8 !px-0"
-                :aria-label="t('common.edit')"
-                :title="t('common.edit')"
-                @click="startRename({ id: sectionIdForGroup(g)!, name: g.label })"
-              >
-                <PencilSquareIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost-danger"
-                class="h-8 min-h-8 w-8 min-w-8 !px-0"
-                :aria-label="t('common.delete')"
-                :title="t('common.delete')"
-                @click="removeSection(sectionIdForGroup(g)!)"
-              >
-                <TrashIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
-              </Button>
-            </div>
-          </template>
+          </div>
         </div>
       </template>
       <h2
@@ -353,17 +273,13 @@ function sectionIdForGroup(g: ProjectItemGroup): number | null {
               :can-edit-task="canEditTask"
               :can-change-status-task="canChangeStatusTask"
               :can-manage-note="canManageNote"
-              :projects="projects"
-              :assignable-users="assignableUsers"
               @complete="emit('complete', $event)"
               @reopen="emit('reopen', $event)"
-              @info="emit('info', $event)"
+              @view-task="emit('viewTask', $event)"
+              @edit-task="emit('editTask', $event)"
               @open-note="emit('openNote', $event)"
-              @task-updated="emit('taskUpdated')"
-              @task-expanded-change="onItemExpanded(item, $event)"
-              @open-note-detail="emit('openNoteDetail', $event)"
+              @view-note="emit('viewNote', $event)"
               @edit-note="emit('editNote', $event)"
-              @remove-note="emit('removeNote', $event)"
             />
           </div>
           <p

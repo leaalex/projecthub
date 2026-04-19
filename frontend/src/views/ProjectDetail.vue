@@ -16,6 +16,7 @@ import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import NoteInlineComposer from '../components/notes/NoteInlineComposer.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
+import SectionEditModal from '../components/projects/SectionEditModal.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import ProjectTrashPanel from '../components/notes/ProjectTrashPanel.vue'
 import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
@@ -123,6 +124,12 @@ const projectOptions = computed(() =>
 
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
+const detailTaskModalMode = ref<'view' | 'edit'>('view')
+const noteDetailModalMode = ref<'view' | 'edit'>('view')
+
+const sectionEditOpen = ref(false)
+const sectionEditId = ref<number | null>(null)
+const sectionEditName = ref('')
 const showTaskComposer = ref(false)
 const showNoteComposer = ref(false)
 const filtersOpen = ref(false)
@@ -339,20 +346,41 @@ async function removeProjectFromEdit() {
   }
 }
 
-function openTaskDetail(taskId: number) {
+function openTaskView(taskId: number) {
   detailTaskId.value = taskId
+  detailTaskModalMode.value = 'view'
+  detailOpen.value = true
+}
+
+function openTaskEdit(taskId: number) {
+  detailTaskId.value = taskId
+  detailTaskModalMode.value = 'edit'
   detailOpen.value = true
 }
 
 function openLinkedNote(payload: { noteId: number; projectId: number }) {
   if (payload.projectId !== id.value) return
   noteDetailId.value = payload.noteId
+  noteDetailModalMode.value = 'view'
   noteDetailOpen.value = true
 }
 
-function openNoteDetail(noteId: number) {
+function openNoteView(noteId: number) {
   noteDetailId.value = noteId
+  noteDetailModalMode.value = 'view'
   noteDetailOpen.value = true
+}
+
+function openNoteEdit(noteId: number) {
+  noteDetailId.value = noteId
+  noteDetailModalMode.value = 'edit'
+  noteDetailOpen.value = true
+}
+
+function onEditSection(payload: { sectionId: number; name: string }) {
+  sectionEditId.value = payload.sectionId
+  sectionEditName.value = payload.name
+  sectionEditOpen.value = true
 }
 
 watch(detailOpen, (open) => {
@@ -376,27 +404,6 @@ async function onNotesChanged() {
 
 async function onTrashRestored() {
   await onWorkspaceRefreshed()
-}
-
-async function onRemoveNote(noteId: number) {
-  if (!Number.isFinite(id.value) || id.value <= 0) return
-  const n = noteStore.notes.find(x => x.id === noteId)
-  const ok = await confirm({
-    title: t('notes.confirm.deleteTitle'),
-    message: t('notes.confirm.deleteMessage', { title: n?.title ?? '' }),
-    confirmLabelKey: 'notes.confirm.deleteConfirm',
-    danger: true,
-  })
-  if (!ok) return
-  try {
-    await noteStore.remove(id.value, noteId)
-    toast.success(t('notes.detail.deleted'))
-    await onNotesChanged()
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('notes.detail.deleteFailed'))
-  }
 }
 
 async function refreshProjectTasks() {
@@ -704,23 +711,22 @@ async function openTrashModal() {
       :can-manage-note="canManageNoteOnProject"
       :can-edit-task="canManageTask"
       :can-change-status-task="canChangeTaskStatus"
-      :projects="projectOptions"
-      :assignable-users="assignableUsers"
       :enable-task-drag="false"
       @sections-updated="onNotesChanged"
       @complete="onComplete"
       @reopen="onReopen"
-      @info="openTaskDetail"
+      @view-task="openTaskView"
+      @edit-task="openTaskEdit"
       @open-note="openLinkedNote"
-      @task-updated="refreshProjectTasks"
-      @open-note-detail="openNoteDetail"
-      @edit-note="openNoteDetail"
-      @remove-note="onRemoveNote"
+      @view-note="openNoteView"
+      @edit-note="openNoteEdit"
+      @edit-section="onEditSection"
     />
 
     <TaskDetailModal
       v-model="detailOpen"
       :task-id="detailTaskId"
+      :initial-mode="detailTaskModalMode"
       @saved="refreshProjectTasks"
       @open-note="openLinkedNote"
     />
@@ -732,6 +738,16 @@ async function openTrashModal() {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNotes"
       :can-manage="canManageNoteOnProject"
+      :initial-mode="noteDetailModalMode"
+      @saved="onNotesChanged"
+      @deleted="onNotesChanged"
+    />
+
+    <SectionEditModal
+      v-model="sectionEditOpen"
+      :project-id="Number.isFinite(id) ? id : 0"
+      :section-id="sectionEditId"
+      :initial-name="sectionEditName"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
     />

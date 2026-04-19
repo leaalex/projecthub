@@ -18,14 +18,19 @@ const { t } = useI18n()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const props = defineProps<{
-  modelValue: boolean
-  projectId: number
-  noteId: number | null
-  sections: ProjectSection[]
-  projectTasks: { id: number; title: string }[]
-  canManage: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    projectId: number
+    noteId: number | null
+    sections: ProjectSection[]
+    projectTasks: { id: number; title: string }[]
+    canManage: boolean
+    /** Opens modal in edit form when true and `canManage`. */
+    initialMode?: 'view' | 'edit'
+  }>(),
+  { initialMode: 'view' },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [v: boolean]
@@ -39,6 +44,7 @@ const note = ref<Note | null>(null)
 const loading = ref(false)
 const editing = ref(false)
 const saving = ref(false)
+const removing = ref(false)
 const linkBusy = ref(false)
 
 const linkedIds = computed(() => note.value?.linked_task_ids ?? [])
@@ -60,6 +66,7 @@ watch(
       const n = await noteStore.fetchOne(props.projectId, nid)
       note.value = n
       noteStore.patchNoteInList(n.id, { linked_task_ids: n.linked_task_ids })
+      editing.value = props.canManage && props.initialMode === 'edit'
     } catch {
       toast.error(t('notes.detail.loadError'))
       note.value = null
@@ -108,7 +115,7 @@ async function saveFromForm(payload: {
 
 async function removeNote() {
   const n = note.value
-  if (!n) return
+  if (!n || removing.value) return
   const ok = await confirm({
     title: t('notes.confirm.deleteTitle'),
     message: t('notes.confirm.deleteMessage', { title: n.title }),
@@ -116,6 +123,7 @@ async function removeNote() {
     danger: true,
   })
   if (!ok) return
+  removing.value = true
   try {
     await noteStore.remove(props.projectId, n.id)
     toast.success(t('notes.detail.deleted'))
@@ -123,6 +131,8 @@ async function removeNote() {
     emit('deleted')
   } catch (e) {
     toast.error(extractNoteAxiosError(e, t('notes.detail.deleteFailed')))
+  } finally {
+    removing.value = false
   }
 }
 
@@ -182,7 +192,19 @@ async function onUnlinkTask(taskId: number) {
           :submit-label="t('common.save')"
           @cancel="editing = false"
           @submit="saveFromForm"
-        />
+        >
+          <template #actions-start>
+            <Button
+              variant="ghost-danger"
+              type="button"
+              :loading="removing"
+              :disabled="saving"
+              @click="removeNote"
+            >
+              {{ t('common.delete') }}
+            </Button>
+          </template>
+        </NoteForm>
       </div>
       <template v-else>
         <div class="space-y-3">
@@ -198,9 +220,6 @@ async function onUnlinkTask(taskId: number) {
               >
                 <PencilSquareIcon class="h-4 w-4" />
                 <span class="ml-1">{{ t('common.edit') }}</span>
-              </Button>
-              <Button type="button" variant="ghost-danger" @click="removeNote">
-                {{ t('common.delete') }}
               </Button>
             </div>
           </div>

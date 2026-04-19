@@ -129,6 +129,7 @@ const createSaving = ref(false)
 const detailOpen = ref(false)
 const detailNoteId = ref<number | null>(null)
 const detailProjectId = ref(0)
+const detailModalMode = ref<'view' | 'edit'>('view')
 
 const projectTasksForNoteModal = computed(() => {
   const pid = detailProjectId.value
@@ -151,9 +152,17 @@ function syncFiltersFromRoute() {
   }
 }
 
-function openNoteDetail(noteId: number, projectId: number) {
+function openNoteView(noteId: number, projectId: number) {
   detailProjectId.value = projectId
   detailNoteId.value = noteId
+  detailModalMode.value = 'view'
+  detailOpen.value = true
+}
+
+function openNoteEdit(noteId: number, projectId: number) {
+  detailProjectId.value = projectId
+  detailNoteId.value = noteId
+  detailModalMode.value = 'edit'
   detailOpen.value = true
 }
 
@@ -280,17 +289,6 @@ async function onCreateSubmit(payload: {
   }
 }
 
-async function onRemoveNote(noteId: number, projectId: number) {
-  if (!canManageNoteForProject(projectId)) return
-  try {
-    await noteStore.remove(projectId, noteId)
-    await load()
-    toast.success(t('notes.toasts.deleted'))
-  } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('notes.toasts.deleteFailed')))
-  }
-}
-
 </script>
 
 <template>
@@ -400,12 +398,10 @@ async function onRemoveNote(noteId: number, projectId: number) {
           <NoteCard
             v-for="n in displayFlat"
             :key="n.id"
-            variant="list"
             :note="n"
             :can-manage="canManageNoteForProject(n.project_id)"
-            @open="openNoteDetail(n.id, n.project_id)"
-            @edit="openNoteDetail(n.id, n.project_id)"
-            @remove="onRemoveNote(n.id, n.project_id)"
+            @view="openNoteView(n.id, n.project_id)"
+            @edit="openNoteEdit(n.id, n.project_id)"
           />
         </div>
         <template v-else>
@@ -417,12 +413,10 @@ async function onRemoveNote(noteId: number, projectId: number) {
               <NoteCard
                 v-for="n in g.notes"
                 :key="n.id"
-                variant="list"
                 :note="n"
                 :can-manage="canManageNoteForProject(n.project_id)"
-                @open="openNoteDetail(n.id, n.project_id)"
-                @edit="openNoteDetail(n.id, n.project_id)"
-                @remove="onRemoveNote(n.id, n.project_id)"
+                @view="openNoteView(n.id, n.project_id)"
+                @edit="openNoteEdit(n.id, n.project_id)"
               />
             </div>
           </div>
@@ -454,6 +448,7 @@ async function onRemoveNote(noteId: number, projectId: number) {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageDetailNote"
+      :initial-mode="detailModalMode"
       @saved="load"
       @deleted="load"
     />
