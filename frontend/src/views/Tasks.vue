@@ -21,15 +21,16 @@ import {
   type SortDir,
   type TaskGroupBy,
   type TaskSortKey,
-} from '../composables/useTaskListPresentation'
-import { useAuthStore } from '../stores/auth.store'
-import { useProjectStore } from '../stores/project.store'
-import { useTaskStore } from '../stores/task.store'
-import { useTasksPageAssignableUsers } from '../composables/useAdminAssignableUsers'
-import { useTaskEditPermission } from '../composables/useCanEditTask'
-import { useToast } from '../composables/useToast'
-import type { TaskPriority, TaskStatus } from '../types/task'
-import { taskSectionHeaderStats } from '../utils/taskSectionStats'
+} from '@app/composables/useTaskListPresentation'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useTaskStore } from '@app/task.store'
+import { useTasksPageAssignableUsers } from '@app/composables/useAdminAssignableUsers'
+import { useTaskEditPermission } from '@app/composables/useCanEditTask'
+import { useToast } from '@app/composables/useToast'
+import { isPrivilegedRole } from '@domain/user/role'
+import { taskSectionHeaderStats } from '@domain/task/stats'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,7 +41,7 @@ const projectStore = useProjectStore()
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
-  if (u.role === 'admin' || u.role === 'staff') return true
+  if (isPrivilegedRole(u.role)) return true
   return projectStore.projects.some((p) => {
     if (p.owner_id === u.id) return true
     const r = p.caller_project_role
@@ -344,7 +345,7 @@ async function onSectionMove(payload: {
       <h1 class="text-2xl font-semibold text-foreground">{{ t('tasks.title') }}</h1>
       <p class="mt-1 text-sm text-muted">
         {{
-          auth.user?.role === 'admin' || auth.user?.role === 'staff'
+          isPrivilegedRole(auth.user?.role)
             ? t('tasks.subtitleAdmin')
             : t('tasks.subtitleDefault')
         }}

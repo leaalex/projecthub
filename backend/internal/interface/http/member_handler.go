@@ -1,17 +1,30 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 
-	"task-manager/backend/internal/models"
-	"task-manager/backend/internal/services"
+	"task-manager/backend/internal/application"
 
 	"github.com/gin-gonic/gin"
 )
 
 type MemberHandler struct {
-	Svc *services.ProjectMemberService
+	Projects *application.ProjectService
+	Removal  *application.MemberRemovalService
+}
+
+func memberJSON(projectID uint, mw application.MemberWithUser) gin.H {
+	m := mw.Member
+	return gin.H{
+		"id":         m.ID().Uint(),
+		"project_id": projectID,
+		"user_id":    m.UserID().Uint(),
+		"role":       m.Role().String(),
+		"user":       userPublic(mw.User),
+		"created_at": m.CreatedAt(),
+		"updated_at": m.UpdatedAt(),
+	}
 }
 
 func (h *MemberHandler) List(c *gin.Context) {
@@ -31,25 +44,29 @@ func (h *MemberHandler) List(c *gin.Context) {
 		return
 	}
 	projectID := uint(pid)
-	if !h.Svc.CanAccessProject(projectID, uid, role) {
-		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+	if !h.Projects.CanAccessProject(c.Request.Context(), projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": application.ErrForbidden.Error()})
 		return
 	}
-	kind, err := h.Svc.ProjectKind(projectID)
+	kind, err := h.Projects.ProjectKind(c.Request.Context(), projectID)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	if kind == models.ProjectKindPersonal {
-		c.JSON(http.StatusOK, gin.H{"members": []models.ProjectMember{}})
+	if kind.IsPersonal() {
+		c.JSON(http.StatusOK, gin.H{"members": []gin.H{}})
 		return
 	}
-	list, err := h.Svc.List(projectID)
+	list, err := h.Projects.ListMembers(c.Request.Context(), projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"members": list})
+	out := make([]gin.H, len(list))
+	for i := range list {
+		out[i] = memberJSON(projectID, list[i])
+	}
+	c.JSON(http.StatusOK, gin.H{"members": out})
 }
 
 type addMemberBody struct {
@@ -75,8 +92,8 @@ func (h *MemberHandler) Add(c *gin.Context) {
 		return
 	}
 	projectID := uint(pid)
-	if !h.Svc.CanManageMembers(projectID, uid, role) {
-		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+	if !h.Projects.CanManageMembers(c.Request.Context(), projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": application.ErrForbidden.Error()})
 		return
 	}
 	var body addMemberBody
@@ -89,7 +106,7 @@ func (h *MemberHandler) Add(c *gin.Context) {
 		targetUID = *body.UserID
 	} else if body.Email != "" {
 		var e error
-		targetUID, e = h.Svc.ResolveUserIDByEmail(body.Email)
+		targetUID, e = h.Projects.ResolveUserIDByEmail(c.Request.Context(), body.Email)
 		if e != nil {
 			handleServiceError(c, e)
 			return
@@ -98,13 +115,12 @@ func (h *MemberHandler) Add(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id or email required"})
 		return
 	}
-	pr := models.ProjectRole(body.Role)
-	pm, err := h.Svc.Add(projectID, targetUID, pr)
+	m, u, err := h.Projects.AddMember(c.Request.Context(), projectID, targetUID, body.Role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"member": pm})
+	c.JSON(http.StatusCreated, gin.H{"member": memberJSON(projectID, application.MemberWithUser{Member: m, User: u})})
 }
 
 type updateMemberRoleBody struct {
@@ -133,8 +149,8 @@ func (h *MemberHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 	projectID := uint(pid)
-	if !h.Svc.CanManageMembers(projectID, uid, role) {
-		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+	if !h.Projects.CanManageMembers(c.Request.Context(), projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": application.ErrForbidden.Error()})
 		return
 	}
 	var body updateMemberRoleBody
@@ -142,13 +158,12 @@ func (h *MemberHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	pr := models.ProjectRole(body.Role)
-	pm, err := h.Svc.UpdateRole(projectID, uint(targetUID), pr)
+	m, u, err := h.Projects.UpdateMemberRole(c.Request.Context(), projectID, uint(targetUID), body.Role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"member": pm})
+	c.JSON(http.StatusOK, gin.H{"member": memberJSON(projectID, application.MemberWithUser{Member: m, User: u})})
 }
 
 func (h *MemberHandler) Remove(c *gin.Context) {
@@ -173,25 +188,23 @@ func (h *MemberHandler) Remove(c *gin.Context) {
 		return
 	}
 	projectID := uint(pid)
-	if !h.Svc.CanManageMembers(projectID, uid, role) {
-		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+	if !h.Projects.CanManageMembers(c.Request.Context(), projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": application.ErrForbidden.Error()})
 		return
 	}
 
-	// Разбираем тело запроса с параметрами переноса
-	var body models.TaskTransferRequest
+	var body application.TaskTransferRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Проверяем, что в режиме single_user указан целевой пользователь
-	if body.TransferMode == models.TransferSingleUser && body.TransferToUserID == nil {
+	if body.TransferMode == application.TransferSingleUser && body.TransferToUserID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "transfer_to_user_id required for single_user mode"})
 		return
 	}
 
-	result, err := h.Svc.Remove(projectID, uint(targetUID), body.TransferMode, body.TransferToUserID)
+	result, err := h.Removal.Remove(c.Request.Context(), projectID, uint(targetUID), body.TransferMode, body.TransferToUserID)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -222,18 +235,18 @@ func (h *MemberHandler) ApplyTaskTransfers(c *gin.Context) {
 		return
 	}
 	projectID := uint(pid)
-	if !h.Svc.CanManageMembers(projectID, uid, role) {
-		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrForbidden.Error()})
+	if !h.Projects.CanManageMembers(c.Request.Context(), projectID, uid, role) {
+		c.JSON(http.StatusForbidden, gin.H{"error": application.ErrForbidden.Error()})
 		return
 	}
 
-	var body models.TaskTransferBatch
+	var body application.TaskTransferBatch
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.Svc.ApplyManualTaskTransfers(projectID, uint(targetUID), body.Transfers)
+	result, err := h.Removal.ApplyManualTaskTransfers(c.Request.Context(), projectID, uint(targetUID), body.Transfers)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -267,7 +280,7 @@ func (h *MemberHandler) TransferOwnership(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if err := h.Svc.TransferOwnership(uint(pid), body.NewOwnerID, uid, role); err != nil {
+	if err := h.Projects.TransferOwnership(c.Request.Context(), uint(pid), body.NewOwnerID, uid, role); err != nil {
 		handleServiceError(c, err)
 		return
 	}

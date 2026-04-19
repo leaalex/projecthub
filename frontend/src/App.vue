@@ -6,9 +6,9 @@ import AppSidebar from './components/layout/AppSidebar.vue'
 import CommandPalette from './components/ui/UiCommandPalette.vue'
 import ConfirmDialog from './components/ui/UiConfirmDialog.vue'
 import Toast from './components/ui/UiToast.vue'
-import { useAuthStore } from './stores/auth.store'
-import { useProjectStore } from './stores/project.store'
-import { useUiStore } from './stores/ui.store'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useUiStore } from '@app/ui.store'
 
 const route = useRoute()
 const ui = useUiStore()

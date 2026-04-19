@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"errors"
@@ -17,16 +17,16 @@ type UserHandler struct {
 }
 
 type userUpdateBody struct {
-	Name        *string `json:"name"`
-	Email       *string `json:"email"`
-	LastName    *string `json:"last_name"`
-	FirstName   *string `json:"first_name"`
-	Patronymic  *string `json:"patronymic"`
-	Department  *string `json:"department"`
-	JobTitle    *string `json:"job_title"`
-	Phone       *string `json:"phone"`
-	Locale      *string `json:"locale"`
-	Password    *string `json:"password"`
+	Name       *string `json:"name"`
+	Email      *string `json:"email"`
+	LastName   *string `json:"last_name"`
+	FirstName  *string `json:"first_name"`
+	Patronymic *string `json:"patronymic"`
+	Department *string `json:"department"`
+	JobTitle   *string `json:"job_title"`
+	Phone      *string `json:"phone"`
+	Locale     *string `json:"locale"`
+	Password   *string `json:"password"`
 }
 
 type userCreateBody struct {
@@ -43,19 +43,19 @@ type userCreateBody struct {
 
 func userPublic(u *user.User) gin.H {
 	return gin.H{
-		"id":          u.ID().Uint(),
-		"email":       u.Email().String(),
-		"name":        u.Name().DisplayName(),
-		"last_name":   u.Name().LastName,
-		"first_name":  u.Name().FirstName,
-		"patronymic":  u.Name().Patronymic,
-		"department":  u.Department(),
-		"job_title":   u.JobTitle(),
-		"phone":       u.Phone(),
-		"locale":      u.Locale().String(),
-		"role":        u.Role().String(),
-		"created_at":  u.CreatedAt(),
-		"updated_at":  u.UpdatedAt(),
+		"id":         u.ID().Uint(),
+		"email":      u.Email().String(),
+		"name":       u.Name().DisplayName(),
+		"last_name":  u.Name().LastName,
+		"first_name": u.Name().FirstName,
+		"patronymic": u.Name().Patronymic,
+		"department": u.Department(),
+		"job_title":  u.JobTitle(),
+		"phone":      u.Phone(),
+		"locale":     u.Locale().String(),
+		"role":       u.Role().String(),
+		"created_at": u.CreatedAt(),
+		"updated_at": u.UpdatedAt(),
 	}
 }
 
@@ -166,16 +166,16 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 	patch := application.UserProfilePatch{
-		Name:        body.Name,
-		Email:       body.Email,
-		LastName:    body.LastName,
-		FirstName:   body.FirstName,
-		Patronymic:  body.Patronymic,
-		Department:  body.Department,
-		JobTitle:    body.JobTitle,
-		Phone:       body.Phone,
-		Locale:      body.Locale,
-		Password:    body.Password,
+		Name:       body.Name,
+		Email:      body.Email,
+		LastName:   body.LastName,
+		FirstName:  body.FirstName,
+		Patronymic: body.Patronymic,
+		Department: body.Department,
+		JobTitle:   body.JobTitle,
+		Phone:      body.Phone,
+		Locale:     body.Locale,
+		Password:   body.Password,
 	}
 	u, err := h.Svc.Update(c.Request.Context(), user.ID(uint(id)), user.ID(callerID), role, patch)
 	if err != nil {

@@ -20,12 +20,15 @@ import (
 
 	"task-manager/backend/internal/application"
 	"task-manager/backend/internal/database"
+	"task-manager/backend/internal/domain/project"
+	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/httpserver"
+	"task-manager/backend/internal/infrastructure/persistence/projectstore"
+	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
+	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 	"task-manager/backend/internal/infrastructure/persistence/userstore"
-	"task-manager/backend/internal/models"
-	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -36,10 +39,12 @@ const testRefreshCookieName = "refresh_token"
 
 // TestApp — тестовый стенд: изолированная БД и собранный HTTP-роутер.
 type TestApp struct {
-	DB       *gorm.DB
-	Router   *gin.Engine
-	UserRepo *userstore.GormRepository
-	t        *testing.T
+	DB          *gorm.DB
+	Router      *gin.Engine
+	UserRepo    *userstore.GormRepository
+	ProjectRepo *projectstore.GormRepository
+	TaskRepo    *taskstore.GormRepository
+	t           *testing.T
 }
 
 // NewTestApp создаёт изолированный TestApp для одного теста или суб-теста.
@@ -61,14 +66,14 @@ func NewTestApp(t *testing.T) *TestApp {
 	authSvc := application.NewAuthService(userRepo, sessionRepo, testJWTSecret, accessTTL, refreshTTL)
 	usersSvc := application.NewUserService(userRepo)
 
-	memberSvc := &services.ProjectMemberService{DB: db}
-	projectSvc := &services.ProjectService{DB: db, Members: memberSvc}
-	taskSvc := &services.TaskService{DB: db}
-	sectionSvc := &services.TaskSectionService{
-		DB:       db,
-		Projects: projectSvc,
-		Tasks:    taskSvc,
-	}
+	projectRepo := projectstore.NewGormRepository(db)
+	taskRepo := taskstore.NewGormRepository(db)
+	projectsSvc := application.NewProjectService(projectRepo, userRepo)
+	memberRemovalSvc := application.NewMemberRemovalService(projectRepo, taskRepo, db)
+	tasksSvc := application.NewTaskService(taskRepo, projectRepo, userRepo)
+	taskMoveSvc := application.NewTaskMoveService(taskRepo, projectRepo, db)
+	taskAssignSvc := application.NewTaskAssignService(taskRepo, projectRepo, userRepo)
+	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
 
 	router := httpserver.BuildRouter(httpserver.Deps{
 		DB:                db,
@@ -81,15 +86,28 @@ func NewTestApp(t *testing.T) *TestApp {
 		RefreshCookiePath: "/api/auth",
 		CookieSecure:      false,
 		RefreshTTL:        refreshTTL,
-		MemberSvc:         memberSvc,
-		ProjectSvc:        projectSvc,
-		TaskSvc:           taskSvc,
-		SectionSvc:        sectionSvc,
-		SubtaskSvc:        &services.SubtaskService{DB: db, Tasks: taskSvc},
-		ReportSvc:         &services.ReportService{DB: db, ReportsDir: t.TempDir()},
+		Projects:          projectsSvc,
+		MemberRemoval:     memberRemovalSvc,
+		Tasks:             tasksSvc,
+		TaskMove:          taskMoveSvc,
+		TaskAssign:        taskAssignSvc,
+		ProjectDeletion:   projectDelSvc,
+		Reports: application.NewReportingService(
+			reportstore.NewGormRepository(db),
+			taskstore.NewReportQuery(db),
+			tasksSvc,
+			t.TempDir(),
+		),
 	})
 
-	return &TestApp{DB: db, Router: router, UserRepo: userRepo, t: t}
+	return &TestApp{
+		DB:          db,
+		Router:      router,
+		UserRepo:    userRepo,
+		ProjectRepo: projectRepo,
+		TaskRepo:    taskRepo,
+		t:           t,
+	}
 }
 
 // Login выполняет POST /api/auth/login и возвращает access-токен и cookie refresh (если есть).
@@ -210,42 +228,134 @@ func (a *TestApp) SeedUserWithPassword(role user.Role, password string) (u *user
 	return loaded, password
 }
 
-// SeedProject создаёт проект, принадлежащий ownerID.
-func (a *TestApp) SeedProject(ownerID uint, kind models.ProjectKind) *models.Project {
+// SeedProject создаёт проект, принадлежащий ownerID (kind: "team" или "personal").
+func (a *TestApp) SeedProject(ownerID uint, kindStr string) *project.Project {
 	a.t.Helper()
-	n := nextID()
-	p := &models.Project{
-		Name:    fmt.Sprintf("Project%d", n),
-		OwnerID: ownerID,
-		Kind:    kind,
+	ctx := context.Background()
+	owner, err := a.UserRepo.FindByID(ctx, user.ID(ownerID))
+	if err != nil {
+		a.t.Fatalf("SeedProject: owner: %v", err)
 	}
-	if err := a.DB.Create(p).Error; err != nil {
+	kind, err := project.ParseKind(kindStr)
+	if err != nil {
+		a.t.Fatalf("SeedProject: kind: %v", err)
+	}
+	n := nextID()
+	p, err := project.NewProject(user.ID(ownerID), owner.Role(), fmt.Sprintf("Project%d", n), "", kind)
+	if err != nil {
 		a.t.Fatalf("SeedProject: %v", err)
 	}
-	return p
+	p.Touch(time.Now())
+	if err := a.ProjectRepo.Save(ctx, p); err != nil {
+		a.t.Fatalf("SeedProject: save: %v", err)
+	}
+	loaded, err := a.ProjectRepo.FindByID(ctx, p.ID())
+	if err != nil {
+		a.t.Fatalf("SeedProject: reload: %v", err)
+	}
+	return loaded
 }
 
 // SeedTask создаёт задачу в заданном проекте.
-func (a *TestApp) SeedTask(projectID uint) *models.Task {
+func (a *TestApp) SeedTask(projectID uint) *task.Task {
 	a.t.Helper()
+	ctx := context.Background()
+	pid := project.ID(projectID)
+	pos, err := a.TaskRepo.NextPosition(ctx, pid, nil)
+	if err != nil {
+		a.t.Fatalf("SeedTask: NextPosition: %v", err)
+	}
+	st, err := task.ParseStatus("todo")
+	if err != nil {
+		a.t.Fatalf("SeedTask: status: %v", err)
+	}
+	pr, err := task.ParsePriority("medium")
+	if err != nil {
+		a.t.Fatalf("SeedTask: priority: %v", err)
+	}
 	n := nextID()
-	task := &models.Task{
-		Title:     fmt.Sprintf("Task%d", n),
-		ProjectID: projectID,
-		Status:    models.StatusTodo,
-		Priority:  models.PriorityMedium,
+	tk, err := task.NewTask(pid, nil, fmt.Sprintf("Task%d", n), "", st, pr, pos, nil, time.Now())
+	if err != nil {
+		a.t.Fatalf("SeedTask: NewTask: %v", err)
 	}
-	if err := a.DB.Create(task).Error; err != nil {
-		a.t.Fatalf("SeedTask: %v", err)
+	if err := a.TaskRepo.Save(ctx, tk); err != nil {
+		a.t.Fatalf("SeedTask: save: %v", err)
 	}
-	return task
+	loaded, err := a.TaskRepo.FindByID(ctx, tk.ID())
+	if err != nil {
+		a.t.Fatalf("SeedTask: reload: %v", err)
+	}
+	return loaded
+}
+
+// AssignTask назначает исполнителя задачи (для тестов).
+func (a *TestApp) AssignTask(taskID uint, assigneeUserID uint) {
+	a.t.Helper()
+	ctx := context.Background()
+	tk, err := a.TaskRepo.FindByID(ctx, task.ID(taskID))
+	if err != nil {
+		a.t.Fatalf("AssignTask: %v", err)
+	}
+	uid := user.ID(assigneeUserID)
+	tk.Assign(&uid, time.Now())
+	if err := a.TaskRepo.Save(ctx, tk); err != nil {
+		a.t.Fatalf("AssignTask: save: %v", err)
+	}
+}
+
+// TaskAssignee возвращает assignee_id задачи или nil.
+func (a *TestApp) TaskAssignee(taskID uint) *uint {
+	a.t.Helper()
+	ctx := context.Background()
+	tk, err := a.TaskRepo.FindByID(ctx, task.ID(taskID))
+	if err != nil {
+		a.t.Fatalf("TaskAssignee: %v", err)
+	}
+	if aid := tk.AssigneeID(); aid != nil {
+		v := aid.Uint()
+		return &v
+	}
+	return nil
+}
+
+// CountSubtasks — число подзадач у задачи.
+func (a *TestApp) CountSubtasks(taskID uint) int64 {
+	a.t.Helper()
+	var count int64
+	if err := a.DB.Model(&taskstore.SubtaskRecord{}).Where("task_id = ?", taskID).Count(&count).Error; err != nil {
+		a.t.Fatalf("CountSubtasks: %v", err)
+	}
+	return count
+}
+
+// CountProjectMembers — число строк project_members для пары (project, user).
+func (a *TestApp) CountProjectMembers(projectID, userID uint) int64 {
+	a.t.Helper()
+	var count int64
+	if err := a.DB.Model(&projectstore.MemberRecord{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&count).Error; err != nil {
+		a.t.Fatalf("CountProjectMembers: %v", err)
+	}
+	return count
+}
+
+// ProjectOwnerID возвращает owner_id проекта.
+func (a *TestApp) ProjectOwnerID(projectID uint) uint {
+	a.t.Helper()
+	ctx := context.Background()
+	p, err := a.ProjectRepo.FindByID(ctx, project.ID(projectID))
+	if err != nil {
+		a.t.Fatalf("ProjectOwnerID: %v", err)
+	}
+	return p.OwnerID().Uint()
 }
 
 // CountTasks возвращает количество задач с заданным project_id.
 func (a *TestApp) CountTasks(projectID uint) int64 {
 	a.t.Helper()
 	var count int64
-	if err := a.DB.Model(&models.Task{}).Where("project_id = ?", projectID).Count(&count).Error; err != nil {
+	if err := a.DB.Model(&taskstore.TaskRecord{}).Where("project_id = ?", projectID).Count(&count).Error; err != nil {
 		a.t.Fatalf("CountTasks: %v", err)
 	}
 	return count

@@ -57,7 +57,7 @@ func (s *Session) AssignID(id ID) {
 	s.id = id
 }
 
-func (s *Session) ID() ID                 { return s.id }
+func (s *Session) ID() ID                { return s.id }
 func (s *Session) UserID() user.ID       { return s.userID }
 func (s *Session) TokenHash() [32]byte   { return s.tokenHash }
 func (s *Session) ExpiresAt() time.Time  { return s.expiresAt }

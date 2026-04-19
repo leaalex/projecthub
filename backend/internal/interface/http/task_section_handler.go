@@ -1,16 +1,28 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 
-	"task-manager/backend/internal/services"
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/project"
 
 	"github.com/gin-gonic/gin"
 )
 
 type TaskSectionHandler struct {
-	Svc *services.TaskSectionService
+	Projects *application.ProjectService
+}
+
+func sectionJSON(projectID uint, s *project.Section) gin.H {
+	return gin.H{
+		"id":         s.ID().Uint(),
+		"project_id": projectID,
+		"name":       s.Name(),
+		"position":   s.Position(),
+		"created_at": s.CreatedAt(),
+		"updated_at": s.UpdatedAt(),
+	}
 }
 
 type sectionCreateBody struct {
@@ -41,12 +53,21 @@ func (h *TaskSectionHandler) List(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
 		return
 	}
-	sections, err := h.Svc.List(uint(projectIDRaw), uid, role)
+	pid := uint(projectIDRaw)
+	if !h.Projects.CanAccessProject(c.Request.Context(), pid, uid, role) {
+		handleServiceError(c, project.ErrForbidden)
+		return
+	}
+	sections, err := h.Projects.ListSections(c.Request.Context(), pid)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"sections": sections})
+	out := make([]gin.H, len(sections))
+	for i, s := range sections {
+		out[i] = sectionJSON(pid, s)
+	}
+	c.JSON(http.StatusOK, gin.H{"sections": out})
 }
 
 func (h *TaskSectionHandler) Create(c *gin.Context) {
@@ -65,17 +86,27 @@ func (h *TaskSectionHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
 		return
 	}
+	pid := uint(projectIDRaw)
+	okManage, err := h.Projects.CanManageProjectTasks(c.Request.Context(), pid, uid, role)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	if !okManage {
+		handleServiceError(c, project.ErrForbidden)
+		return
+	}
 	var body sectionCreateBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sec, err := h.Svc.Create(uint(projectIDRaw), uid, role, services.TaskSectionCreate{Name: body.Name})
+	sec, err := h.Projects.AddSection(c.Request.Context(), pid, body.Name)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"section": sec})
+	c.JSON(http.StatusCreated, gin.H{"section": sectionJSON(pid, sec)})
 }
 
 func (h *TaskSectionHandler) Update(c *gin.Context) {
@@ -99,17 +130,27 @@ func (h *TaskSectionHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad section id"})
 		return
 	}
+	pid := uint(projectIDRaw)
+	okManage, err := h.Projects.CanManageProjectTasks(c.Request.Context(), pid, uid, role)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	if !okManage {
+		handleServiceError(c, project.ErrForbidden)
+		return
+	}
 	var body sectionUpdateBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sec, err := h.Svc.Update(uint(projectIDRaw), uint(sectionIDRaw), uid, role, services.TaskSectionUpdate{Name: body.Name})
+	sec, err := h.Projects.RenameSection(c.Request.Context(), pid, uint(sectionIDRaw), body.Name)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"section": sec})
+	c.JSON(http.StatusOK, gin.H{"section": sectionJSON(pid, sec)})
 }
 
 func (h *TaskSectionHandler) Delete(c *gin.Context) {
@@ -133,7 +174,17 @@ func (h *TaskSectionHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad section id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(projectIDRaw), uint(sectionIDRaw), uid, role); err != nil {
+	pid := uint(projectIDRaw)
+	okManage, err := h.Projects.CanManageProjectTasks(c.Request.Context(), pid, uid, role)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	if !okManage {
+		handleServiceError(c, project.ErrForbidden)
+		return
+	}
+	if err := h.Projects.DeleteSection(c.Request.Context(), pid, uint(sectionIDRaw)); err != nil {
 		handleServiceError(c, err)
 		return
 	}
@@ -156,12 +207,22 @@ func (h *TaskSectionHandler) Reorder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
 		return
 	}
+	pid := uint(projectIDRaw)
+	okManage, err := h.Projects.CanManageProjectTasks(c.Request.Context(), pid, uid, role)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	if !okManage {
+		handleServiceError(c, project.ErrForbidden)
+		return
+	}
 	var body sectionReorderBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.Svc.Reorder(uint(projectIDRaw), uid, role, body.SectionIDs); err != nil {
+	if err := h.Projects.ReorderSections(c.Request.Context(), pid, body.SectionIDs); err != nil {
 		handleServiceError(c, err)
 		return
 	}

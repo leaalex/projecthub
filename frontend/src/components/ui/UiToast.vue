@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { useToastStore } from '../../stores/toast.store'
+import { useToastStore } from '@app/toast.store'
 
 const toast = useToastStore()
 </script>

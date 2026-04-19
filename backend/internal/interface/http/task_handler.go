@@ -1,39 +1,43 @@
-package handlers
+package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
-	"task-manager/backend/internal/models"
-	"task-manager/backend/internal/services"
-
 	"github.com/gin-gonic/gin"
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/task"
+	"task-manager/backend/internal/domain/user"
 )
 
+// TaskHandler — HTTP-обработчики задач.
 type TaskHandler struct {
-	Svc *services.TaskService
+	Tasks     *application.TaskService
+	Move      *application.TaskMoveService
+	AssignSvc *application.TaskAssignService
+	Users     user.Repository
 }
 
 type taskCreateBody struct {
-	Title       string             `json:"title" binding:"required"`
-	Description string             `json:"description"`
-	ProjectID   uint               `json:"project_id" binding:"required"`
-	SectionID   *uint              `json:"section_id"`
-	Status      models.TaskStatus  `json:"status"`
-	Priority    models.TaskPriority `json:"priority"`
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	ProjectID   uint   `json:"project_id" binding:"required"`
+	SectionID   *uint  `json:"section_id"`
+	Status      string `json:"status"`
+	Priority    string `json:"priority"`
 }
 
 type taskUpdateBody struct {
-	Title       *string              `json:"title"`
-	Description *string              `json:"description"`
-	Status      *models.TaskStatus   `json:"status"`
-	Priority    *models.TaskPriority `json:"priority"`
-	ProjectID   *uint                `json:"project_id"`
-	DueDate     *string              `json:"due_date"` // ISO-дата (YYYY-MM-DD) или пустая строка для сброса
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Status      *string `json:"status"`
+	Priority    *string `json:"priority"`
+	ProjectID   *uint   `json:"project_id"`
+	DueDate     *string `json:"due_date"`
 }
 
 type assignBody struct {
-	// 0 означает снять назначение (сбросить). Ненулевое значение назначает указанного пользователя.
 	AssigneeID uint `json:"assignee_id"`
 }
 
@@ -41,6 +45,17 @@ type moveTaskBody struct {
 	TaskID    uint  `json:"task_id" binding:"required"`
 	SectionID *uint `json:"section_id"`
 	Position  *int  `json:"position"`
+}
+
+func (h *TaskHandler) enrichAssignee(ctx context.Context, t *task.Task) *user.User {
+	if h.Users == nil || t.AssigneeID() == nil {
+		return nil
+	}
+	u, err := h.Users.FindByID(ctx, *t.AssigneeID())
+	if err != nil {
+		return nil
+	}
+	return u
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -64,21 +79,25 @@ func (h *TaskHandler) List(c *gin.Context) {
 		v := uint(n)
 		projectID = &v
 	}
-	var status *models.TaskStatus
+	var status *string
 	if s := c.Query("status"); s != "" {
-		st := models.TaskStatus(s)
-		status = &st
+		status = &s
 	}
-	tasks, err := h.Svc.List(uid, role, projectID, status)
+	tasks, err := h.Tasks.List(c.Request.Context(), uid, role, projectID, status)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	if err := h.Svc.AttachCallerACLBatch(tasks, uid, role); err != nil {
-		handleServiceError(c, err)
-		return
+	out := make([]gin.H, 0, len(tasks))
+	for _, t := range tasks {
+		acl, err := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		out = append(out, taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl))
 	}
-	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
+	c.JSON(http.StatusOK, gin.H{"tasks": out})
 }
 
 func (h *TaskHandler) Create(c *gin.Context) {
@@ -97,7 +116,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Create(uid, role, services.TaskCreate{
+	t, err := h.Tasks.Create(c.Request.Context(), uid, role, application.TaskCreate{
 		Title:       body.Title,
 		Description: body.Description,
 		ProjectID:   body.ProjectID,
@@ -109,8 +128,8 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusCreated, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusCreated, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }
 
 func (h *TaskHandler) Get(c *gin.Context) {
@@ -129,13 +148,13 @@ func (h *TaskHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	t, err := h.Svc.Get(uint(id), uid, role)
+	t, err := h.Tasks.Get(c.Request.Context(), uint(id), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }
 
 func (h *TaskHandler) Update(c *gin.Context) {
@@ -159,7 +178,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Update(uint(id), uid, role, services.TaskUpdate{
+	t, err := h.Tasks.Update(c.Request.Context(), uint(id), uid, role, application.TaskUpdate{
 		Title:       body.Title,
 		Description: body.Description,
 		Status:      body.Status,
@@ -171,8 +190,8 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }
 
 func (h *TaskHandler) Delete(c *gin.Context) {
@@ -191,14 +210,14 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(id), uid, role); err != nil {
+	if err := h.Tasks.Delete(c.Request.Context(), uint(id), uid, role); err != nil {
 		handleServiceError(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
 }
 
-func (h *TaskHandler) Assign(c *gin.Context) {
+func (h *TaskHandler) AssignUser(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -219,13 +238,13 @@ func (h *TaskHandler) Assign(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Assign(uint(id), uid, role, body.AssigneeID)
+	t, err := h.AssignSvc.Assign(c.Request.Context(), uint(id), uid, role, body.AssigneeID)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }
 
 func (h *TaskHandler) Complete(c *gin.Context) {
@@ -244,13 +263,13 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	t, err := h.Svc.Complete(uint(id), uid, role)
+	t, err := h.Tasks.Complete(c.Request.Context(), uint(id), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }
 
 func (h *TaskHandler) MoveInProject(c *gin.Context) {
@@ -274,7 +293,7 @@ func (h *TaskHandler) MoveInProject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err := h.Svc.Move(uid, role, services.TaskMoveInput{
+	t, err := h.Move.Move(c.Request.Context(), uid, role, application.TaskMoveInput{
 		TaskID:    body.TaskID,
 		ProjectID: uint(projectIDRaw),
 		SectionID: body.SectionID,
@@ -284,6 +303,6 @@ func (h *TaskHandler) MoveInProject(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
-	_ = h.Svc.AttachCallerACL(t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
 }

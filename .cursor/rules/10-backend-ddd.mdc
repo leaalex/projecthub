@@ -8,20 +8,24 @@ alwaysApply: false
 
 ```
 backend/internal/
-  domain/{user,project,task,report}/   # агрегаты, VO, интерфейсы репозиториев
-  application/                         # cross-aggregate оркестраторы
-  infrastructure/repository/           # GORM-реализации репозиториев
-  interface/http/ (=handlers)          # тонкий HTTP-слой
+  domain/{user,project,task,report,session}/   # агрегаты, VO, интерфейсы репозиториев
+  application/                                 # use cases, cross-aggregate оркестраторы
+  infrastructure/persistence/{user,project,task,report,session}store/  # GORM-репозитории по aggregate root
+  infrastructure/auth/                         # JWT (access-токен)
+  infrastructure/reportexport/                 # CSV/XLSX/PDF (read-модель для Report)
+  interface/http/ (package `handler`)         # тонкий HTTP-слой (Gin)
 ```
 
 Источник истины — [docs/architecture/aggregates.md](docs/architecture/aggregates.md).
+
+Все слои переехали в целевую структуру. Исторические записи и завершённые блоки — в Changelog [docs/architecture/aggregates.md](docs/architecture/aggregates.md).
 
 # Границы слоёв
 
 - `domain/*` **не импортирует** `gorm`, `gin`, `net/http`, `database/sql`. Только чистый Go + интерфейсы репозиториев, объявленные здесь же.
 - `application/*` — координирует несколько агрегатов в одной транзакции. Имена файлов: `project_deletion_service.go`, `member_removal_service.go`, `task_move_service.go`, `task_assign_service.go`.
-- `infrastructure/repository/*` — единственное место с GORM и SQL.
-- `handlers/*` — тонкий слой: парсинг body, вызов сервиса, `handleServiceError(c, err)`, формирование ответа. Никакой бизнес-логики, никаких прямых запросов в БД.
+- `infrastructure/persistence/*` — единственное место с GORM и SQL.
+- `interface/http/` (package `handler`) — тонкий слой: парсинг body, вызов сервиса, `handleServiceError(c, err)`, формирование ответа. Никакой бизнес-логики, никаких прямых запросов в БД.
 
 # Инварианты и транзакции
 
@@ -37,12 +41,5 @@ backend/internal/
 var ErrProjectNotFound = errors.New("project not found")
 ```
 
-- HTTP-хэндлеры НЕ формируют текст ошибки вручную, а пробрасывают через [backend/internal/handlers/errors.go](backend/internal/handlers/errors.go) / `handleServiceError`.
-
-# Переезд из текущего кода
-
-Миграция инкрементальная. Пока новый пакет не готов — старый код в [backend/internal/services/](backend/internal/services/) и [backend/internal/models/](backend/internal/models/) остаётся и работает. Каждый PR:
-
-1. Компилируется (`go build ./...`).
-2. Проходит `make backend-test`.
-3. Двигает один слой/агрегат.
+- Общие ошибки прикладного слоя — [backend/internal/application/errors.go](backend/internal/application/errors.go): `ErrForbidden`, `ErrInvalidInput`, `ErrInvalidCreds`, `ErrInvalidRefreshToken`.
+- HTTP-хэндлеры НЕ формируют текст ошибки вручную, а пробрасывают через `handleServiceError` в [backend/internal/interface/http/context.go](backend/internal/interface/http/context.go).

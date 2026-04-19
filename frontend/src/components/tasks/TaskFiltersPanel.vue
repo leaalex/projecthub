@@ -6,15 +6,15 @@ import UiCard from '../ui/UiCard.vue'
 import UiSegmentedControl from '../ui/UiSegmentedControl.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import UiTextAction from '../ui/UiTextAction.vue'
-import type { AssignableUserOption } from '../../composables/useAdminAssignableUsers'
+import type { AssignableUserOption } from '@app/composables/useAdminAssignableUsers'
 import type {
   AssigneeFilterValue,
   SortDir,
   TaskGroupBy,
   TaskSortKey,
-} from '../../composables/useTaskListPresentation'
-import type { TaskPriority, TaskStatus } from '../../types/task'
-import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+} from '@app/composables/useTaskListPresentation'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t } = useI18n()
 

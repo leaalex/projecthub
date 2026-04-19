@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PencilSquareIcon } from '@heroicons/vue/24/outline'
-import type { Project } from '../../types/project'
-import { timeAgo } from '../../utils/formatters'
+import type { Project } from '@domain/project/types'
+import { timeAgo } from '@infra/formatters/date'
 import Button from '../ui/UiButton.vue'
 
 const props = defineProps<{

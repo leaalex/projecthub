@@ -5,7 +5,7 @@ import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
 import UiSegmentedControl from '../ui/UiSegmentedControl.vue'
-import type { ProjectKind } from '../../types/project'
+import type { ProjectKind } from '@domain/project/types'
 
 const name = defineModel<string>('name', { default: '' })
 const description = defineModel<string>('description', { default: '' })

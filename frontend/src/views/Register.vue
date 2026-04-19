@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import RegisterForm from '../components/auth/RegisterForm.vue'
-import { useAuthStore } from '../stores/auth.store'
+import { useAuthStore } from '@app/auth.store'
 
 const router = useRouter()
 const auth = useAuthStore()

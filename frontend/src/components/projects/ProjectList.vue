@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Project } from '../../types/project'
+import type { Project } from '@domain/project/types'
 import ProjectCard from './ProjectCard.vue'
 
 defineProps<{

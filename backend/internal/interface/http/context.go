@@ -1,13 +1,15 @@
-package handlers
+package handler
 
 import (
 	"errors"
 	"net/http"
 
 	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/project"
+	"task-manager/backend/internal/domain/report"
+	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/middleware"
-	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,37 +17,50 @@ import (
 func handleServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, user.ErrUserNotFound),
-		errors.Is(err, services.ErrTaskNotFound),
-		errors.Is(err, services.ErrProjectNotFound),
-		errors.Is(err, services.ErrSubtaskNotFound),
-		errors.Is(err, services.ErrSavedReportNotFound),
-		errors.Is(err, services.ErrTargetUserNotFound),
-		errors.Is(err, services.ErrNotProjectMember),
-		errors.Is(err, services.ErrTaskSectionNotFound):
+		errors.Is(err, task.ErrTaskNotFound),
+		errors.Is(err, project.ErrProjectNotFound),
+		errors.Is(err, task.ErrSubtaskNotFound),
+		errors.Is(err, report.ErrNotFound),
+		errors.Is(err, application.ErrTargetUserNotFound),
+		errors.Is(err, project.ErrNotMember),
+		errors.Is(err, project.ErrSectionNotFound),
+		errors.Is(err, task.ErrTaskSectionNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
-	case errors.Is(err, services.ErrForbidden),
-		errors.Is(err, services.ErrPersonalProjectMembersNotAllowed),
-		errors.Is(err, services.ErrTeamProjectNotAllowed):
+	case errors.Is(err, application.ErrForbidden),
+		errors.Is(err, project.ErrForbidden),
+		errors.Is(err, project.ErrPersonalNoMembers),
+		errors.Is(err, project.ErrTeamProjectNotAllowed):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 
-	case errors.Is(err, services.ErrInvalidInput),
-		errors.Is(err, application.ErrInvalidInput),
-		errors.Is(err, services.ErrAssigneeNotProjectMember),
-		errors.Is(err, services.ErrCannotRemoveOwner),
+	case errors.Is(err, application.ErrInvalidInput),
+		errors.Is(err, report.ErrInvalidFormat),
+		errors.Is(err, report.ErrInvalidLayout),
+		errors.Is(err, report.ErrInvalidGroupBy),
+		errors.Is(err, report.ErrInvalidFields),
+		errors.Is(err, application.ErrAssigneeNotProjectMember),
+		errors.Is(err, task.ErrInvalidTitle),
+		errors.Is(err, task.ErrInvalidStatus),
+		errors.Is(err, task.ErrInvalidPriority),
+		errors.Is(err, project.ErrCannotRemoveOwner),
 		errors.Is(err, user.ErrCannotChangeOwnRole),
 		errors.Is(err, user.ErrInvalidGlobalRole),
-		errors.Is(err, services.ErrCannotTransferToSelf),
-		errors.Is(err, services.ErrTargetNotProjectMember),
-		errors.Is(err, services.ErrInvalidTaskTransfer),
-		errors.Is(err, services.ErrDuplicateTaskTransfer),
-		errors.Is(err, services.ErrCannotTransferToSameMember),
-		errors.Is(err, services.ErrInvalidAssignee),
-		errors.Is(err, services.ErrIncompleteTaskTransfer):
+		errors.Is(err, application.ErrCannotTransferToSelf),
+		errors.Is(err, application.ErrTargetNotProjectMember),
+		errors.Is(err, application.ErrInvalidTaskTransfer),
+		errors.Is(err, application.ErrDuplicateTaskTransfer),
+		errors.Is(err, application.ErrCannotTransferToSameMember),
+		errors.Is(err, application.ErrInvalidAssignee),
+		errors.Is(err, application.ErrIncompleteTaskTransfer),
+		errors.Is(err, project.ErrInvalidReorder),
+		errors.Is(err, project.ErrOwnershipUnchanged),
+		errors.Is(err, project.ErrInvalidProjectName),
+		errors.Is(err, project.ErrInvalidMemberRole),
+		errors.Is(err, project.ErrInvalidSectionName):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
 	case errors.Is(err, user.ErrCannotDeleteSelf),
-		errors.Is(err, services.ErrAlreadyProjectMember),
+		errors.Is(err, project.ErrAlreadyMember),
 		errors.Is(err, user.ErrEmailTaken):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 

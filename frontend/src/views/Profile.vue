@@ -12,10 +12,10 @@ import Button from '../components/ui/UiButton.vue'
 import Card from '../components/ui/UiCard.vue'
 import Input from '../components/ui/UiInput.vue'
 import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
-import { useToast } from '../composables/useToast'
-import { useAuthStore } from '../stores/auth.store'
-import { useUiStore, type ThemeMode } from '../stores/ui.store'
-import type { AppLocale } from '../utils/appLocale'
+import { useToast } from '@app/composables/useToast'
+import { useAuthStore } from '@app/auth.store'
+import { useUiStore, type ThemeMode } from '@app/ui.store'
+import type { AppLocale } from '@domain/session/locale'
 
 const auth = useAuthStore()
 const ui = useUiStore()

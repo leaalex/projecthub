@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useUiStore } from '../../stores/ui.store'
+import { useUiStore } from '@app/ui.store'
 import SidebarNav from './SidebarNav.vue'
 
 const ui = useUiStore()

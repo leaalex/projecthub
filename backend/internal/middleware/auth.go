@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"task-manager/backend/internal/domain/user"
-	"task-manager/backend/internal/utils"
+	"task-manager/backend/internal/infrastructure/auth"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +22,7 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return
 		}
 		raw := strings.TrimSpace(h[7:])
-		claims, err := utils.ParseJWT(raw, secret)
+		claims, err := auth.ParseJWT(raw, secret)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return

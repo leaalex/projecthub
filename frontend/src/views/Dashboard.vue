@@ -1,49 +1,44 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import ActivityFeed from '../components/dashboard/ActivityFeed.vue'
 import StatsCard from '../components/dashboard/StatsCard.vue'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Card from '../components/ui/UiCard.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
-import { api } from '../utils/api'
-import type { WeeklyReport } from '../types/report'
-import { useProjectStore } from '../stores/project.store'
+import { useProjectStore } from '@app/project.store'
+import { useReportStore } from '@app/report.store'
 
 const projectStore = useProjectStore()
+const reportStore = useReportStore()
+const { weekly, health } = storeToRefs(reportStore)
 const { t } = useI18n()
-const report = ref<WeeklyReport | null>(null)
-const health = ref<string | null>(null)
 const dashboardLoading = ref(true)
 
 onMounted(async () => {
   try {
-    const [h, w] = await Promise.all([
-      api.get<{ status: string }>('/health'),
-      api.get<WeeklyReport>('/reports/weekly'),
-    ])
-    health.value = h.data.status
-    report.value = w.data
+    await Promise.all([reportStore.loadHealth(), reportStore.loadWeekly()])
     await projectStore.fetchList()
   } catch {
-    health.value = null
+    reportStore.health = null
   } finally {
     dashboardLoading.value = false
   }
 })
 
 const activityItems = computed(() => {
-  if (!report.value) return []
+  if (!weekly.value) return []
   return [
     {
       label: t('dashboard.activity.totalTasks', {
-        count: report.value.total_tasks,
+        count: weekly.value.total_tasks,
       }),
-      at: report.value.week_start,
+      at: weekly.value.week_start,
     },
     {
       label: t('dashboard.activity.projectsOwned', {
-        count: report.value.projects_count,
+        count: weekly.value.projects_count,
       }),
       at: t('dashboard.activity.dash'),
     },
@@ -81,12 +76,12 @@ const breadcrumbItems = computed(() => [
       />
       <StatsCard
         :title="t('dashboard.stats.tasksScope')"
-        :value="report?.total_tasks ?? '—'"
+        :value="weekly?.total_tasks ?? '—'"
         :hint="t('dashboard.stats.tasksScopeHint')"
       />
       <StatsCard
         :title="t('dashboard.stats.doneThisWeek')"
-        :value="report?.completed_in_week ?? '—'"
+        :value="weekly?.completed_in_week ?? '—'"
         :hint="t('dashboard.stats.doneThisWeekHint')"
       />
     </div>

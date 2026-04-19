@@ -1,3 +1,10 @@
+> [!WARNING]
+> Этот документ устарел и описывает плоскую архитектуру, от которой проект отошёл в ходе DDD-миграции (апрель 2026).
+> Актуальная структура **backend** — в [docs/architecture/aggregates.md](../docs/architecture/aggregates.md),
+> раздел «Целевая структура пакетов». Актуальная структура **frontend** (после DDD-раскладки апрель 2026) — в [docs/architecture/frontend.md](../docs/architecture/frontend.md). Описание деревьев ниже по файлам **не** поддерживается в актуальном виде.
+
+---
+
 # Project Directory Structure
 
 ## Root Structure

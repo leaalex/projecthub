@@ -1,4 +1,4 @@
-package handlers_test
+package handler_test
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	domainuser "task-manager/backend/internal/domain/user"
-	"task-manager/backend/internal/models"
 	"task-manager/backend/internal/testutil"
 )
 
@@ -15,12 +14,12 @@ func TestTask_Create(t *testing.T) {
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
 
-	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), "team")
 
 	t.Run("create task in project", func(t *testing.T) {
 		rec, data := app.Do(http.MethodPost, "/api/tasks", map[string]any{
 			"title":      "First task",
-			"project_id": p.ID,
+			"project_id": p.ID().Uint(),
 		}, token)
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("expected 201, got %d: %v", rec.Code, data)
@@ -48,22 +47,22 @@ func TestTask_GetUpdateDelete(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
-	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
-	task := app.SeedTask(p.ID)
+	p := app.SeedProject(owner.ID().Uint(), "team")
+	task := app.SeedTask(p.ID().Uint())
 
 	t.Run("get task", func(t *testing.T) {
-		rec, data := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d", task.ID), nil, token)
+		rec, data := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d", task.ID().Uint()), nil, token)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 		}
 		got := data["task"].(map[string]any)
-		if uint(got["id"].(float64)) != task.ID {
+		if uint(got["id"].(float64)) != task.ID().Uint() {
 			t.Fatalf("unexpected task id")
 		}
 	})
 
 	t.Run("update title and priority", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPut, fmt.Sprintf("/api/tasks/%d", task.ID), map[string]any{
+		rec, data := app.Do(http.MethodPut, fmt.Sprintf("/api/tasks/%d", task.ID().Uint()), map[string]any{
 			"title":    "Updated title",
 			"priority": "high",
 		}, token)
@@ -80,14 +79,14 @@ func TestTask_GetUpdateDelete(t *testing.T) {
 	})
 
 	t.Run("delete task", func(t *testing.T) {
-		rec, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d", task.ID), nil, token)
+		rec, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d", task.ID().Uint()), nil, token)
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("expected 204, got %d", rec.Code)
 		}
 	})
 
 	t.Run("get deleted task returns 404", func(t *testing.T) {
-		rec, _ := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d", task.ID), nil, token)
+		rec, _ := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d", task.ID().Uint()), nil, token)
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("expected 404, got %d", rec.Code)
 		}
@@ -98,11 +97,11 @@ func TestTask_Complete(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
-	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
-	task := app.SeedTask(p.ID)
+	p := app.SeedProject(owner.ID().Uint(), "team")
+	task := app.SeedTask(p.ID().Uint())
 
 	t.Run("complete sets status to done", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/complete", task.ID), nil, token)
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/complete", task.ID().Uint()), nil, token)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
 		}
@@ -119,18 +118,18 @@ func TestTask_Assign(t *testing.T) {
 	member := app.SeedUser(domainuser.RoleUser)
 	ownerToken, _ := app.Login(owner.Email().String(), ownerPass)
 
-	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), "team")
 
 	// Добавляем участника в проект через API.
-	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", p.ID), map[string]any{
+	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", p.ID().Uint()), map[string]any{
 		"user_id": member.ID().Uint(),
 		"role":    "executor",
 	}, ownerToken)
 
-	task := app.SeedTask(p.ID)
+	task := app.SeedTask(p.ID().Uint())
 
 	t.Run("assign member", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/assign", task.ID), map[string]any{
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/assign", task.ID().Uint()), map[string]any{
 			"assignee_id": member.ID().Uint(),
 		}, ownerToken)
 		if rec.Code != http.StatusOK {
@@ -143,7 +142,7 @@ func TestTask_Assign(t *testing.T) {
 	})
 
 	t.Run("unassign (assignee_id 0)", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/assign", task.ID), map[string]any{
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/assign", task.ID().Uint()), map[string]any{
 			"assignee_id": 0,
 		}, ownerToken)
 		if rec.Code != http.StatusOK {
@@ -160,17 +159,17 @@ func TestTask_MoveInProject(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
-	p := app.SeedProject(owner.ID().Uint(), models.ProjectKindTeam)
+	p := app.SeedProject(owner.ID().Uint(), "team")
 
 	// Создаём две задачи через API для получения валидных ID.
-	rec1, d1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{"title": "T1", "project_id": p.ID}, token)
+	rec1, d1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{"title": "T1", "project_id": p.ID().Uint()}, token)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("create T1: %d %v", rec1.Code, d1)
 	}
 	task1ID := uint(d1["task"].(map[string]any)["id"].(float64))
 
 	// Создаём секцию.
-	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/task-sections", p.ID), map[string]any{
+	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/task-sections", p.ID().Uint()), map[string]any{
 		"name": "Section A",
 	}, token)
 	if recS.Code != http.StatusCreated {
@@ -180,7 +179,7 @@ func TestTask_MoveInProject(t *testing.T) {
 
 	t.Run("move task into section", func(t *testing.T) {
 		pos := 0
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID), map[string]any{
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID().Uint()), map[string]any{
 			"task_id":    task1ID,
 			"section_id": sectionID,
 			"position":   pos,
@@ -199,7 +198,7 @@ func TestTask_MoveInProject(t *testing.T) {
 	})
 
 	t.Run("move task out of section (nil section)", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID), map[string]any{
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID().Uint()), map[string]any{
 			"task_id":    task1ID,
 			"section_id": nil,
 			"position":   0,

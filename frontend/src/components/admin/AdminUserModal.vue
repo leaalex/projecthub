@@ -5,10 +5,10 @@ import Input from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import type { UiSelectOption } from '../ui/UiSelect.vue'
-import type { User, UserRole } from '../../types/user'
-import { useConfirm } from '../../composables/useConfirm'
-import { useToast } from '../../composables/useToast'
-import { api } from '../../utils/api'
+import type { User, UserRole } from '@domain/user/types'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useToast } from '@app/composables/useToast'
+import { extractUserAxiosError, useUserStore } from '@app/user.store'
 
 const props = withDefaults(
   defineProps<{
@@ -28,6 +28,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { confirm } = useConfirm()
+const userStore = useUserStore()
 
 const roleOptions: UiSelectOption<string>[] = [
   { value: 'user', label: 'User' },
@@ -115,14 +116,14 @@ async function confirmDelete() {
   if (!ok) return
   deleting.value = true
   try {
-    await api.delete(`/users/${u.id}`)
+    await userStore.remove(u.id)
     toast.success('User deleted')
     emit('saved')
     close()
   } catch (err: unknown) {
-    const ax = err as { response?: { data?: { error?: string } } }
-    const msg = ax.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Could not delete user')
+    toast.error(
+      extractUserAxiosError(err, 'Could not delete user'),
+    )
   } finally {
     deleting.value = false
   }
@@ -150,7 +151,7 @@ async function submit() {
   saving.value = true
   try {
     if (props.mode === 'create') {
-      await api.post<{ user: User }>('/users', {
+      await userStore.create({
         email: e,
         password: password.value.trim(),
         role: formRole.value,
@@ -182,20 +183,16 @@ async function submit() {
         }
         patch.password = pw
       }
-      await api.put<{ user: User }>(`/users/${u.id}`, patch)
+      await userStore.update(u.id, patch)
       if (canChangeRole.value && formRole.value !== initialRole.value) {
-        await api.patch<{ user: User }>(`/users/${u.id}/role`, {
-          role: formRole.value,
-        })
+        await userStore.updateRole(u.id, formRole.value)
       }
       toast.success('User updated')
     }
     emit('saved')
     close()
   } catch (err: unknown) {
-    const ax = err as { response?: { data?: { error?: string } } }
-    const msg = ax.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : 'Request failed')
+    toast.error(extractUserAxiosError(err, 'Request failed'))
   } finally {
     saving.value = false
   }

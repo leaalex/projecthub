@@ -1,4 +1,4 @@
-package handlers_test
+package handler_test
 
 import (
 	"fmt"
@@ -93,23 +93,14 @@ func TestProject_CRUD(t *testing.T) {
 // TestProject_DeleteOrphansTasksBaseline документирует текущее поведение при удалении
 // проекта, которому принадлежат задачи.
 //
-// С момента добавления _foreign_keys=on в SQLite DSN DELETE завершается ошибкой
-// нарушения FK-ограничения (tasks.project_id → projects.id имеет NO ACTION).
-// Сервис возвращает 500 Internal Server Error.
-//
-// Ожидаемое поведение после реализации мягкого удаления из
-// docs/architecture/aggregates.md:
-//   - DELETE /projects/:id мягко удаляет проект (устанавливает DeletedAt).
-//   - Задачи остаются в БД и сохраняют свой project_id.
-//   - Задачи исключаются из ответов на список, т.к. проект архивирован.
-//   - Жёсткое удаление (/projects/:id?permanent=true) каскадно удалит задачи
-//     через ProjectDeletionService.
+// Soft-delete проекта: DELETE /projects/:id без FK-ошибки; задачи остаются в БД,
+// но не попадают в список /api/tasks. Жёсткое удаление ?permanent=true каскадно
+// удаляет задачи через ProjectDeletionService.
 func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
 
-	// Создаём проект через API.
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
 		"name": "ToDelete",
 		"kind": "team",
@@ -120,7 +111,6 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	p := data["project"].(map[string]any)
 	projectID := uint(p["id"].(float64))
 
-	// Создаём задачи в этом проекте напрямую.
 	app.SeedTask(projectID)
 	app.SeedTask(projectID)
 
@@ -129,20 +119,30 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 		t.Fatalf("expected 2 tasks before deletion, got %d", before)
 	}
 
-	// ТЕКУЩЕЕ ПОВЕДЕНИЕ: DELETE завершается ошибкой, т.к. tasks.project_id ссылается на проект,
-	// а FK-ограничение имеет NO ACTION (не CASCADE). Сервис возвращает 500.
-	//
-	// Изменится при реализации мягкого удаления (проект получает DeletedAt вместо
-	// физического удаления, поэтому нарушения FK не возникает).
 	rec2, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d", projectID), nil, token)
-	if rec2.Code != http.StatusInternalServerError {
-		t.Fatalf("BASELINE CHANGED: expected 500 (FK constraint) when deleting project with tasks, got %d", rec2.Code)
+	if rec2.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 soft-delete, got %d", rec2.Code)
 	}
 
-	// Задачи по-прежнему существуют, т.к. проект НЕ был удалён.
-	after := app.CountTasks(projectID)
-	if after != 2 {
-		t.Fatalf("BASELINE CHANGED: expected 2 tasks to remain (project not deleted), got %d", after)
+	if app.CountTasks(projectID) != 2 {
+		t.Fatalf("expected 2 tasks still in DB after soft-delete")
+	}
+
+	recList, listData := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks?project_id=%d", projectID), nil, token)
+	if recList.Code != http.StatusOK {
+		t.Fatalf("list tasks: %d", recList.Code)
+	}
+	tasks := listData["tasks"].([]any)
+	if len(tasks) != 0 {
+		t.Fatalf("expected 0 visible tasks for soft-deleted project, got %d", len(tasks))
+	}
+
+	rec3, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/projects/%d?permanent=true", projectID), nil, token)
+	if rec3.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 hard-delete, got %d", rec3.Code)
+	}
+	if app.CountTasks(projectID) != 0 {
+		t.Fatalf("expected 0 tasks after hard-delete, got %d", app.CountTasks(projectID))
 	}
 }
 

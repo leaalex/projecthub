@@ -1,0 +1,23 @@
+---
+description: Frontend DDD-слои (Vue 3 + Pinia)
+globs: frontend/src/domain/**,frontend/src/application/**,frontend/src/infrastructure/**,frontend/src/components/**,frontend/src/views/**,frontend/src/router/**,frontend/vite.config.ts,frontend/tsconfig.app.json
+---
+
+# Frontend DDD
+
+Источник истины: [docs/architecture/frontend.md](docs/architecture/frontend.md) (и агрегаты бэка: [docs/architecture/aggregates.md](docs/architecture/aggregates.md)).
+
+## Слои
+
+- **`frontend/src/domain/`** — только чистый TypeScript: типы агрегатов, чистые функции (права, сортировка/группировка задач, `applyMoveLocally`, и т.д.). **Запрещено:** `vue`, `pinia`, `axios`, `vue-i18n`, импорты из `application/` / `infrastructure/` / `components/` / `views/`.
+- **`frontend/src/infrastructure/`** — HTTP (`http/client`, `api/*`), i18n (`i18n/`), форматирование дат (`formatters/`). Может зависеть от `domain/`. **Не** импортирует `application/`.
+- **`frontend/src/application/`** — Pinia-сторы (`*.store.ts`) и composables: сценарии, вызовы `@infra/api/*`, связка с UI. Может импортировать `domain/` и `infrastructure/`.
+- **`frontend/src/components/`**, **`views/`**, **`router/`** — интерфейс. Импортируют `@app/*`, `@domain/*`, `@infra/*` по необходимости; **не** импортируют `@infra/http/client` и не вызывают `api.*` напрямую — только через `@infra/api/*` или через сторы/composables из `@app/`.
+
+## Импорты
+
+Использовать алиасы `@domain/`, `@infra/`, `@app/` вместо длинных относительных путей к этим слоям.
+
+## Правки в этом PR
+
+Если меняются границы слоёв или состав пакетов — обновить [docs/architecture/frontend.md](docs/architecture/frontend.md) и строку в Changelog там же.

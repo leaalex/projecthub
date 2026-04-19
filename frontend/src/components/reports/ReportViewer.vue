@@ -3,9 +3,9 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Card from '../ui/UiCard.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
-import type { WeeklyReport } from '../../types/report'
-import { formatDateShort } from '../../utils/formatters'
-import { taskStatusLabel } from '../../utils/taskEnumLabels'
+import type { WeeklyReport } from '@domain/report/types'
+import { formatDateShort } from '@infra/formatters/date'
+import { taskStatusLabel } from '@infra/i18n/labels'
 import WeeklyChart from './Charts/WeeklyChart.vue'
 
 const { t, locale } = useI18n()

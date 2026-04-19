@@ -10,8 +10,9 @@ import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
 import EmptyState from '../components/ui/UiEmptyState.vue'
 import Skeleton from '../components/ui/UiSkeleton.vue'
-import { useAuthStore } from '../stores/auth.store'
-import { useProjectStore } from '../stores/project.store'
+import { isPrivilegedRole } from '@domain/user/role'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,13 +36,13 @@ const transferModalOpen = ref(false)
 const callerRole = computed(() => projectStore.current?.caller_project_role)
 
 const canManage = computed(() => {
-  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') return true
+  if (isPrivilegedRole(auth.user?.role)) return true
   const r = callerRole.value
   return r === 'owner' || r === 'manager'
 })
 
 const showTransfer = computed(
-  () => auth.user?.role === 'admin' || auth.user?.role === 'staff',
+  () => isPrivilegedRole(auth.user?.role),
 )
 
 let loadGeneration = 0

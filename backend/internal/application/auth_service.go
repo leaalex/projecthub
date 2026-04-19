@@ -8,19 +8,19 @@ import (
 
 	"task-manager/backend/internal/domain/session"
 	"task-manager/backend/internal/domain/user"
-	"task-manager/backend/internal/utils"
+	"task-manager/backend/internal/infrastructure/auth"
 )
 
 const minNewPasswordLen = 8
 
 // AuthService — сценарии регистрации, входа, refresh, выхода и смены пароля.
 type AuthService struct {
-	Users         user.Repository
-	Sessions      session.Repository
-	JWTSecret     string
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
-	Clock         func() time.Time
+	Users      user.Repository
+	Sessions   session.Repository
+	JWTSecret  string
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
+	Clock      func() time.Time
 }
 
 func NewAuthService(users user.Repository, sess session.Repository, jwtSecret string, accessTTL, refreshTTL time.Duration) *AuthService {
@@ -35,7 +35,7 @@ func NewAuthService(users user.Repository, sess session.Repository, jwtSecret st
 }
 
 func (s *AuthService) signAccess(u *user.User) (string, error) {
-	return utils.SignJWT(u.ID().Uint(), u.Role().String(), s.JWTSecret, s.AccessTTL)
+	return auth.SignJWT(u.ID().Uint(), u.Role().String(), s.JWTSecret, s.AccessTTL)
 }
 
 func (s *AuthService) issueRefresh(ctx context.Context, uid user.ID) (plain string, err error) {

@@ -10,18 +10,18 @@ import UiScrollPanel from '../ui/UiScrollPanel.vue'
 import UiSegmentedControl from '../ui/UiSegmentedControl.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import UiTextAction from '../ui/UiTextAction.vue'
-import { useAuthStore } from '../../stores/auth.store'
-import { useProjectStore } from '../../stores/project.store'
-import { api } from '../../utils/api'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useUserStore } from '@app/user.store'
 import type {
   ReportConfig,
   ReportFormat,
   ReportGroupBy,
   ReportPdfLayout,
-} from '../../types/report'
-import type { TaskPriority, TaskStatus } from '../../types/task'
-import type { User } from '../../types/user'
-import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+} from '@domain/report/types'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import { isPrivilegedRole } from '@domain/user/role'
+import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t } = useI18n()
 
@@ -35,9 +35,10 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const projectStore = useProjectStore()
+const userStore = useUserStore()
 
 const canFilterUsers = computed(
-  () => auth.user?.role === 'admin' || auth.user?.role === 'staff',
+  () => isPrivilegedRole(auth.user?.role),
 )
 
 const format = ref<ReportFormat>('xlsx')
@@ -45,8 +46,6 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const selectedProjectIds = ref<number[]>([])
 const selectedUserIds = ref<number[]>([])
-const users = ref<User[]>([])
-const loadingUsers = ref(false)
 
 const FORMAT_OPTIONS = computed(() =>
   (['csv', 'xlsx', 'pdf', 'txt'] as const).map((value) => ({
@@ -115,14 +114,10 @@ const groupSelectOptions = computed(() =>
 onMounted(async () => {
   await projectStore.fetchList().catch(() => {})
   if (canFilterUsers.value) {
-    loadingUsers.value = true
     try {
-      const { data } = await api.get<{ users: User[] }>('/users')
-      users.value = data.users
+      await userStore.fetchList()
     } catch {
-      users.value = []
-    } finally {
-      loadingUsers.value = false
+      /* keep store list; avoid wiping admin Users view */
     }
   }
 })
@@ -226,14 +221,14 @@ const canSubmit = computed(
       <div v-if="canFilterUsers">
         <UiFormSection :title="t('reportSettings.users')">
           <div
-            v-if="loadingUsers"
+            v-if="userStore.loading"
             class="text-sm text-muted"
           >
             {{ t('reportSettings.loadingUsers') }}
           </div>
           <UiScrollPanel v-else>
             <UiCheckboxRow
-              v-for="u in users"
+              v-for="u in userStore.users"
               :key="u.id"
               v-model="selectedUserIds"
               :value="u.id"

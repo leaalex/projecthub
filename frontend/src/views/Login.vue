@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import LoginForm from '../components/auth/LoginForm.vue'
-import { useAuthStore } from '../stores/auth.store'
+import { useAuthStore } from '@app/auth.store'
 
 const router = useRouter()
 const route = useRoute()

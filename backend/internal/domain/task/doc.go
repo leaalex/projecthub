@@ -4,7 +4,6 @@
 // Инварианты и транзакционные границы задокументированы в
 // docs/architecture/aggregates.md (раздел «Task Aggregate»).
 //
-// Типы переносятся сюда инкрементально из backend/internal/models,
-// backend/internal/services/task_service.go и
-// backend/internal/services/subtask_service.go в последующих PR.
+// Персистентность: infrastructure/persistence/taskstore; сценарии API —
+// application.TaskService / TaskMoveService / TaskAssignService.
 package task

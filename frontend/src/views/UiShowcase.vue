@@ -19,9 +19,9 @@ import UiSelect from '../components/ui/UiSelect.vue'
 import UiSkeleton from '../components/ui/UiSkeleton.vue'
 import UiTextAction from '../components/ui/UiTextAction.vue'
 import UiTable from '../components/ui/UiTable.vue'
-import { useConfirm } from '../composables/useConfirm'
-import { useToast } from '../composables/useToast'
-import type { TaskPriority, TaskStatus } from '../types/task'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useToast } from '@app/composables/useToast'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()

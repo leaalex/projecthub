@@ -9,9 +9,8 @@ import (
 
 	"task-manager/backend/internal/application"
 	"task-manager/backend/internal/domain/user"
-	"task-manager/backend/internal/handlers"
+	handler "task-manager/backend/internal/interface/http"
 	"task-manager/backend/internal/middleware"
-	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -29,31 +28,41 @@ type Deps struct {
 	RefreshCookiePath string
 	CookieSecure      bool
 	RefreshTTL        time.Duration
-	MemberSvc         *services.ProjectMemberService
-	ProjectSvc        *services.ProjectService
-	TaskSvc           *services.TaskService
-	SectionSvc        *services.TaskSectionService
-	SubtaskSvc        *services.SubtaskService
-	ReportSvc         *services.ReportService
+	Projects          *application.ProjectService
+	MemberRemoval     *application.MemberRemovalService
+	Tasks             *application.TaskService
+	TaskMove          *application.TaskMoveService
+	TaskAssign        *application.TaskAssignService
+	ProjectDeletion   *application.ProjectDeletionService
+	Reports           *application.ReportingService
 }
 
 // BuildRouter собирает и возвращает настроенный *gin.Engine.
 // Вызывающий код отвечает за r.Run() или передачу движка в httptest.
 func BuildRouter(deps Deps) *gin.Engine {
-	authHandler := &handlers.AuthHandler{
+	authHandler := &handler.AuthHandler{
 		Auth:              deps.Auth,
 		RefreshCookieName: deps.RefreshCookieName,
 		RefreshCookiePath: deps.RefreshCookiePath,
 		CookieSecure:      deps.CookieSecure,
 		RefreshTTL:        deps.RefreshTTL,
 	}
-	projectHandler := &handlers.ProjectHandler{Svc: deps.ProjectSvc, Members: deps.MemberSvc, TaskSvc: deps.TaskSvc}
-	memberHandler := &handlers.MemberHandler{Svc: deps.MemberSvc}
-	taskHandler := &handlers.TaskHandler{Svc: deps.TaskSvc}
-	taskSectionHandler := &handlers.TaskSectionHandler{Svc: deps.SectionSvc}
-	subtaskHandler := &handlers.SubtaskHandler{Svc: deps.SubtaskSvc}
-	userHandler := &handlers.UserHandler{Svc: deps.Users}
-	reportHandler := &handlers.ReportHandler{Svc: deps.ReportSvc}
+	projectHandler := &handler.ProjectHandler{
+		Projects: deps.Projects,
+		TaskSvc:  deps.Tasks,
+		Deletion: deps.ProjectDeletion,
+	}
+	memberHandler := &handler.MemberHandler{Projects: deps.Projects, Removal: deps.MemberRemoval}
+	taskHandler := &handler.TaskHandler{
+		Tasks:     deps.Tasks,
+		Move:      deps.TaskMove,
+		AssignSvc: deps.TaskAssign,
+		Users:     deps.UserRepo,
+	}
+	taskSectionHandler := &handler.TaskSectionHandler{Projects: deps.Projects}
+	subtaskHandler := &handler.SubtaskHandler{Tasks: deps.Tasks}
+	userHandler := &handler.UserHandler{Svc: deps.Users}
+	reportHandler := &handler.ReportHandler{Svc: deps.Reports}
 
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -79,7 +88,7 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects := protected.Group("/projects")
 	projects.GET("", projectHandler.List)
 	projects.POST("", projectHandler.Create)
-	projects.GET("/:id/tasks", projectHandler.Tasks)
+	projects.GET("/:id/tasks", projectHandler.ListProjectTasks)
 	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
 	projects.GET("/:id/task-sections", taskSectionHandler.List)
 	projects.POST("/:id/task-sections", taskSectionHandler.Create)
@@ -92,6 +101,7 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects.DELETE("/:id/members/:user_id", memberHandler.Remove)
 	projects.POST("/:id/members/:user_id/transfer-tasks", memberHandler.ApplyTaskTransfers)
 	projects.PATCH("/:id/owner", middleware.RequireStaffOrAdmin(), memberHandler.TransferOwnership)
+	projects.POST("/:id/restore", projectHandler.Restore)
 	projects.GET("/:id", projectHandler.Get)
 	projects.PUT("/:id", projectHandler.Update)
 	projects.DELETE("/:id", projectHandler.Delete)
@@ -104,7 +114,7 @@ func BuildRouter(deps Deps) *gin.Engine {
 	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)
 	tasks.DELETE("/:id/subtasks/:sid", subtaskHandler.Delete)
 	tasks.POST("/:id/subtasks/:sid/toggle", subtaskHandler.Toggle)
-	tasks.POST("/:id/assign", taskHandler.Assign)
+	tasks.POST("/:id/assign", taskHandler.AssignUser)
 	tasks.POST("/:id/complete", taskHandler.Complete)
 	tasks.GET("/:id", taskHandler.Get)
 	tasks.PUT("/:id", taskHandler.Update)

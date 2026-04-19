@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '../../composables/useToast'
-import { useAuthStore } from '../../stores/auth.store'
-import { useProjectStore } from '../../stores/project.store'
-import type { ProjectMemberRole, TaskTransfer, TaskTransferMode } from '../../types/project'
-import type { Task } from '../../types/task'
+import { isPrivilegedRole } from '@domain/user/role'
+import { useToast } from '@app/composables/useToast'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import type {
+  ProjectMemberRole,
+  TaskTransfer,
+  TaskTransferMode,
+} from '@domain/project/types'
+import type { Task } from '@domain/task/types'
 import Avatar from '../ui/UiAvatar.vue'
 import Button from '../ui/UiButton.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
@@ -36,7 +41,7 @@ const project = computed(() =>
 const callerRole = computed(() => project.value?.caller_project_role)
 
 const canManage = computed(() => {
-  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') return true
+  if (isPrivilegedRole(auth.user?.role)) return true
   const r = callerRole.value
   return r === 'owner' || r === 'manager'
 })

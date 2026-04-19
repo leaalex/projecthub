@@ -4,10 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/projectstore"
+	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
+	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 	"task-manager/backend/internal/infrastructure/persistence/userstore"
-	"task-manager/backend/internal/models"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -42,12 +45,12 @@ func Open(databasePath string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(
 		&userstore.Record{},
 		&sessionstore.Record{},
-		&models.Project{},
-		&models.ProjectMember{},
-		&models.TaskSection{},
-		&models.Task{},
-		&models.Subtask{},
-		&models.SavedReport{},
+		&projectstore.ProjectRecord{},
+		&projectstore.MemberRecord{},
+		&projectstore.SectionRecord{},
+		&taskstore.TaskRecord{},
+		&taskstore.SubtaskRecord{},
+		&reportstore.SavedReportRecord{},
 	); err != nil {
 		return nil, err
 	}
@@ -56,7 +59,7 @@ func Open(databasePath string) (*gorm.DB, error) {
 	_ = db.Model(&userstore.Record{}).Where("role = ?", "member").Update("role", string(user.RoleUser)).Error
 	_ = db.Model(&userstore.Record{}).Where("role = ?", "manager").Update("role", string(user.RoleCreator)).Error
 
-	_ = db.Model(&models.Project{}).Where("kind IS NULL OR kind = ?", "").Update("kind", string(models.ProjectKindTeam)).Error
+	_ = db.Model(&projectstore.ProjectRecord{}).Where("kind IS NULL OR kind = ?", "").Update("kind", string(project.KindTeam)).Error
 
 	return db, nil
 }

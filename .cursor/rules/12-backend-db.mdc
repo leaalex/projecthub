@@ -1,6 +1,6 @@
 ---
 description: Правила работы со схемой БД, GORM и SQLite
-globs: backend/internal/database/**,backend/internal/models/**,backend/internal/infrastructure/**
+globs: backend/internal/database/**,backend/internal/infrastructure/**
 alwaysApply: false
 ---
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TaskGroup } from '../../composables/useTaskListPresentation'
-import type { Task } from '../../types/task'
-import { taskSectionHeaderStats } from '../../utils/taskSectionStats'
+import type { TaskGroup } from '@app/composables/useTaskListPresentation'
+import { taskSectionHeaderStats } from '@domain/task/stats'
+import type { Task } from '@domain/task/types'
 import TaskCard from './TaskCard.vue'
 
 const { t } = useI18n()

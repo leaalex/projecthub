@@ -22,16 +22,17 @@ import {
   type SortDir,
   type TaskGroupBy,
   type TaskSortKey,
-} from '../composables/useTaskListPresentation'
-import { useAuthStore } from '../stores/auth.store'
-import { useProjectStore } from '../stores/project.store'
-import { useTaskStore } from '../stores/task.store'
-import { useProjectScopedAssignableUsers } from '../composables/useAdminAssignableUsers'
-import { useConfirm } from '../composables/useConfirm'
-import { useTaskEditPermission } from '../composables/useCanEditTask'
-import { useToast } from '../composables/useToast'
-import type { TaskPriority, TaskStatus } from '../types/task'
-import { taskSectionHeaderStats } from '../utils/taskSectionStats'
+} from '@app/composables/useTaskListPresentation'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useTaskStore } from '@app/task.store'
+import { useProjectScopedAssignableUsers } from '@app/composables/useAdminAssignableUsers'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useTaskEditPermission } from '@app/composables/useCanEditTask'
+import { useToast } from '@app/composables/useToast'
+import { isPrivilegedRole } from '@domain/user/role'
+import { taskSectionHeaderStats } from '@domain/task/stats'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -45,7 +46,7 @@ const taskStore = useTaskStore()
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
-  if (u.role === 'admin' || u.role === 'staff') return true
+  if (isPrivilegedRole(u.role)) return true
   const p = projectStore.current
   if (!p) return false
   if (p.owner_id === u.id) return true
@@ -57,7 +58,7 @@ const canCreateTasks = computed(() => {
 const canEditProject = computed(() => {
   const u = auth.user
   if (!u) return false
-  if (u.role === 'admin' || u.role === 'staff') return true
+  if (isPrivilegedRole(u.role)) return true
   const p = projectStore.current
   if (!p) return false
   if (p.owner_id === u.id) return true

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"task-manager/backend/internal/domain/user"
-	"task-manager/backend/internal/services"
 )
 
 const minAdminPasswordLen = 8
@@ -32,16 +31,16 @@ func NewUserService(users user.Repository) *UserService {
 
 // UserProfilePatch — частичное обновление PUT /users/:id.
 type UserProfilePatch struct {
-	Name        *string
-	Email       *string
-	LastName    *string
-	FirstName   *string
-	Patronymic  *string
-	Department  *string
-	JobTitle    *string
-	Phone       *string
-	Locale      *string
-	Password    *string
+	Name       *string
+	Email      *string
+	LastName   *string
+	FirstName  *string
+	Patronymic *string
+	Department *string
+	JobTitle   *string
+	Phone      *string
+	Locale     *string
+	Password   *string
 }
 
 // AdminCreateInput — POST /users (только admin).
@@ -77,7 +76,7 @@ func (s *UserService) CanAccessUser(callerID user.ID, callerRole user.Role, targ
 
 func (s *UserService) AdminCreate(ctx context.Context, callerRole user.Role, in AdminCreateInput) (*user.User, error) {
 	if callerRole != user.RoleAdmin {
-		return nil, services.ErrForbidden
+		return nil, ErrForbidden
 	}
 	email, err := user.NewEmail(in.Email)
 	if err != nil {
@@ -130,7 +129,7 @@ func (s *UserService) AdminCreate(ctx context.Context, callerRole user.Role, in 
 
 func (s *UserService) Update(ctx context.Context, id, callerID user.ID, callerRole user.Role, patch UserProfilePatch) (*user.User, error) {
 	if callerID != id && callerRole != user.RoleAdmin {
-		return nil, services.ErrForbidden
+		return nil, ErrForbidden
 	}
 	u, err := s.Users.FindByID(ctx, id)
 	if err != nil {
@@ -140,7 +139,7 @@ func (s *UserService) Update(ctx context.Context, id, callerID user.ID, callerRo
 		p := strings.TrimSpace(*patch.Password)
 		if p != "" {
 			if callerRole != user.RoleAdmin {
-				return nil, services.ErrForbidden
+				return nil, ErrForbidden
 			}
 			if len(p) < minAdminPasswordLen {
 				return nil, ErrInvalidInput
@@ -212,7 +211,7 @@ func (s *UserService) Update(ctx context.Context, id, callerID user.ID, callerRo
 
 func (s *UserService) Delete(ctx context.Context, id, adminID user.ID, adminRole user.Role) error {
 	if adminRole != user.RoleAdmin {
-		return services.ErrForbidden
+		return ErrForbidden
 	}
 	if id == adminID {
 		return user.ErrCannotDeleteSelf
@@ -225,7 +224,7 @@ func (s *UserService) Delete(ctx context.Context, id, adminID user.ID, adminRole
 
 func (s *UserService) SetGlobalRole(ctx context.Context, targetID, callerID user.ID, callerRole, newRole user.Role) (*user.User, error) {
 	if callerRole != user.RoleAdmin {
-		return nil, services.ErrForbidden
+		return nil, ErrForbidden
 	}
 	if targetID == callerID {
 		return nil, user.ErrCannotChangeOwnRole

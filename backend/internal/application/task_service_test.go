@@ -1,0 +1,185 @@
+package application_test
+
+import (
+	"context"
+	"sync"
+	"testing"
+	"time"
+
+	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/project"
+	"task-manager/backend/internal/domain/task"
+	"task-manager/backend/internal/domain/user"
+)
+
+// memTasks — минимальный in-memory task.Repository.
+type memTasks struct {
+	mu   sync.Mutex
+	byID map[uint]*task.Task
+	next uint
+}
+
+func newMemTasks() *memTasks {
+	return &memTasks{byID: map[uint]*task.Task{}}
+}
+
+func (m *memTasks) FindByID(ctx context.Context, id task.ID) (*task.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.byID[id.Uint()]
+	if !ok {
+		return nil, task.ErrTaskNotFound
+	}
+	return t, nil
+}
+
+func (m *memTasks) Save(ctx context.Context, t *task.Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if t.ID().Uint() == 0 {
+		m.next++
+		t.AssignID(task.ID(m.next))
+	}
+	m.byID[t.ID().Uint()] = t
+	return nil
+}
+
+func (m *memTasks) Delete(ctx context.Context, id task.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.byID, id.Uint())
+	return nil
+}
+
+func (m *memTasks) DeleteByProject(ctx context.Context, projectID project.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for id, tk := range m.byID {
+		if tk.ProjectID() == projectID {
+			delete(m.byID, id)
+		}
+	}
+	return nil
+}
+
+func (m *memTasks) ListVisible(ctx context.Context, filter task.ListFilter) ([]*task.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*task.Task
+	for _, tk := range m.byID {
+		if filter.ProjectID != nil && tk.ProjectID() != *filter.ProjectID {
+			continue
+		}
+		out = append(out, tk)
+	}
+	return out, nil
+}
+
+func (m *memTasks) NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
+	return 1, nil
+}
+
+func (m *memTasks) ListByAssignee(ctx context.Context, projectID project.ID, assigneeID user.ID) ([]*task.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*task.Task
+	for _, tk := range m.byID {
+		if tk.ProjectID() != projectID {
+			continue
+		}
+		if aid := tk.AssigneeID(); aid == nil || *aid != assigneeID {
+			continue
+		}
+		out = append(out, tk)
+	}
+	return out, nil
+}
+
+func (m *memTasks) ReassignByAssignee(ctx context.Context, projectID project.ID, oldAssignee user.ID, newAssignee *user.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := time.Now()
+	for _, tk := range m.byID {
+		if tk.ProjectID() != projectID {
+			continue
+		}
+		if aid := tk.AssigneeID(); aid == nil || *aid != oldAssignee {
+			continue
+		}
+		if newAssignee == nil {
+			tk.Unassign(now)
+		} else {
+			nid := *newAssignee
+			tk.Assign(&nid, now)
+		}
+	}
+	return nil
+}
+
+func (m *memTasks) ReassignOne(ctx context.Context, id task.ID, projectID project.ID, newAssignee *user.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	tk, ok := m.byID[id.Uint()]
+	if !ok {
+		return task.ErrTaskNotFound
+	}
+	if tk.ProjectID() != projectID {
+		// Как SQL UPDATE с несовпадением project_id: 0 строк, без ошибки.
+		return nil
+	}
+	now := time.Now()
+	if newAssignee == nil {
+		tk.Unassign(now)
+	} else {
+		nid := *newAssignee
+		tk.Assign(&nid, now)
+	}
+	return nil
+}
+
+func TestTaskService_Create_forbiddenWithoutManage(t *testing.T) {
+	memP := newMemProjects()
+	memT := newMemTasks()
+	memU := newMemUsers()
+	svc := application.NewTaskService(memT, memP, memU)
+
+	p, err := project.NewProject(user.ID(1), user.RoleCreator, "P", "", project.KindTeam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Touch(time.Now())
+	if err := memP.Save(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = svc.Create(context.Background(), 2, user.RoleUser, application.TaskCreate{
+		Title:     "x",
+		ProjectID: p.ID().Uint(),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestTaskService_VisibleProjectIDs_union(t *testing.T) {
+	memP := newMemProjects()
+	memT := newMemTasks()
+	memU := newMemUsers()
+	svc := application.NewTaskService(memT, memP, memU)
+
+	p1, _ := project.NewProject(user.ID(1), user.RoleCreator, "A", "", project.KindTeam)
+	p1.Touch(time.Now())
+	_ = memP.Save(context.Background(), p1)
+	p2, _ := project.NewProject(user.ID(2), user.RoleCreator, "B", "", project.KindTeam)
+	p2.Touch(time.Now())
+	_, _ = p2.AddMember(user.ID(1), project.RoleExecutor, time.Now())
+	_ = memP.Save(context.Background(), p2)
+
+	ids, err := svc.VisibleProjectIDs(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("got %v", ids)
+	}
+}

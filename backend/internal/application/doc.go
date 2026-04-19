@@ -1,25 +1,12 @@
 // Package application содержит сервисы приложения (use cases).
 //
-// Уже здесь: AuthService (регистрация, вход, refresh-сессии, выход, смена пароля),
-// UserService (CRUD пользователей и глобальная роль для /users).
+// Уже здесь: AuthService, UserService, ProjectService, MemberRemovalService,
+// ProjectDeletionService, TaskService, TaskMoveService, TaskAssignService,
+// ReportingService (отчёты и сохранённые экспорты).
 //
-// Ниже — межагрегатные оркестраторы, запланированные к переносу
-// (см. docs/architecture/aggregates.md, раздел «Транзакционные границы»):
+// Межагрегатные оркестраторы и транзакционные границы — см.
+// docs/architecture/aggregates.md (раздел «Транзакционные границы»).
 //
-// Сервисы, запланированные для этого пакета (см. docs/architecture/aggregates.md,
-// раздел «Транзакционные границы»):
-//
-//   - ProjectDeletionService  — мягкое/жёсткое удаление проекта с каскадным
-//     применением к задачам, секциям и участникам в соответствии с выбранной политикой.
-//   - MemberRemovalService    — удаление участника проекта с переназначением его
-//     задач согласно политике TaskTransferMode.
-//   - TaskMoveService         — перемещение задачи между секциями или проектами
-//     с проверкой принадлежности целевой секции целевому проекту.
-//   - TaskAssignService       — назначение пользователя на задачу после проверки
-//     членства в проекте.
-//   - ReportingService        — оркестрация формирования отчёта по read-моделям Task и
-//     Project с сохранением результирующего SavedReport.
-//
-// Все сервисы переносятся инкрементально из backend/internal/services
-// в последующих PR.
+// Общие ошибки — `ErrForbidden` / `ErrInvalidInput` в `errors.go`
+// (используются хендлерами и частью сервисов).
 package application

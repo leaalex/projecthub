@@ -1,16 +1,17 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 
-	"task-manager/backend/internal/services"
+	"task-manager/backend/internal/application"
 
 	"github.com/gin-gonic/gin"
 )
 
+// SubtaskHandler — HTTP-обработчики подзадач.
 type SubtaskHandler struct {
-	Svc *services.SubtaskService
+	Tasks *application.TaskService
 }
 
 type subtaskCreateBody struct {
@@ -39,12 +40,16 @@ func (h *SubtaskHandler) List(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	list, err := h.Svc.List(uint(taskID), uid, role)
+	list, err := h.Tasks.ListSubtasks(c.Request.Context(), uint(taskID), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"subtasks": list})
+	out := make([]gin.H, 0, len(list))
+	for _, s := range list {
+		out = append(out, subtaskToJSON(s))
+	}
+	c.JSON(http.StatusOK, gin.H{"subtasks": out})
 }
 
 func (h *SubtaskHandler) Create(c *gin.Context) {
@@ -68,12 +73,12 @@ func (h *SubtaskHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	st, err := h.Svc.Create(uint(taskID), uid, role, body.Title)
+	st, err := h.Tasks.CreateSubtask(c.Request.Context(), uint(taskID), uid, role, body.Title)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"subtask": st})
+	c.JSON(http.StatusCreated, gin.H{"subtask": subtaskToJSON(st)})
 }
 
 func (h *SubtaskHandler) Update(c *gin.Context) {
@@ -102,7 +107,7 @@ func (h *SubtaskHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	st, err := h.Svc.Update(uint(taskID), uint(sid), uid, role, services.SubtaskUpdate{
+	st, err := h.Tasks.UpdateSubtask(c.Request.Context(), uint(taskID), uint(sid), uid, role, application.SubtaskUpdate{
 		Title:    body.Title,
 		Done:     body.Done,
 		Position: body.Position,
@@ -111,7 +116,7 @@ func (h *SubtaskHandler) Update(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"subtask": st})
+	c.JSON(http.StatusOK, gin.H{"subtask": subtaskToJSON(st)})
 }
 
 func (h *SubtaskHandler) Delete(c *gin.Context) {
@@ -135,7 +140,7 @@ func (h *SubtaskHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad subtask id"})
 		return
 	}
-	if err := h.Svc.Delete(uint(taskID), uint(sid), uid, role); err != nil {
+	if err := h.Tasks.DeleteSubtask(c.Request.Context(), uint(taskID), uint(sid), uid, role); err != nil {
 		handleServiceError(c, err)
 		return
 	}
@@ -163,10 +168,10 @@ func (h *SubtaskHandler) Toggle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad subtask id"})
 		return
 	}
-	st, err := h.Svc.Toggle(uint(taskID), uint(sid), uid, role)
+	st, err := h.Tasks.ToggleSubtask(c.Request.Context(), uint(taskID), uint(sid), uid, role)
 	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"subtask": st})
+	c.JSON(http.StatusOK, gin.H{"subtask": subtaskToJSON(st)})
 }

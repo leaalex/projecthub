@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '../../composables/useToast'
-import { useAuthStore } from '../../stores/auth.store'
-import { useProjectStore } from '../../stores/project.store'
-import type { ProjectMemberRole } from '../../types/project'
-import type { User } from '../../types/user'
-import { api } from '../../utils/api'
+import { useToast } from '@app/composables/useToast'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useUserStore } from '@app/user.store'
+import type { ProjectMemberRole } from '@domain/project/types'
+import { isPrivilegedRole } from '@domain/user/role'
+import { storeToRefs } from 'pinia'
 import Button from '../ui/UiButton.vue'
 import UiInput from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
@@ -27,6 +28,8 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const projectStore = useProjectStore()
+const userStore = useUserStore()
+const { users: staffUsers, loading: loadingUsers } = storeToRefs(userStore)
 const toast = useToast()
 
 const addMode = ref<'email' | 'user'>('email')
@@ -34,8 +37,6 @@ const addEmail = ref('')
 const addUserId = ref<string>('')
 const addRole = ref<ProjectMemberRole>('viewer')
 const adding = ref(false)
-const staffUsers = ref<User[]>([])
-const loadingUsers = ref(false)
 
 const roleMenuOptions = computed<UiSelectOption<ProjectMemberRole>[]>(() => [
   { value: 'manager', label: t('enums.projectRole.manager') },
@@ -44,15 +45,11 @@ const roleMenuOptions = computed<UiSelectOption<ProjectMemberRole>[]>(() => [
 ])
 
 async function loadStaffUsers() {
-  if (auth.user?.role !== 'admin' && auth.user?.role !== 'staff') return
-  loadingUsers.value = true
+  if (!isPrivilegedRole(auth.user?.role)) return
   try {
-    const { data } = await api.get<{ users: User[] }>('/users')
-    staffUsers.value = data.users
+    await userStore.fetchList()
   } catch {
-    staffUsers.value = []
-  } finally {
-    loadingUsers.value = false
+    /* keep store list; avoid wiping admin Users view */
   }
 }
 
@@ -62,7 +59,7 @@ watch(open, (o) => {
     addUserId.value = ''
     addRole.value = 'viewer'
     addMode.value =
-      auth.user?.role === 'admin' || auth.user?.role === 'staff'
+      isPrivilegedRole(auth.user?.role)
         ? 'user'
         : 'email'
     void loadStaffUsers()
@@ -120,7 +117,7 @@ async function onAdd() {
   <Modal v-model="open" :title="t('addMemberModal.title')" wide>
     <div class="space-y-4">
       <div
-        v-if="auth.user?.role === 'admin' || auth.user?.role === 'staff'"
+        v-if="isPrivilegedRole(auth.user?.role)"
         class="flex gap-2 text-xs"
       >
         <button

@@ -4,8 +4,8 @@ import "time"
 
 // Record — строка таблицы user_sessions.
 type Record struct {
-	ID        uint `gorm:"primaryKey"`
-	UserID    uint `gorm:"not null;index"`
+	ID        uint   `gorm:"primaryKey"`
+	UserID    uint   `gorm:"not null;index"`
 	TokenHash []byte `gorm:"type:blob;size:32;uniqueIndex;not null"`
 	ExpiresAt time.Time
 	CreatedAt time.Time

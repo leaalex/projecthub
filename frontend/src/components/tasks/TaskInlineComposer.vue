@@ -2,14 +2,14 @@
 import { BoltIcon, FolderIcon, TagIcon } from '@heroicons/vue/24/outline'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TaskPriority, TaskStatus } from '../../types/task'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
-import { useTaskStore } from '../../stores/task.store'
-import { useToast } from '../../composables/useToast'
-import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+import { useTaskStore } from '@app/task.store'
+import { useToast } from '@app/composables/useToast'
+import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t } = useI18n()
 

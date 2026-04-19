@@ -3,7 +3,7 @@ import Chart from 'chart.js/auto'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useUiStore } from '../../../stores/ui.store'
+import { useUiStore } from '@app/ui.store'
 
 const props = defineProps<{
   labels: string[]

@@ -31,7 +31,7 @@ func TestTask_Create(t *testing.T) {
 # Характеризующие тесты
 
 - Если тест фиксирует текущее (возможно странное) поведение — пометить комментарием `// BASELINE:` с описанием, что изменится после реализации фичи/фикса.
-- Пример: [backend/internal/handlers/project_handler_test.go](backend/internal/handlers/project_handler_test.go) — `TestProject_DeleteOrphansTasksBaseline`.
+- Пример: [backend/internal/interface/http/project_handler_test.go](backend/internal/interface/http/project_handler_test.go) — `TestProject_DeleteOrphansTasksBaseline`.
 
 # Покрытие
 

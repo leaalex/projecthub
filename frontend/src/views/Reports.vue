@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
 import Button from '../components/ui/UiButton.vue'
@@ -10,65 +11,47 @@ import ReportSettings from '../components/reports/ReportSettings.vue'
 import ReportViewer from '../components/reports/ReportViewer.vue'
 import Card from '../components/ui/UiCard.vue'
 import Table from '../components/ui/UiTable.vue'
-import { useConfirm } from '../composables/useConfirm'
-import { useToast } from '../composables/useToast'
-import { api } from '../utils/api'
-import { formatDateShort } from '../utils/formatters'
-import type { ReportConfig, SavedReport, WeeklyReport } from '../types/report'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useToast } from '@app/composables/useToast'
+import {
+  extractReportAxiosError,
+  useReportStore,
+} from '@app/report.store'
+import { formatDateShort } from '@infra/formatters/date'
+import type { ReportConfig, SavedReport } from '@domain/report/types'
 
 const { t, locale } = useI18n()
 
-const report = ref<WeeklyReport | null>(null)
-const loading = ref(true)
-const generating = ref(false)
+const reportStore = useReportStore()
+const {
+  weekly,
+  savedReports,
+  weeklyLoading,
+  exportsLoading,
+  generating,
+  deletingId,
+} = storeToRefs(reportStore)
+
 const msg = ref<string | null>(null)
 
 const { confirm } = useConfirm()
 const toast = useToast()
 
 const modalOpen = ref(false)
-const savedReports = ref<SavedReport[]>([])
-const loadingExports = ref(false)
-const deletingId = ref<number | null>(null)
 
-async function loadWeekly() {
-  loading.value = true
+async function loadWeeklyPage() {
   msg.value = null
   try {
-    const { data } = await api.get<WeeklyReport>('/reports/weekly')
-    report.value = data
+    await reportStore.loadWeekly()
   } catch {
     msg.value = t('reports.toasts.loadFailed')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadExports() {
-  loadingExports.value = true
-  try {
-    const { data } = await api.get<{ reports: SavedReport[] }>('/reports/exports')
-    savedReports.value = data.reports
-  } catch {
-    savedReports.value = []
-  } finally {
-    loadingExports.value = false
   }
 }
 
 onMounted(async () => {
-  await loadWeekly()
-  await loadExports()
+  await loadWeeklyPage()
+  await reportStore.loadExports()
 })
-
-function parseFilename(cd: string | undefined, fallback: string) {
-  if (!cd) return fallback
-  const m = /filename="([^"]+)"/.exec(cd)
-  if (m?.[1]) return m[1]
-  const m2 = /filename\*=UTF-8''([^;]+)/.exec(cd)
-  if (m2?.[1]) return decodeURIComponent(m2[1])
-  return fallback
-}
 
 function formatBytes(n: number): string {
   if (n < 1024) return t('common.bytes.b', { n })
@@ -78,66 +61,32 @@ function formatBytes(n: number): string {
 }
 
 async function onCreateReport(cfg: ReportConfig) {
-  generating.value = true
   msg.value = null
   try {
-    await api.post('/reports/generate', cfg)
+    await reportStore.generate(cfg)
     modalOpen.value = false
-    await loadExports()
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    msg.value = err.response?.data?.error ?? t('reports.toasts.createFailed')
-  } finally {
-    generating.value = false
+    msg.value = extractReportAxiosError(e, t('reports.toasts.createFailed'))
   }
 }
 
 async function downloadSaved(r: SavedReport) {
   msg.value = null
   const fallback = r.display_name || `report.${r.format}`
-  try {
-    const resp = await api.get<Blob>(
-      `/reports/exports/${r.id}/download`,
-      { responseType: 'blob' },
-    )
-    const ct = resp.headers['content-type'] || ''
-    if (ct.includes('application/json')) {
-      const text = await resp.data.text()
-      try {
-        const j = JSON.parse(text) as { error?: string }
-        msg.value = j.error ?? t('reports.toasts.downloadFailed')
-      } catch {
-        msg.value = t('reports.toasts.downloadFailed')
-      }
-      return
-    }
-    const url = URL.createObjectURL(resp.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = parseFilename(
-      resp.headers['content-disposition'],
-      fallback,
-    )
-    a.rel = 'noopener'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: Blob } }
-    const blob = err.response?.data
-    if (blob instanceof Blob) {
-      const text = await blob.text()
-      try {
-        const j = JSON.parse(text) as { error?: string }
-        msg.value = j.error ?? t('reports.toasts.downloadFailed')
-      } catch {
-        msg.value = t('reports.toasts.downloadFailed')
-      }
-    } else {
-      msg.value = t('reports.toasts.downloadFailed')
-    }
+  const result = await reportStore.downloadFile(r.id, fallback)
+  if (!result.ok) {
+    msg.value = result.apiMessage ?? t('reports.toasts.downloadFailed')
+    return
   }
+  const url = URL.createObjectURL(result.blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = result.filename
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 async function deleteSaved(r: SavedReport) {
@@ -149,16 +98,11 @@ async function deleteSaved(r: SavedReport) {
   })
   if (!ok) return
   msg.value = null
-  deletingId.value = r.id
   try {
-    await api.delete(`/reports/exports/${r.id}`)
-    await loadExports()
+    await reportStore.remove(r.id)
     toast.success(t('reports.toasts.deleted'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    msg.value = err.response?.data?.error ?? t('reports.toasts.deleteFailed')
-  } finally {
-    deletingId.value = null
+    msg.value = extractReportAxiosError(e, t('reports.toasts.deleteFailed'))
   }
 }
 
@@ -198,7 +142,7 @@ const tableHeaders = computed(() => [
     </p>
 
     <div class="mt-6 space-y-6">
-      <ReportViewer :report="report" :loading="loading" />
+      <ReportViewer :report="weekly" :loading="weeklyLoading" />
 
       <Card padding="p-4">
         <h2 class="text-lg font-semibold text-foreground">{{ t('reports.saved.title') }}</h2>
@@ -206,7 +150,7 @@ const tableHeaders = computed(() => [
           {{ t('reports.saved.subtitle') }}
         </p>
 
-        <div v-if="loadingExports" class="mt-4 space-y-3">
+        <div v-if="exportsLoading" class="mt-4 space-y-3">
           <Skeleton v-for="i in 3" :key="i" variant="line" />
         </div>
         <EmptyState

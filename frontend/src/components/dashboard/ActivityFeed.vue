@@ -2,7 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import Card from '../ui/UiCard.vue'
 import EmptyState from '../ui/UiEmptyState.vue'
-import { timeAgo } from '../../utils/formatters'
+import { timeAgo } from '@infra/formatters/date'
 
 const { t, locale } = useI18n()
 

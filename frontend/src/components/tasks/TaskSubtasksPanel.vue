@@ -2,9 +2,9 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Subtask, Task } from '../../types/task'
-import { useTaskStore } from '../../stores/task.store'
-import { useToast } from '../../composables/useToast'
+import type { Subtask, Task } from '@domain/task/types'
+import { useTaskStore } from '@app/task.store'
+import { useToast } from '@app/composables/useToast'
 import UiInput from '../ui/UiInput.vue'
 
 const { t } = useI18n()

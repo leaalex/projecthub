@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Task } from '../../types/task'
-import type { TaskTransfer } from '../../types/project'
-import type { AssignableUserOption } from '../../utils/assignee'
+import type { Task } from '@domain/task/types'
+import type { AssignableUserOption } from '@domain/project/membership'
+import type { TaskTransfer } from '@domain/project/types'
 import Badge from '../ui/UiBadge.vue'
 import Button from '../ui/UiButton.vue'
 import Modal from '../ui/UiModal.vue'

@@ -78,7 +78,7 @@
 
 Сценарии HTTP: [`backend/internal/application/auth_service.go`](../../backend/internal/application/auth_service.go) (регистрация, вход, refresh, выход, смена пароля, `/me`) и [`backend/internal/application/user_service.go`](../../backend/internal/application/user_service.go) (`/users`).
 
-Персистентность: [`backend/internal/infrastructure/persistence/userstore`](../../backend/internal/infrastructure/persistence/userstore) (таблица `users`). Для связей GORM в `models.Project` / `Task` / `ProjectMember` оставлена минимальная ORM-обёртка [`models.User`](../../backend/internal/models/user_orm.go).
+Персистентность: [`backend/internal/infrastructure/persistence/userstore`](../../backend/internal/infrastructure/persistence/userstore) (таблица `users`). Связи с проектами/задачами выражены id-полями в `*store` record-типах и доменных агрегатах; отдельного пакета `internal/models` нет.
 
 ### Value-objects
 
@@ -122,21 +122,25 @@
 
 ## Project Aggregate
 
-**Корень:** `Project`
+**Корень:** `Project` — [`backend/internal/domain/project`](../../backend/internal/domain/project) (агрегат: `Project`, `Member`, `Section`; VO `Kind`, `Role`).
 
-**Внутренние сущности:** `ProjectMember`, `TaskSection`
+**Персистентность:** [`backend/internal/infrastructure/persistence/projectstore`](../../backend/internal/infrastructure/persistence/projectstore) (`ProjectRecord` / `MemberRecord` / `SectionRecord`; схема в миграциях / `database.AutoMigrate`).
+
+**Сценарии HTTP:** [`application/project_service.go`](../../backend/internal/application/project_service.go) и [`application/member_removal_service.go`](../../backend/internal/application/member_removal_service.go).
+
+**Внутренние сущности:** `Member`, `Section` (в БД — `project_members`, `task_sections`).
 
 ### Value-objects
 
 | Тип | Значения |
 |-----|----------|
-| `ProjectKind` | `personal`, `team` |
-| `ProjectRole` | `manager`, `executor`, `viewer` |
+| `Kind` | `personal`, `team` |
+| `Role` | `manager`, `executor`, `viewer` |
 
 ### Локальные инварианты
 
 - `personal`-проект не может иметь `Members` — только `Owner`.
-- Владелец (`ownerId`) не хранится в `Members`; его права шире любого `ProjectRole`.
+- Владелец (`ownerId`) не хранится в `Members`; его права шире любой роли `Role` участника.
 - `Members` уникальны по `(projectId, userId)`.
 - `Sections` внутри проекта имеют уникальные `position`; перенумерация — единственная транзакция проекта.
 - `team`-проект может создать только пользователь с ролью `creator` или выше.
@@ -147,15 +151,21 @@
 `AddMember(userId, role)`, `UpdateMemberRole(userId, role)`, `RemoveMember(userId, policy)`,
 `TransferOwnership(newOwnerId)`,
 `AddSection(name, position)`, `RenameSection(id, name)`, `ReorderSections(order)`, `RemoveSection(id)`,
-`Archive()` *(soft-delete, планируется)*, `Delete(policy)` *(через `ProjectDeletionService`)*
+Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`; жёсткое удаление — `ProjectDeletionService.HardDelete`
 
 ---
 
 ## Task Aggregate
 
-**Корень:** `Task`
+**Корень:** `Task` — пакет [`backend/internal/domain/task`](../../backend/internal/domain/task).
 
-**Внутренняя сущность:** `Subtask`
+**Внутренняя сущность:** `Subtask` — там же.
+
+**Персистентность:** [`backend/internal/infrastructure/persistence/taskstore`](../../backend/internal/infrastructure/persistence/taskstore) (`TaskRecord` / `SubtaskRecord`, GORM-репозиторий: `Save`, `Delete`, `DeleteByProject`, `ListVisible`, `NextPosition`, `ListByAssignee`, `ReassignByAssignee`, `ReassignOne`).
+
+**Сценарии API:** [`application.TaskService`](../../backend/internal/application/task_service.go) (CRUD, подзадачи, ACL, порт `VisibleProjectIDs` для отчётов), [`application.TaskMoveService`](../../backend/internal/application/task_move_service.go), [`application.TaskAssignService`](../../backend/internal/application/task_assign_service.go).
+
+Отчёты и списки задач используют `taskstore` / доменные read-модели (`report.TaskProjection` и т.д.) без ORM-shells в `models`.
 
 ### Id-ссылки (не объекты внутри агрегата)
 
@@ -248,15 +258,17 @@
 | PUT /projects/:id | `ProjectService.Rename` | 1 × Project |
 | POST /projects/:id/members | `ProjectService.AddMember` | 1 × Project |
 | DELETE /projects/:id/members/:uid (с transfer) | `MemberRemovalService` | Project + Task(N) |
-| PATCH /projects/:id/owner | `ProjectOwnershipTransferService` | 1 × Project |
-| DELETE /projects/:id | `ProjectDeletionService` | Project + Task(N) + Section(M) + Member(K) |
+| PATCH /projects/:id/owner | `ProjectService.TransferOwnership` | 1 × Project |
+| DELETE /projects/:id?permanent=true | `ProjectDeletionService.HardDelete` | Task(N) + Member(K) + Section(M) + Project |
+| DELETE /projects/:id (без permanent) | `ProjectService.Delete` → `project.Repository.SoftDelete` | 1 × Project (`deleted_at`) |
+| POST /projects/:id/restore | `ProjectDeletionService.Restore` | 1 × Project |
 | POST /tasks | `TaskService.Create` | 1 × Task |
 | PUT /tasks/:id | `TaskService.UpdateDetails` | 1 × Task |
-| POST /tasks/:id/assign | `TaskAssignService` | 1 × Task (+ RO Project) |
+| POST /tasks/:id/assign | `TaskAssignService.Assign` | 1 × Task (+ read `project.Repository`) |
 | POST /tasks/:id/complete | `TaskService.ChangeStatus` | 1 × Task |
 | POST /projects/:id/tasks/move | `TaskMoveService` | 1 × Task (+ RO Project/Section) |
 | POST /tasks/:id/subtasks | `TaskService.AddSubtask` | 1 × Task |
-| POST /reports/generate | `ReportService.Generate` | 1 × Report |
+| POST /reports/generate | `ReportingService.Generate` | 1 × Report |
 
 ---
 
@@ -271,18 +283,17 @@
 
 - Задачи, секции и участники проекта физически **не трогаются** при мягком удалении.
 - GORM автоматически исключает записи с `DeletedAt != NULL` из обычных запросов (через `Unscoped` при необходимости).
-- Задачи мягко-удалённого проекта **скрываются** во всех листингах (`ListForCaller`, `TaskService.List`) — фильтр через JOIN/subquery на `projects.deleted_at IS NULL`.
+- Задачи мягко-удалённого проекта **скрываются** во всех листингах (`ListForCaller`, `application.TaskService.List` / видимые project id) — фильтр через JOIN/subquery на `projects.deleted_at IS NULL` и исключение soft-deleted из членств/владения.
 - Появляется действие **«Восстановить проект»** в UI (в раздел «Архив»).
 - Появляется действие **«Удалить окончательно»** (только admin/owner) — это уже физическое удаление через `ProjectDeletionService` с каскадом.
 
-### Что потребуется для реализации (следующая итерация)
+### Реализовано в коде
 
-1. Добавить поле `DeletedAt gorm.DeletedAt` в `models.Project` + миграция.
-2. Завести `ProjectRepository` с методами `SoftDelete`, `Restore`, `HardDelete`.
-3. Реализовать `ProjectDeletionService` (для hard delete) в `internal/application/`.
-4. Обновить `ProjectService.ListForCaller` и `TaskService.List` — фильтровать задачи по `projects.deleted_at IS NULL`.
-5. Добавить эндпоинты `POST /projects/:id/restore` и `DELETE /projects/:id?permanent=true`.
-6. UI: раздел «Архив» в списке проектов, кнопки «Восстановить» / «Удалить навсегда».
+- `DeletedAt` на `projectstore.ProjectRecord`; `SoftDelete` / `Restore` / `HardDelete` в репозитории.
+- `application.ProjectDeletionService` и эндпоинты `POST /projects/:id/restore`, `DELETE /projects/:id?permanent=true`.
+- Списки задач и участие в проектах учитывают soft-delete (`ListMemberships` с join на живые проекты, GORM-фильтр в `ListOwnedProjectIDs` / `FindByID`).
+
+**UI (архив / кнопки):** по-прежнему в планах фронтенда.
 
 ---
 
@@ -292,7 +303,8 @@
 backend/internal/
 ├── domain/
 │   ├── user/           # IAM aggregate: User, FullName, Role
-│   ├── project/        # Project aggregate: Project, ProjectMember, TaskSection
+│   ├── session/        # refresh-сессии (opaque token → hash в БД)
+│   ├── project/        # Project aggregate: Project, Member, Section
 │   ├── task/           # Task aggregate: Task, Subtask
 │   └── report/         # Report aggregate: SavedReport
 ├── application/
@@ -302,7 +314,9 @@ backend/internal/
 │   ├── task_assign_service.go        # cross-aggregate: assign + membership check
 │   └── reporting_service.go          # orchestrates Report creation from Task/Project data
 ├── infrastructure/
-│   └── repository/     # GORM-репозитории, по одному на aggregate root
+│   ├── persistence/    # GORM-репозитории по aggregate root
+│   ├── auth/           # JWT (access-токен)
+│   └── reportexport/   # форматтеры CSV/XLSX/PDF (read-модель для Report)
 ├── interface/
 │   └── http/           # Gin handlers (тонкий слой: parse → call application/domain → respond)
 ├── middleware/         # (остаётся на месте)
@@ -310,20 +324,22 @@ backend/internal/
 └── database/           # (остаётся на месте)
 ```
 
-**Текущее состояние:**
+**Текущее состояние (фрагмент):**
 
 ```
 backend/internal/
-├── models/     ← все модели здесь (переедут в domain/* постепенно)
-├── services/   ← вся логика здесь (разойдётся между domain/* и application/)
-├── handlers/   ← HTTP (переедет в interface/http/)
+├── domain/user, domain/project, domain/session, domain/report, domain/task
+├── application/   ← Auth, User, Project, MemberRemoval, Task*, ReportingService, … (+ общие ошибки в errors.go)
+├── infrastructure/persistence/{userstore,sessionstore,projectstore,taskstore,reportstore}
+├── infrastructure/reportexport  ← CSV/XLSX/PDF/TXT (read-модель из domain/report)
+├── infrastructure/auth  ← JWT (SignJWT / ParseJWT)
+├── interface/http/  ← package handler (Gin handlers)
 ├── middleware/
 ├── config/
 └── database/
 ```
 
 Переезд происходит **инкрементально**: каждый PR компилируется и проходит тесты.
-Пока новый пакет не завершён — старый остаётся и используется.
 
 ---
 
@@ -331,23 +347,26 @@ backend/internal/
 
 | Текущий файл | Строк | Куда переедет |
 |-------------|-------|---------------|
-| `models/user.go` | 61 | `domain/user` |
-| `models/project.go` | 59 | `domain/project` |
-| `models/project_member.go` | 35 | `domain/project` |
-| `models/task_section.go` | 14 | `domain/project` |
-| `models/task.go` | 44 | `domain/task` |
-| `models/subtask.go` | 13 | `domain/task` |
-| `models/saved_report.go` | ~30 | `domain/report` |
-| `services/auth_service.go` | 115 | `domain/user` (логика хэширования) + `infrastructure/` (JWT) |
-| `services/project_service.go` | 180 | `domain/project` (команды агрегата) + `infrastructure/repository` |
-| `services/member_service.go` | 483 | `domain/project` (AddMember, UpdateRole) + `application/member_removal_service.go` |
-| `services/task_service.go` | 603 | `domain/task` (команды агрегата) + `application/task_move_service.go`, `task_assign_service.go` |
-| `services/task_section_service.go` | 184 | `domain/project` (управление секциями) |
-| `services/subtask_service.go` | 166 | `domain/task` (команды сабтасков) |
-| `services/user_service.go` | 243 | `domain/user` |
-| `services/report_service.go` | 386 | `domain/report` + `application/reporting_service.go` |
-| `services/report_export.go` | 500 | `domain/report` (экспорт как доменный сервис) |
-| `handlers/*` | ~1700 | `interface/http/` |
+| ~~`models/user.go`~~ | — | **сделано:** `domain/user` (+ `userstore` для персистентности); каталог `internal/models` удалён |
+| ~~`models/project.go`~~ → `models/project_orm.go` | — | **сделано:** домен в `domain/project`, схема в `projectstore`, preload через ORM-shell |
+| ~~`models/project_member.go`~~ → `models/project_member_orm.go` | — | **сделано:** как выше |
+| ~~`models/task_section.go`~~ → `models/task_section_orm.go` | — | **сделано:** как выше |
+| ~~`models/task.go`~~ → `models/task_orm.go` | — | **сделано:** домен в `domain/task`, схема в `taskstore`, сценарии в `application` |
+| ~~`models/subtask.go`~~ → `models/subtask_orm.go` | — | **сделано:** как выше |
+| ~~`models/*_orm.go`~~ (весь каталог `internal/models`) | — | **сделано:** удалено; переназначение задач при удалении участника через `task.Repository` (`ListByAssignee`, `ReassignByAssignee`, `ReassignOne`); `ProjectService` без прямого GORM к задачам |
+| ~~`models/saved_report.go`~~ | — | **сделано:** `domain/report` + `reportstore.SavedReportRecord` |
+| ~~`services/auth_service.go`~~ | — | **сделано:** `application.AuthService` + `domain/user` (хэширование) + `infrastructure/auth` (JWT) |
+| ~~`services/project_service.go`~~ | — | **сделано:** `application/project_service.go` + `projectstore` |
+| ~~`services/member_service.go`~~ | — | **сделано:** `application/member_removal_service.go` + доменные команды на агрегате |
+| ~~`services/task_service.go`~~ | — | **сделано:** `domain/task` + `taskstore` + `application.TaskService` / `TaskMoveService` / `TaskAssignService` |
+| ~~`services/task_section_service.go`~~ | — | **сделано:** секции в `application/project_service.go` |
+| ~~`services/subtask_service.go`~~ | — | **сделано:** подзадачи в `application.TaskService` + домен `domain/task` |
+| ~~`services/user_service.go`~~ | — | **сделано:** `application.UserService` + `domain/user` |
+| ~~`services/report_service.go`~~ | — | **сделано:** `application.ReportingService` + `reportstore` + `taskstore.ReportQuery` |
+| ~~`services/report_export.go`~~ + ~~`services/pdffonts/`~~ | — | **сделано:** `infrastructure/reportexport` (+ pdffonts) |
+| ~~`handlers/*`~~ | — | **сделано:** `backend/internal/interface/http/` (`package handler`) |
+| ~~`services/errors.go`~~ | — | **сделано:** `application/errors.go` (`ErrForbidden`, `ErrInvalidInput`) |
+| ~~`utils/jwt.go`~~ | — | **сделано:** `infrastructure/auth` (package `auth`) |
 
 ---
 
@@ -357,3 +376,12 @@ backend/internal/
 |------|-----------|
 | 2026-04-18 | Первичная фиксация границ агрегатов: User, Project, Task, Report. Принято решение о soft-delete для Project. |
 | 2026-04-18 | IAM `User` перенесён в `domain/user` + `application` + `userstore`; добавлен агрегат `Session` для refresh-токенов; access-JWT короткоживущий, refresh в HttpOnly-cookie. |
+| 2026-04-18 | **Project aggregate:** логика в `domain/project`, персистентность `projectstore`, сценарии `application.ProjectService` / `MemberRemovalService`; старые `services/project_*` / `member_service` / `task_section_service` удалены; ORM-shells в `models/*_orm.go` для preload `Task`. |
+| 2026-04-18 | **Task aggregate** перенесён в `domain/task` + `taskstore` + `application` (`TaskService`, `TaskMoveService`, `TaskAssignService`); удалены `services/task_service.go` и `services/subtask_service.go`. **Проект:** soft-delete (`deleted_at`), `ProjectDeletionService`, эндпоинты restore и `?permanent=true`. |
+| 2026-04-18 | **Report aggregate:** `domain/report` (`SavedReport`, порты `Repository` / `TaskQuery`), `reportstore`, `taskstore.ReportQuery`, `infrastructure/reportexport`, `application.ReportingService` (порт видимости — `TaskService.VisibleProjectIDs`); удалены `services/report_service.go`, `services/report_export.go`, `models/saved_report.go`. |
+| 2026-04-18 | Удалён каталог **`internal/models`** (ORM-shells). `MemberRemovalService` использует `task.Repository`; `ProjectHandler.ListProjectTasks` подставляет `section` из агрегата `Project`; тестовый `testutil` сидирует через доменные репозитории. |
+| 2026-04-18 | Удалён каталог **`internal/services`** (общие ошибки перенесены в `application/errors.go`). JWT вынесен из **`internal/utils`** в **`infrastructure/auth`** (package `auth`). |
+| 2026-04-18 | Актуализирована таблица переезда: `models/user.go`, `services/auth_service.go`, `services/user_service.go` отмечены выполненными. |
+| 2026-04-18 | `handlers/` перенесён в `interface/http/` (`package handler`); `httpserver/router.go` импортирует новый путь. |
+| 2026-04-18 | DDD-миграция закрыта: из git-индекса удалены остатки `internal/models/`, `internal/services/`, `internal/utils/`; правило `10-backend-ddd.mdc` приведено к `infrastructure/persistence/`; `plans/directory-structure.md` помечен deprecated. |
+| 2026-04-18 | **Frontend:** введены слои `frontend/src/domain`, `infrastructure`, `application`; документ [docs/architecture/frontend.md](./frontend.md); правило `.cursor/rules/14-frontend-ddd.mdc`. |

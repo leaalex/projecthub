@@ -7,17 +7,17 @@ import (
 
 // User — корень IAM-агрегата.
 type User struct {
-	id          ID
-	email       Email
-	name        FullName
-	role        Role
-	locale      Locale
-	hash        PasswordHash
-	department  string
-	jobTitle    string
-	phone       string
-	createdAt   time.Time
-	updatedAt   time.Time
+	id         ID
+	email      Email
+	name       FullName
+	role       Role
+	locale     Locale
+	hash       PasswordHash
+	department string
+	jobTitle   string
+	phone      string
+	createdAt  time.Time
+	updatedAt  time.Time
 }
 
 // NewUser создаёт нового пользователя (ещё без ID до сохранения в БД).
@@ -70,17 +70,17 @@ func (u *User) AssignID(id ID) {
 	u.id = id
 }
 
-func (u *User) ID() ID               { return u.id }
-func (u *User) Email() Email        { return u.email }
-func (u *User) Name() FullName      { return u.name }
-func (u *User) Role() Role          { return u.role }
-func (u *User) Locale() Locale      { return u.locale }
+func (u *User) ID() ID                     { return u.id }
+func (u *User) Email() Email               { return u.email }
+func (u *User) Name() FullName             { return u.name }
+func (u *User) Role() Role                 { return u.role }
+func (u *User) Locale() Locale             { return u.locale }
 func (u *User) PasswordHash() PasswordHash { return u.hash }
-func (u *User) Department() string { return u.department }
-func (u *User) JobTitle() string    { return u.jobTitle }
-func (u *User) Phone() string       { return u.phone }
-func (u *User) CreatedAt() time.Time { return u.createdAt }
-func (u *User) UpdatedAt() time.Time { return u.updatedAt }
+func (u *User) Department() string         { return u.department }
+func (u *User) JobTitle() string           { return u.jobTitle }
+func (u *User) Phone() string              { return u.phone }
+func (u *User) CreatedAt() time.Time       { return u.createdAt }
+func (u *User) UpdatedAt() time.Time       { return u.updatedAt }
 
 func (u *User) ChangeEmail(e Email) {
 	u.email = e

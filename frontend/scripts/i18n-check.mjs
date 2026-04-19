@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { join, dirname } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const localesDir = join(__dirname, '../src/i18n/locales')
+const localesDir = join(__dirname, '../src/infrastructure/i18n/locales')
 
 const en = JSON.parse(readFileSync(join(localesDir, 'en.json'), 'utf8'))
 const ru = JSON.parse(readFileSync(join(localesDir, 'ru.json'), 'utf8'))

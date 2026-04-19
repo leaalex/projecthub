@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TaskPriority, TaskStatus } from '../../types/task'
-import { taskPriorityLabel, taskStatusLabel } from '../../utils/taskEnumLabels'
+import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const props = defineProps<{
   kind: 'status' | 'priority'

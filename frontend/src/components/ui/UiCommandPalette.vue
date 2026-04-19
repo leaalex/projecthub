@@ -3,13 +3,14 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
-import { useAuthStore } from '../../stores/auth.store'
-import { useProjectStore } from '../../stores/project.store'
-import { useTaskStore } from '../../stores/task.store'
-import { useUiStore } from '../../stores/ui.store'
-import type { TaskStatus } from '../../types/task'
-import { taskStatusLabel } from '../../utils/taskEnumLabels'
+import { isPrivilegedRole } from '@domain/user/role'
+import { useProjectNavVisibility } from '@app/composables/useProjectNavVisibility'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useTaskStore } from '@app/task.store'
+import { useUiStore } from '@app/ui.store'
+import type { TaskStatus } from '@domain/task/types'
+import { taskStatusLabel } from '@infra/i18n/labels'
 
 const router = useRouter()
 const route = useRoute()
@@ -76,7 +77,7 @@ const navItems = computed<Item[]>(() => {
       run: () => void router.push('/profile'),
     },
   ]
-  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
+  if (isPrivilegedRole(auth.user?.role)) {
     base.push(
       {
         id: 'nav-users',
@@ -127,9 +128,9 @@ const actionItems = computed<Item[]>(() => {
     kind: 'action',
     label: t('commandPalette.action.signOut'),
     subtitle: t('commandPalette.action.signOutSub'),
-    run: () => {
-      auth.logout()
-      void router.push('/login')
+    run: async () => {
+      await auth.logout()
+      await router.push('/login')
     },
   })
   return items

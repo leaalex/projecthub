@@ -6,6 +6,7 @@ import {
   TrashIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import AdminUserModal from '../../components/admin/AdminUserModal.vue'
 import Avatar from '../../components/ui/UiAvatar.vue'
@@ -15,11 +16,12 @@ import EmptyState from '../../components/ui/UiEmptyState.vue'
 import UiMenuButton from '../../components/ui/UiMenuButton.vue'
 import Skeleton from '../../components/ui/UiSkeleton.vue'
 import type { UiSelectOption } from '../../components/ui/UiSelect.vue'
-import type { User, UserRole } from '../../types/user'
-import { useConfirm } from '../../composables/useConfirm'
-import { useToast } from '../../composables/useToast'
-import { useAuthStore } from '../../stores/auth.store'
-import { api } from '../../utils/api'
+import { isAdminRole } from '@domain/user/role'
+import type { User, UserRole } from '@domain/user/types'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useToast } from '@app/composables/useToast'
+import { useAuthStore } from '@app/auth.store'
+import { useUserStore } from '@app/user.store'
 
 const { t, te } = useI18n()
 
@@ -30,12 +32,13 @@ function roleLabel(role: string): string {
 const { confirm } = useConfirm()
 const toast = useToast()
 const auth = useAuthStore()
-const users = ref<User[]>([])
-const loading = ref(true)
+const userStore = useUserStore()
+const { users, loading, savingId } = storeToRefs(userStore)
 const error = ref<string | null>(null)
-const roleSavingId = ref<number | null>(null)
+/** Until first fetch completes (store `loading` is false before onMounted). */
+const bootstrapping = ref(true)
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
+const isAdmin = computed(() => isAdminRole(auth.user?.role))
 const isStaff = computed(() => auth.user?.role === 'staff')
 
 const roleMenuOptions = computed<UiSelectOption<string>[]>(() => [
@@ -83,15 +86,13 @@ function roleBadgeClass(r: UserRole) {
 }
 
 async function load() {
-  loading.value = true
   error.value = null
   try {
-    const { data } = await api.get<{ users: User[] }>('/users')
-    users.value = data.users
+    await userStore.fetchList()
   } catch {
     error.value = t('admin.users.errors.loadFailed')
   } finally {
-    loading.value = false
+    bootstrapping.value = false
   }
 }
 
@@ -124,8 +125,7 @@ async function remove(u: User) {
   })
   if (!ok) return
   try {
-    await api.delete(`/users/${u.id}`)
-    await load()
+    await userStore.remove(u.id)
     toast.success(t('admin.users.toasts.userDeleted'))
   } catch {
     const msg = t('admin.users.errors.deleteFailed')
@@ -136,15 +136,11 @@ async function remove(u: User) {
 
 async function applyRole(u: User, newRole: string) {
   if (newRole === u.role) return
-  roleSavingId.value = u.id
   try {
-    await api.patch(`/users/${u.id}/role`, { role: newRole })
-    await load()
+    await userStore.updateRole(u.id, newRole as UserRole)
     toast.success(t('admin.users.toasts.roleUpdated'))
   } catch {
     toast.error(t('admin.users.errors.roleFailed'))
-  } finally {
-    roleSavingId.value = null
   }
 }
 
@@ -185,11 +181,10 @@ function isSelf(u: User) {
       :mode="modalMode"
       :user="modalUser"
       :delete-disabled="modalUser ? isSelf(modalUser) : false"
-      @saved="load"
     />
 
     <p v-if="error" class="mt-4 text-sm text-destructive">{{ error }}</p>
-    <div v-if="loading" class="mt-8 space-y-3">
+    <div v-if="loading || bootstrapping" class="mt-8 space-y-3">
       <div
         v-for="i in 5"
         :key="i"
@@ -207,7 +202,7 @@ function isSelf(u: User) {
     </div>
 
     <EmptyState
-      v-else-if="!users.length"
+      v-else-if="!bootstrapping && !users.length"
       class="mt-8"
       :title="t('admin.users.empty.title')"
       :description="t('admin.users.empty.description')"
@@ -303,7 +298,7 @@ function isSelf(u: User) {
               t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })
             "
             :options="roleMenuOptions"
-            :disabled="roleSavingId === u.id"
+            :disabled="savingId === u.id"
             :min-panel-width="180"
             @select="(v) => applyRole(u, String(v))"
           >
@@ -315,7 +310,7 @@ function isSelf(u: User) {
 
     <!-- Desktop -->
     <div
-      v-if="!loading && users.length"
+      v-if="!loading && !bootstrapping && users.length"
       class="mt-8 hidden overflow-x-auto rounded-lg border border-border md:block"
     >
       <table class="w-full min-w-[42rem] border-collapse text-left text-sm">
@@ -374,7 +369,7 @@ function isSelf(u: User) {
                   "
                   :title="t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })"
                   :options="roleMenuOptions"
-                  :disabled="roleSavingId === u.id"
+                  :disabled="savingId === u.id"
                   :min-panel-width="180"
                   @select="(v) => applyRole(u, String(v))"
                 >

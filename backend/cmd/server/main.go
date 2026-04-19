@@ -7,9 +7,11 @@ import (
 	"task-manager/backend/internal/config"
 	"task-manager/backend/internal/database"
 	"task-manager/backend/internal/httpserver"
+	"task-manager/backend/internal/infrastructure/persistence/projectstore"
+	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
+	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 	"task-manager/backend/internal/infrastructure/persistence/userstore"
-	"task-manager/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,14 +38,18 @@ func main() {
 	authSvc := application.NewAuthService(userRepo, sessionRepo, cfg.JWTSecret, cfg.AccessTTL, cfg.RefreshTTL)
 	usersSvc := application.NewUserService(userRepo)
 
-	memberSvc := &services.ProjectMemberService{DB: db}
-	projectSvc := &services.ProjectService{DB: db, Members: memberSvc}
-	taskSvc := &services.TaskService{DB: db}
-	sectionSvc := &services.TaskSectionService{
-		DB:       db,
-		Projects: projectSvc,
-		Tasks:    taskSvc,
-	}
+	projectRepo := projectstore.NewGormRepository(db)
+	taskRepo := taskstore.NewGormRepository(db)
+	projectsSvc := application.NewProjectService(projectRepo, userRepo)
+	memberRemovalSvc := application.NewMemberRemovalService(projectRepo, taskRepo, db)
+	tasksSvc := application.NewTaskService(taskRepo, projectRepo, userRepo)
+	taskMoveSvc := application.NewTaskMoveService(taskRepo, projectRepo, db)
+	taskAssignSvc := application.NewTaskAssignService(taskRepo, projectRepo, userRepo)
+	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
+
+	reportRepo := reportstore.NewGormRepository(db)
+	reportTaskQuery := taskstore.NewReportQuery(db)
+	reportingSvc := application.NewReportingService(reportRepo, reportTaskQuery, tasksSvc, cfg.ReportsDir)
 
 	r := httpserver.BuildRouter(httpserver.Deps{
 		DB:                db,
@@ -56,12 +62,13 @@ func main() {
 		RefreshCookiePath: cfg.RefreshCookiePath,
 		CookieSecure:      cfg.CookieSecure,
 		RefreshTTL:        cfg.RefreshTTL,
-		MemberSvc:         memberSvc,
-		ProjectSvc:        projectSvc,
-		TaskSvc:           taskSvc,
-		SectionSvc:        sectionSvc,
-		SubtaskSvc:        &services.SubtaskService{DB: db, Tasks: taskSvc},
-		ReportSvc:         &services.ReportService{DB: db, ReportsDir: cfg.ReportsDir},
+		Projects:          projectsSvc,
+		MemberRemoval:     memberRemovalSvc,
+		Tasks:             tasksSvc,
+		TaskMove:          taskMoveSvc,
+		TaskAssign:        taskAssignSvc,
+		ProjectDeletion:   projectDelSvc,
+		Reports:           reportingSvc,
 	})
 
 	addr := ":" + cfg.Port

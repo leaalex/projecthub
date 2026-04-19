@@ -7,10 +7,12 @@ alwaysApply: true
 
 Карта агрегатов, их инварианты, транзакционные границы, политика soft-delete и целевая структура пакетов описаны в [docs/architecture/aggregates.md](docs/architecture/aggregates.md).
 
+Структура фронтенда (Vue, слои `domain` / `infrastructure` / `application`) — в [docs/architecture/frontend.md](docs/architecture/frontend.md).
+
 При любых решениях, связанных с:
 
 - введением нового агрегата или сущности,
-- переездом кода между `domain/*`, `application/*`, `infrastructure/*`, `handlers/*`,
+- переездом кода между `domain/*`, `application/*`, `infrastructure/*`, `interface/http/` (backend) или между `frontend/src/domain|application|infrastructure` (frontend),
 - изменением схемы БД или политики удаления,
 - изменением cross-aggregate сценариев,
 

@@ -9,10 +9,11 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectList from '../components/projects/ProjectList.vue'
-import { useConfirm } from '../composables/useConfirm'
-import { useAuthStore } from '../stores/auth.store'
-import { useProjectStore } from '../stores/project.store'
-import type { ProjectKind } from '../types/project'
+import { useConfirm } from '@app/composables/useConfirm'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { isPrivilegedRole } from '@domain/user/role'
+import type { ProjectKind } from '@domain/project/types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -26,7 +27,7 @@ const showKindPicker = computed(
     auth.user?.role === 'admin',
 )
 const projectsSubtitle = computed(() => {
-  if (auth.user?.role === 'admin' || auth.user?.role === 'staff') {
+  if (isPrivilegedRole(auth.user?.role)) {
     return t('projects.subtitleAdmin')
   }
   if (auth.user?.role === 'user') {

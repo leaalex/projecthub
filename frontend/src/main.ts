@@ -1,10 +1,10 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { i18n } from './i18n'
+import { i18n } from '@infra/i18n'
 import router from './router'
-import { useAuthStore } from './stores/auth.store'
-import { useUiStore } from './stores/ui.store'
+import { useAuthStore } from '@app/auth.store'
+import { useUiStore } from '@app/ui.store'
 import './style.css'
 
 async function bootstrap() {

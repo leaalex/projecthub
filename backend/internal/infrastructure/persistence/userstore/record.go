@@ -4,9 +4,9 @@ import "time"
 
 // Record — строка таблицы users (GORM). Экспортируется для AutoMigrate в database.Open.
 type Record struct {
-	ID           uint      `gorm:"primaryKey"`
-	Email        string    `gorm:"uniqueIndex;not null"`
-	PasswordHash string    `gorm:"not null"`
+	ID           uint   `gorm:"primaryKey"`
+	Email        string `gorm:"uniqueIndex;not null"`
+	PasswordHash string `gorm:"not null"`
 	Name         string
 	LastName     string
 	FirstName    string

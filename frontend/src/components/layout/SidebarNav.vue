@@ -15,9 +15,9 @@ import type { Component } from 'vue'
 import { computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { useProjectNavVisibility } from '../../composables/useProjectNavVisibility'
-import { useAuthStore } from '../../stores/auth.store'
-import { useUiStore } from '../../stores/ui.store'
+import { useProjectNavVisibility } from '@app/composables/useProjectNavVisibility'
+import { useAuthStore } from '@app/auth.store'
+import { useUiStore } from '@app/ui.store'
 import Avatar from '../ui/UiAvatar.vue'
 
 defineProps<{
@@ -77,7 +77,7 @@ function onNavigate() {
 }
 
 async function logout() {
-  auth.logout()
+  await auth.logout()
   await router.push('/login')
   emit('navigate')
 }
