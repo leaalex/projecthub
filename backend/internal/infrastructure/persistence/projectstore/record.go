@@ -43,3 +43,15 @@ type SectionRecord struct {
 }
 
 func (SectionRecord) TableName() string { return "task_sections" }
+
+// NoteSectionRecord — строка note_sections.
+type NoteSectionRecord struct {
+	ID        uint      `gorm:"primaryKey"`
+	ProjectID uint      `gorm:"not null;index"`
+	Name      string    `gorm:"not null"`
+	Position  int       `gorm:"not null;default:0;index"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+func (NoteSectionRecord) TableName() string { return "note_sections" }

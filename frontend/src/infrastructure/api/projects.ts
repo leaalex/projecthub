@@ -7,6 +7,7 @@ import type {
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
+import type { NoteSection, NoteTrashItem } from '@domain/note/types'
 import type { Task } from '@domain/task/types'
 import { api } from '@infra/http/client'
 
@@ -215,6 +216,100 @@ export const projectsApi = {
         `/projects/${projectId}/members/${userId}/transfer-tasks`,
         { transfers },
       ),
+  },
+
+  /**
+   * Секции заметок (`/projects/:id/note-sections`).
+   */
+  noteSections: {
+    /**
+     * @http GET /projects/:projectId/note-sections
+     */
+    list: (projectId: number) =>
+      api.get<{ sections?: NoteSection[] | null }>(
+        `/projects/${projectId}/note-sections`,
+      ),
+
+    /**
+     * @http POST /projects/:projectId/note-sections
+     */
+    create: (projectId: number, name: string) =>
+      api.post<{ section: NoteSection }>(
+        `/projects/${projectId}/note-sections`,
+        { name },
+      ),
+
+    /**
+     * @http PUT /projects/:projectId/note-sections/:sectionId
+     */
+    update: (projectId: number, sectionId: number, name: string) =>
+      api.put<{ section: NoteSection }>(
+        `/projects/${projectId}/note-sections/${sectionId}`,
+        { name },
+      ),
+
+    /**
+     * @http DELETE /projects/:projectId/note-sections/:sectionId
+     */
+    remove: (projectId: number, sectionId: number) =>
+      api.delete(`/projects/${projectId}/note-sections/${sectionId}`),
+
+    /**
+     * @http POST /projects/:projectId/note-sections/reorder
+     */
+    reorder: (projectId: number, section_ids: number[]) =>
+      api.post(`/projects/${projectId}/note-sections/reorder`, {
+        section_ids,
+      }),
+  },
+
+  /**
+   * Корзина проекта: удалённые задачи и заметки.
+   */
+  trash: {
+    /**
+     * @http GET /projects/:projectId/trash/tasks
+     */
+    tasks: (projectId: number) =>
+      api.get<{ tasks?: Task[] | null }>(
+        `/projects/${projectId}/trash/tasks`,
+      ),
+
+    /**
+     * @http GET /projects/:projectId/trash/notes
+     */
+    notes: (projectId: number) =>
+      api.get<{ notes?: NoteTrashItem[] | null }>(
+        `/projects/${projectId}/trash/notes`,
+      ),
+
+    /**
+     * @http POST /projects/:projectId/trash/tasks/:taskId/restore
+     */
+    restoreTask: (projectId: number, taskId: number) =>
+      api.post(
+        `/projects/${projectId}/trash/tasks/${taskId}/restore`,
+      ),
+
+    /**
+     * @http POST /projects/:projectId/notes/:noteId/restore
+     */
+    restoreNote: (projectId: number, noteId: number) =>
+      api.post(`/projects/${projectId}/notes/${noteId}/restore`),
+
+    /**
+     * @http DELETE /tasks/:taskId?permanent=true
+     */
+    permanentDeleteTask: (taskId: number) =>
+      api.delete(`/tasks/${taskId}`, { params: { permanent: true } }),
+
+    /**
+     * @http DELETE /projects/:projectId/notes/:noteId?permanent=true
+     */
+    permanentDeleteNote: (projectId: number, noteId: number) =>
+      api.delete(`/projects/${projectId}/notes/${noteId}`, {
+        params: { permanent: true },
+      }),
   },
 
   /**

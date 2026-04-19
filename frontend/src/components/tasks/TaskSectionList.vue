@@ -24,6 +24,7 @@ const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
   info: [id: number]
+  openNote: [payload: { noteId: number; projectId: number }]
   taskUpdated: []
   move: [payload: { taskId: number; sectionId: number | null; position: number }]
 }>()
@@ -133,6 +134,7 @@ function onDropAt(sectionKey: string, position: number) {
                 @complete="emit('complete', $event)"
                 @reopen="emit('reopen', $event)"
                 @info="emit('info', $event)"
+                @open-note="emit('openNote', $event)"
                 @updated="emit('taskUpdated')"
                 @expanded-change="onTaskExpandedChange(task.id, $event)"
               />

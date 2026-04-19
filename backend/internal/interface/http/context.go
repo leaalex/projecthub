@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"task-manager/backend/internal/application"
+	"task-manager/backend/internal/domain/note"
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/report"
 	"task-manager/backend/internal/domain/task"
@@ -21,9 +22,11 @@ func handleServiceError(c *gin.Context, err error) {
 		errors.Is(err, project.ErrProjectNotFound),
 		errors.Is(err, task.ErrSubtaskNotFound),
 		errors.Is(err, report.ErrNotFound),
+		errors.Is(err, note.ErrNoteNotFound),
 		errors.Is(err, application.ErrTargetUserNotFound),
 		errors.Is(err, project.ErrNotMember),
 		errors.Is(err, project.ErrSectionNotFound),
+		errors.Is(err, project.ErrNoteSectionNotFound),
 		errors.Is(err, task.ErrTaskSectionNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
@@ -42,6 +45,8 @@ func handleServiceError(c *gin.Context, err error) {
 		errors.Is(err, task.ErrInvalidTitle),
 		errors.Is(err, task.ErrInvalidStatus),
 		errors.Is(err, task.ErrInvalidPriority),
+		errors.Is(err, note.ErrTitleRequired),
+		errors.Is(err, note.ErrTaskOtherProject),
 		errors.Is(err, project.ErrCannotRemoveOwner),
 		errors.Is(err, user.ErrCannotChangeOwnRole),
 		errors.Is(err, user.ErrInvalidGlobalRole),
@@ -61,6 +66,7 @@ func handleServiceError(c *gin.Context, err error) {
 
 	case errors.Is(err, user.ErrCannotDeleteSelf),
 		errors.Is(err, project.ErrAlreadyMember),
+		errors.Is(err, note.ErrLinkAlreadyExists),
 		errors.Is(err, user.ErrEmailTaken):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 

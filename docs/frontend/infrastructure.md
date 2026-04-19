@@ -91,6 +91,20 @@ response 401
 | `projectsApi.members.remove(projectId, userId, data)` | DELETE | `/projects/:projectId/members/:userId` |
 | `projectsApi.members.transferTasks(projectId, userId, transfers)` | POST | `/projects/:projectId/members/:userId/transfer-tasks` |
 | `projectsApi.owner.transfer(projectId, new_owner_id)` | PATCH | `/projects/:projectId/owner` |
+| `projectsApi.noteSections.list/create/update/remove/reorder` | GET/POST/PUT/DELETE/POST | `/projects/:projectId/note-sections` (+ `/reorder`) |
+| `projectsApi.trash.tasks/notes`, `restoreTask`, `restoreNote`, `permanentDeleteTask`, `permanentDeleteNote` | — | корзина проекта и безвозвратное удаление |
+
+### [`api/notes.ts`](../../frontend/src/infrastructure/api/notes.ts)
+
+| Метод | HTTP | Путь |
+|-------|------|------|
+| `notesApi.list/get/create/update/remove/restore/permanentDelete/move` | — | `/projects/:projectId/notes` и вложенные `:noteId` |
+| `notesApi.links.add/remove` | POST/DELETE | связь заметки с задачей |
+| `notesApi.linkedByTask(taskId)` | GET | `/tasks/:taskId/notes` |
+
+Секции заметок и корзина сосредоточены в **`projectsApi`** (`noteSections`, `trash`), а не в отдельном `trash.ts`, чтобы совпадать с URL бэкенда.
+
+**Markdown в UI:** редактор и превью заметок — **Tiptap** (`@tiptap/vue-3`, `@tiptap/starter-kit`, `@tiptap/extension-link`) и **`tiptap-markdown`**; в БД и при сохранении остаётся строка **Markdown**. Стили редактора: [`components/notes/markdown.css`](../../frontend/src/components/notes/markdown.css). Ранее использовавшиеся `@milkdown/*` и `marked` из стека заметок убраны.
 
 ### [`api/tasks.ts`](../../frontend/src/infrastructure/api/tasks.ts)
 

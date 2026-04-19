@@ -16,6 +16,7 @@ type ProjectHandler struct {
 	Projects *application.ProjectService
 	TaskSvc  *application.TaskService
 	Deletion *application.ProjectDeletionService
+	Notes    *application.NoteService
 }
 
 type projectCreateBody struct {
@@ -255,7 +256,18 @@ func (h *ProjectHandler) ListProjectTasks(c *gin.Context) {
 		if h.TaskSvc.Users != nil && t.AssigneeID() != nil {
 			assignee, _ = h.TaskSvc.Users.FindByID(ctx, *t.AssigneeID())
 		}
-		out = append(out, taskToJSON(t, sec, projID, assignee, acl))
+		var notePreviews []linkedNotePreview
+		if h.Notes != nil {
+			linked, err := h.Notes.ListLinkedNotes(ctx, t.ID().Uint(), uid, role)
+			if err != nil {
+				handleServiceError(c, err)
+				return
+			}
+			for _, n := range linked {
+				notePreviews = append(notePreviews, linkedNotePreview{ID: n.ID().Uint(), Title: n.Title()})
+			}
+		}
+		out = append(out, taskToJSONWithNotes(t, sec, projID, assignee, acl, notePreviews))
 	}
 	c.JSON(http.StatusOK, gin.H{"tasks": out})
 }

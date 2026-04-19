@@ -6,6 +6,7 @@ import (
 
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/projectstore"
 	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
@@ -48,8 +49,11 @@ func Open(databasePath string) (*gorm.DB, error) {
 		&projectstore.ProjectRecord{},
 		&projectstore.MemberRecord{},
 		&projectstore.SectionRecord{},
+		&projectstore.NoteSectionRecord{},
 		&taskstore.TaskRecord{},
 		&taskstore.SubtaskRecord{},
+		&notestore.NoteRecord{},
+		&notestore.NoteTaskLinkRecord{},
 		&reportstore.SavedReportRecord{},
 	); err != nil {
 		return nil, err

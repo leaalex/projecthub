@@ -4,6 +4,7 @@ import {
   BoltIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  DocumentTextIcon,
   FolderIcon,
   InformationCircleIcon,
   RectangleStackIcon,
@@ -55,6 +56,8 @@ const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
   info: [id: number]
+  /** Открыть связанную заметку (первая из списка). */
+  openNote: [payload: { noteId: number; projectId: number }]
   updated: []
   /** Inline editor open/closed; parent may disable drag while expanded. */
   expandedChange: [expanded: boolean]
@@ -112,6 +115,20 @@ const subtaskSummary = computed(() => {
 })
 
 const hasSubtasks = computed(() => (props.task.subtasks?.length ?? 0) > 0)
+
+const firstLinkedNote = computed(() => {
+  const ln = props.task.linked_notes
+  if (ln && ln.length > 0) return ln[0]
+  return props.task.linked_note_preview ?? null
+})
+
+const extraLinkedNotes = computed(() => {
+  const c = props.task.linked_notes_count
+  if (typeof c === 'number' && c > 1) return c - 1
+  const ln = props.task.linked_notes
+  if (ln && ln.length > 1) return ln.length - 1
+  return 0
+})
 
 /** Owner can toggle; assignee can toggle (matches API). */
 const canToggleSubtasks = computed(() => {
@@ -475,6 +492,27 @@ async function onAssigneeMenuSelect(v: string | number) {
         >
           {{ task.description }}
         </p>
+        <button
+          v-if="firstLinkedNote"
+          type="button"
+          class="mt-1 flex max-w-full items-center gap-1.5 rounded-md py-0.5 text-left text-xs text-muted transition-colors hover:bg-surface-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          :aria-label="t('taskCard.linkedNotes.open', { title: firstLinkedNote.title })"
+          @click.stop="
+            emit('openNote', {
+              noteId: firstLinkedNote.id,
+              projectId: task.project_id,
+            })
+          "
+        >
+          <DocumentTextIcon class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span class="min-w-0 truncate font-medium text-foreground">{{
+            firstLinkedNote.title
+          }}</span>
+          <span
+            v-if="extraLinkedNotes > 0"
+            class="inline-flex shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-muted"
+          >+{{ extraLinkedNotes }}</span>
+        </button>
         <div
           class="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0 text-xs text-muted"
         >

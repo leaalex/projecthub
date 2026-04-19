@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	domainuser "task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
+	"task-manager/backend/internal/infrastructure/persistence/projectstore"
 	"task-manager/backend/internal/testutil"
 )
 
@@ -111,8 +113,31 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	p := data["project"].(map[string]any)
 	projectID := uint(p["id"].(float64))
 
+	tk := app.SeedTask(projectID)
 	app.SeedTask(projectID)
-	app.SeedTask(projectID)
+
+	// Заметка, секция заметок и связь note↔task — проверяем каскад при permanent delete.
+	recSec, dSec := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/note-sections", projectID), map[string]any{
+		"name": "NotesSec",
+	}, token)
+	if recSec.Code != http.StatusCreated {
+		t.Fatalf("note-section: expected 201, got %d: %v", recSec.Code, dSec)
+	}
+	secID := uint(dSec["section"].(map[string]any)["id"].(float64))
+	recN, dN := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", projectID), map[string]any{
+		"title":      "Linked note",
+		"section_id": secID,
+	}, token)
+	if recN.Code != http.StatusCreated {
+		t.Fatalf("note: expected 201, got %d: %v", recN.Code, dN)
+	}
+	noteID := uint(dN["note"].(map[string]any)["id"].(float64))
+	recL, _ := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes/%d/links", projectID, noteID), map[string]any{
+		"task_id": tk.ID().Uint(),
+	}, token)
+	if recL.Code != http.StatusNoContent {
+		t.Fatalf("link note-task: expected 204, got %d", recL.Code)
+	}
 
 	before := app.CountTasks(projectID)
 	if before != 2 {
@@ -143,6 +168,22 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	}
 	if app.CountTasks(projectID) != 0 {
 		t.Fatalf("expected 0 tasks after hard-delete, got %d", app.CountTasks(projectID))
+	}
+
+	var noteRows, noteSecRows, linkRows int64
+	if err := app.DB.Model(&notestore.NoteRecord{}).Unscoped().Where("project_id = ?", projectID).Count(&noteRows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DB.Model(&projectstore.NoteSectionRecord{}).Unscoped().Where("project_id = ?", projectID).Count(&noteSecRows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DB.Model(&notestore.NoteTaskLinkRecord{}).Unscoped().
+		Where("note_id = ?", noteID).Count(&linkRows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if noteRows != 0 || noteSecRows != 0 || linkRows != 0 {
+		t.Fatalf("expected 0 notes, 0 note_sections, 0 links after hard-delete; got notes=%d sections=%d links=%d",
+			noteRows, noteSecRows, linkRows)
 	}
 }
 

@@ -127,6 +127,32 @@
 
 ---
 
+## `domain/note/`
+
+### [`types.ts`](../../frontend/src/domain/note/types.ts)
+
+| Экспорт | Описание |
+|---------|----------|
+| `NoteSection` | Секция заметок проекта (`note_sections`): `id`, `project_id`, `name`, `position`, даты |
+| `Note` | Заметка: `section_id` — **id note-секции** (не task-section), `body` — markdown, опционально `linked_task_ids` на детальном GET |
+| `NoteTrashItem` | Запись в корзине (без `body`) |
+| `CreateNotePayload` / `UpdateNotePayload` | Поля для API create/update |
+
+### [`preview.ts`](../../frontend/src/domain/note/preview.ts)
+
+| Экспорт | Описание |
+|---------|----------|
+| `noteBodyPlainPreview(md, maxLen)` | Облегчённое текстовое превью из markdown для карточек (без рендера Tiptap) |
+
+### [`permissions.ts`](../../frontend/src/domain/note/permissions.ts)
+
+| Экспорт | Описание |
+|---------|----------|
+| `NotePermissionContext` | `{ projects: { id, owner_id }[], current?: { id, owner_id, caller_project_role } }` — без импорта из `domain/project` |
+| `canManageNote(userId, userRole, ctx, projectId)` | Управление заметками: `admin`/`staff`, владелец проекта, роль `manager`/`owner` в проекте |
+
+---
+
 ## `domain/report/`
 
 ### [`types.ts`](../../frontend/src/domain/report/types.ts)

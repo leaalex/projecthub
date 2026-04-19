@@ -7,17 +7,18 @@ import (
 	"task-manager/backend/internal/domain/user"
 )
 
-// Project — корень агрегата: проект, участники и секции задач.
+// Project — корень агрегата: проект, участники, секции задач и секции заметок.
 type Project struct {
-	id          ID
-	name        string
-	description string
-	kind        Kind
-	ownerID     user.ID
-	members     []*Member
-	sections    []*Section
-	createdAt   time.Time
-	updatedAt   time.Time
+	id           ID
+	name         string
+	description  string
+	kind         Kind
+	ownerID      user.ID
+	members      []*Member
+	sections     []*Section
+	noteSections []*NoteSection
+	createdAt    time.Time
+	updatedAt    time.Time
 }
 
 // NewProject создаёт новый проект (ещё без id в БД).
@@ -33,12 +34,13 @@ func NewProject(ownerID user.ID, creatorRole user.Role, name, description string
 		return nil, ErrTeamProjectNotAllowed
 	}
 	return &Project{
-		name:        name,
-		description: description,
-		kind:        kind,
-		ownerID:     ownerID,
-		members:     nil,
-		sections:    nil,
+		name:         name,
+		description:  description,
+		kind:         kind,
+		ownerID:      ownerID,
+		members:      nil,
+		sections:     nil,
+		noteSections: nil,
 	}, nil
 }
 
@@ -50,18 +52,20 @@ func Reconstitute(
 	ownerID user.ID,
 	members []*Member,
 	sections []*Section,
+	noteSections []*NoteSection,
 	createdAt, updatedAt time.Time,
 ) *Project {
 	return &Project{
-		id:          id,
-		name:        name,
-		description: description,
-		kind:        kind,
-		ownerID:     ownerID,
-		members:     members,
-		sections:    sections,
-		createdAt:   createdAt,
-		updatedAt:   updatedAt,
+		id:           id,
+		name:         name,
+		description:  description,
+		kind:         kind,
+		ownerID:      ownerID,
+		members:      members,
+		sections:     sections,
+		noteSections: noteSections,
+		createdAt:    createdAt,
+		updatedAt:    updatedAt,
 	}
 }
 
@@ -72,6 +76,7 @@ func (p *Project) Kind() Kind           { return p.kind }
 func (p *Project) OwnerID() user.ID     { return p.ownerID }
 func (p *Project) Members() []*Member   { return p.members }
 func (p *Project) Sections() []*Section { return p.sections }
+func (p *Project) NoteSections() []*NoteSection { return p.noteSections }
 func (p *Project) CreatedAt() time.Time { return p.createdAt }
 func (p *Project) UpdatedAt() time.Time { return p.updatedAt }
 
@@ -276,6 +281,99 @@ func (p *Project) findSection(id SectionID) *Section {
 
 func (p *Project) sectionIndex(id SectionID) int {
 	for i, s := range p.sections {
+		if s.ID() == id {
+			return i
+		}
+	}
+	return -1
+}
+
+// AddNoteSection добавляет секцию заметок в конец (position = max+1).
+func (p *Project) AddNoteSection(name string, now time.Time) (*NoteSection, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrInvalidSectionName
+	}
+	maxPos := 0
+	for _, s := range p.noteSections {
+		if s.Position() > maxPos {
+			maxPos = s.Position()
+		}
+	}
+	sec := newNoteSection(name, maxPos+1, now)
+	p.noteSections = append(p.noteSections, sec)
+	p.Touch(now)
+	return sec, nil
+}
+
+// RenameNoteSection переименовывает секцию заметок.
+func (p *Project) RenameNoteSection(id NoteSectionID, name string, now time.Time) error {
+	s := p.findNoteSection(id)
+	if s == nil {
+		return ErrNoteSectionNotFound
+	}
+	if err := s.Rename(name, now); err != nil {
+		return err
+	}
+	p.Touch(now)
+	return nil
+}
+
+// ReorderNoteSections задаёт порядок секций заметок (полный список id без дубликатов).
+func (p *Project) ReorderNoteSections(order []NoteSectionID, now time.Time) error {
+	if len(order) == 0 {
+		return ErrInvalidReorder
+	}
+	if len(order) != len(p.noteSections) {
+		return ErrInvalidReorder
+	}
+	seen := make(map[NoteSectionID]struct{}, len(order))
+	for _, id := range order {
+		if _, dup := seen[id]; dup {
+			return ErrInvalidReorder
+		}
+		seen[id] = struct{}{}
+		if p.findNoteSection(id) == nil {
+			return ErrInvalidReorder
+		}
+	}
+	for i, id := range order {
+		p.findNoteSection(id).setNoteSectionPosition(i+1, now)
+	}
+	p.Touch(now)
+	return nil
+}
+
+// RemoveNoteSection удаляет секцию заметок из агрегата и перенумерует позиции.
+func (p *Project) RemoveNoteSection(id NoteSectionID, now time.Time) error {
+	idx := p.noteSectionIndex(id)
+	if idx < 0 {
+		return ErrNoteSectionNotFound
+	}
+	p.noteSections = append(p.noteSections[:idx], p.noteSections[idx+1:]...)
+	for i, s := range p.noteSections {
+		s.setNoteSectionPosition(i+1, now)
+	}
+	p.Touch(now)
+	return nil
+}
+
+// NoteSectionByID возвращает секцию заметок по идентификатору.
+func (p *Project) NoteSectionByID(id NoteSectionID) *NoteSection {
+	return p.findNoteSection(id)
+}
+
+func (p *Project) findNoteSection(id NoteSectionID) *NoteSection {
+	for _, s := range p.noteSections {
+		if s.ID() == id {
+			return s
+		}
+	}
+	return nil
+}
+
+func (p *Project) noteSectionIndex(id NoteSectionID) int {
+	for i, s := range p.noteSections {
 		if s.ID() == id {
 			return i
 		}

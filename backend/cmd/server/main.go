@@ -7,6 +7,7 @@ import (
 	"task-manager/backend/internal/config"
 	"task-manager/backend/internal/database"
 	"task-manager/backend/internal/httpserver"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/projectstore"
 	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
@@ -46,6 +47,9 @@ func main() {
 	taskMoveSvc := application.NewTaskMoveService(taskRepo, projectRepo, db)
 	taskAssignSvc := application.NewTaskAssignService(taskRepo, projectRepo, userRepo)
 	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
+	noteRepo := notestore.NewGormRepository(db)
+	noteSvc := application.NewNoteService(noteRepo, taskRepo, projectRepo)
+	taskTrashSvc := application.NewTaskTrashService(taskRepo, projectRepo)
 
 	reportRepo := reportstore.NewGormRepository(db)
 	reportTaskQuery := taskstore.NewReportQuery(db)
@@ -67,7 +71,9 @@ func main() {
 		Tasks:             tasksSvc,
 		TaskMove:          taskMoveSvc,
 		TaskAssign:        taskAssignSvc,
+		TaskTrash:         taskTrashSvc,
 		ProjectDeletion:   projectDelSvc,
+		Notes:             noteSvc,
 		Reports:           reportingSvc,
 	})
 

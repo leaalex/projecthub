@@ -11,6 +11,7 @@ var (
 	ErrPersonalNoMembers     = errors.New("personal projects do not support members")
 	ErrTeamProjectNotAllowed = errors.New("team projects require creator role or above")
 	ErrSectionNotFound       = errors.New("task section not found")
+	ErrNoteSectionNotFound   = errors.New("note section not found")
 	ErrInvalidReorder        = errors.New("invalid section reorder")
 	ErrInvalidMemberRole     = errors.New("invalid project role")
 	ErrInvalidSectionName    = errors.New("invalid section name")

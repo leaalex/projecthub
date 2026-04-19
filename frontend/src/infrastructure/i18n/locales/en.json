@@ -215,7 +215,13 @@
     "createSectionFailed": "Could not create section",
     "unsectioned": "Unsectioned",
     "emptySection": "No tasks in this section.",
-    "emptyGroup": "No tasks in this group."
+    "emptyGroup": "No tasks in this group.",
+    "tabs": {
+      "region": "Project content",
+      "tasks": "Tasks",
+      "notes": "Notes",
+      "trash": "Trash"
+    }
   },
   "tasks": {
     "title": "Tasks",
@@ -235,6 +241,8 @@
     "modalNewTitle": "New task",
     "submitCreate": "Create",
     "unsectioned": "Unsectioned",
+    "unknownSection": "Section #{id}",
+    "openLinkedNoteFailed": "Could not load note or project data",
     "emptySection": "No tasks in this section.",
     "emptyGroup": "No tasks in this group.",
     "toasts": {
@@ -560,6 +568,9 @@
       "deleteFailed": "Could not delete task",
       "deleted": "Task deleted"
     },
+    "linkedNotes": {
+      "open": "Open linked note: {title}"
+    },
     "confirm": {
       "deleteTitle": "Delete task",
       "deleteMessage": "Remove “{title}”? This cannot be undone.",
@@ -653,12 +664,125 @@
     "buttons": {
       "deleteTask": "Delete task"
     },
+    "linkedNotes": {
+      "heading": "Linked notes",
+      "addLink": "Add link",
+      "empty": "No notes linked to this task.",
+      "pickTitle": "Link a note",
+      "linked": "Note linked",
+      "unlinked": "Link removed",
+      "linkFailed": "Could not link note",
+      "unlinkFailed": "Could not remove link",
+      "loadFailed": "Could not load linked notes"
+    },
     "toasts": {
       "enterTitle": "Enter a task title",
       "updated": "Task updated",
       "updateFailed": "Could not update task",
       "deleted": "Task deleted",
       "deleteFailed": "Could not delete task"
+    }
+  },
+  "notes": {
+    "title": "Notes",
+    "create": "New note",
+    "restore": "Restore",
+    "loadFailed": "Could not load notes",
+    "reorderFailed": "Could not reorder notes",
+    "unsectioned": "No section",
+    "unknownSection": "Section #{id}",
+    "emptySection": "No notes in this section.",
+    "form": {
+      "title": "Title",
+      "titlePlaceholder": "Note title",
+      "titleRequired": "Enter a title",
+      "section": "Section",
+      "body": "Content",
+      "bodyPlaceholder": "Write in Markdown…"
+    },
+    "section": {
+      "none": "No section",
+      "heading": "Note sections",
+      "add": "Add section",
+      "namePlaceholder": "Section name…",
+      "empty": "No sections yet.",
+      "created": "Section created",
+      "createFailed": "Could not create section",
+      "renamed": "Section renamed",
+      "renameFailed": "Could not rename section",
+      "removed": "Section removed",
+      "removeFailed": "Could not remove section",
+      "reorderFailed": "Could not reorder sections"
+    },
+    "inline": {
+      "titlePlaceholder": "Quick note title…",
+      "add": "Add",
+      "more": "More",
+      "less": "Less",
+      "hint": "Need Markdown or another section?",
+      "openForm": "Open full form",
+      "createFailed": "Could not create note"
+    },
+    "editor": {
+      "toolbar": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "code": "Inline code",
+        "heading2": "Heading 2",
+        "bulletList": "Bullet list",
+        "orderedList": "Ordered list",
+        "blockquote": "Quote",
+        "undo": "Undo",
+        "redo": "Redo"
+      }
+    },
+    "card": {
+      "linkedTasks": "{n} linked tasks",
+      "noteActions": "Note actions"
+    },
+    "detail": {
+      "title": "Note",
+      "loadError": "Could not load note.",
+      "saved": "Note saved",
+      "saveFailed": "Could not save note",
+      "deleted": "Note moved to trash",
+      "deleteFailed": "Could not delete note",
+      "linkedTasks": "Linked tasks",
+      "noLinkedTasks": "No tasks linked yet."
+    },
+    "confirm": {
+      "deleteTitle": "Delete note",
+      "deleteMessage": "Move “{title}” to trash?",
+      "deleteConfirm": "Delete",
+      "deleteCancel": "Cancel"
+    },
+    "linkTask": {
+      "searchPlaceholder": "Search tasks…",
+      "link": "Link",
+      "unlink": "Unlink",
+      "empty": "No matching tasks.",
+      "linked": "Task linked",
+      "unlinked": "Task unlinked",
+      "linkFailed": "Could not link task",
+      "unlinkFailed": "Could not unlink task"
+    },
+    "trash": {
+      "loadFailed": "Could not load trash",
+      "tasksHeading": "Deleted tasks",
+      "notesHeading": "Deleted notes",
+      "emptyTasks": "No deleted tasks.",
+      "emptyNotes": "No deleted notes.",
+      "deleteForever": "Delete permanently",
+      "taskRestored": "Task restored",
+      "noteRestored": "Note restored",
+      "restoreFailed": "Could not restore",
+      "taskPurged": "Task permanently deleted",
+      "notePurged": "Note permanently deleted",
+      "purgeFailed": "Could not delete permanently",
+      "confirmPermanentTitle": "Delete permanently?",
+      "confirmPermanentTask": "This task cannot be recovered.",
+      "confirmPermanentNote": "This note cannot be recovered.",
+      "confirmPermanent": "Delete forever"
     }
   },
   "taskForm": {

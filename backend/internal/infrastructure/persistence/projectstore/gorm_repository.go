@@ -6,6 +6,7 @@ import (
 
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 
 	"gorm.io/gorm"
@@ -35,7 +36,11 @@ func (r *GormRepository) FindByID(ctx context.Context, id project.ID) (*project.
 	if err := r.db.WithContext(ctx).Where("project_id = ?", id.Uint()).Order("position ASC, id ASC").Find(&secRows).Error; err != nil {
 		return nil, err
 	}
-	return recordToDomain(&pr, memRows, secRows)
+	var noteSecRows []NoteSectionRecord
+	if err := r.db.WithContext(ctx).Where("project_id = ?", id.Uint()).Order("position ASC, id ASC").Find(&noteSecRows).Error; err != nil {
+		return nil, err
+	}
+	return recordToDomain(&pr, memRows, secRows, noteSecRows)
 }
 
 func (r *GormRepository) ListAll(ctx context.Context) ([]*project.Project, error) {
@@ -45,7 +50,7 @@ func (r *GormRepository) ListAll(ctx context.Context) ([]*project.Project, error
 	}
 	out := make([]*project.Project, 0, len(rows))
 	for i := range rows {
-		p, err := recordToDomain(&rows[i], nil, nil)
+		p, err := recordToDomain(&rows[i], nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +66,7 @@ func (r *GormRepository) ListByOwner(ctx context.Context, owner user.ID) ([]*pro
 	}
 	out := make([]*project.Project, 0, len(rows))
 	for i := range rows {
-		p, err := recordToDomain(&rows[i], nil, nil)
+		p, err := recordToDomain(&rows[i], nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -108,6 +113,9 @@ func (r *GormRepository) HardDelete(ctx context.Context, id project.ID) error {
 			return err
 		}
 		if err := tx.Unscoped().Where("project_id = ?", id.Uint()).Delete(&SectionRecord{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("project_id = ?", id.Uint()).Delete(&NoteSectionRecord{}).Error; err != nil {
 			return err
 		}
 		return tx.Unscoped().Delete(&ProjectRecord{}, id.Uint()).Error
@@ -198,6 +206,47 @@ func (r *GormRepository) Save(ctx context.Context, p *project.Project) error {
 					"name":       sr.Name,
 					"position":   sr.Position,
 					"updated_at": sr.UpdatedAt,
+				}).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		var oldNoteSecs []NoteSectionRecord
+		if err := tx.Where("project_id = ?", pid.Uint()).Find(&oldNoteSecs).Error; err != nil {
+			return err
+		}
+		wantNoteSecID := make(map[uint]struct{})
+		for _, s := range p.NoteSections() {
+			if s.ID() != 0 {
+				wantNoteSecID[s.ID().Uint()] = struct{}{}
+			}
+		}
+		for i := range oldNoteSecs {
+			os := oldNoteSecs[i]
+			if _, ok := wantNoteSecID[os.ID]; !ok {
+				if err := tx.Model(&notestore.NoteRecord{}).
+					Where("project_id = ? AND section_id = ?", pid.Uint(), os.ID).
+					Update("section_id", nil).Error; err != nil {
+					return err
+				}
+				if err := tx.Delete(&NoteSectionRecord{}, os.ID).Error; err != nil {
+					return err
+				}
+			}
+		}
+		for _, s := range p.NoteSections() {
+			nsr := noteSectionToRecord(pid, s)
+			if nsr.ID == 0 {
+				if err := tx.Create(&nsr).Error; err != nil {
+					return err
+				}
+				s.AssignID(project.NoteSectionID(nsr.ID))
+			} else {
+				if err := tx.Model(&NoteSectionRecord{}).Where("id = ?", nsr.ID).Updates(map[string]any{
+					"name":       nsr.Name,
+					"position":   nsr.Position,
+					"updated_at": nsr.UpdatedAt,
 				}).Error; err != nil {
 					return err
 				}

@@ -100,6 +100,38 @@
 
 ---
 
+### [`note.store.ts`](../../frontend/src/application/note.store.ts)
+
+**Id:** `note`
+
+**State:** `notes`, `sections` (note-секции), `currentProjectId`, `loading`, `sectionsLoading`, `error`, `savingId`, `deletingId`, `linksByTaskId` (кэш `GET /tasks/:id/notes`).
+
+**Actions:** `fetchList`, `fetchSections`, `fetchOne`, `create`, `update`, `remove`, `restore`, `permanentDelete`, `move` (опционально `refetch: false` для пакетного DnD), **`reorderNotes(projectId, keys, groupNoteIds)`** — порядок после drag-and-drop; `createSection` / `renameSection` / `removeSection` / `reorderSections` через `projectsApi.noteSections`; `linkTask`, `unlinkTask`, `fetchLinkedByTask`, `invalidateTaskLinks`; **`patchNoteInList(noteId, patch)`** — точечное обновление строки в `notes` (например `linked_task_ids` после загрузки в модалке).
+
+**Экспорт:** `extractNoteAxiosError`, `parseNoteSectionGroupKey`, `noteSectionGroupKey`.
+
+**Зависимости:** `@infra/api/notes`, `@infra/api/projects` (`noteSections`).
+
+---
+
+### [`trashTasks.store.ts`](../../frontend/src/application/trashTasks.store.ts)
+
+**Id:** `trashTasks`
+
+**State:** `tasks`, `loading`, `error` (сырая ошибка последнего запроса).
+
+**Actions:** `fetchTasks`, `restoreTask`, `permanentDeleteTask` — `projectsApi.trash` для удалённых задач.
+
+### [`trashNotes.store.ts`](../../frontend/src/application/trashNotes.store.ts)
+
+**Id:** `trashNotes`
+
+**State:** `notes`, `loading`, `error`.
+
+**Actions:** `fetchNotes`, `restoreNote`, `permanentDeleteNote` — корзина заметок того же проекта.
+
+---
+
 ### [`user.store.ts`](../../frontend/src/application/user.store.ts)
 
 **Id:** `user`

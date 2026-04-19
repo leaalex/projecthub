@@ -91,8 +91,8 @@ func TestSubtask_CRUD(t *testing.T) {
 	})
 }
 
-// TestSubtask_CascadeOnTaskDelete проверяет, что подзадачи физически удаляются
-// при удалении родительской задачи (FK ON DELETE CASCADE в схеме subtasks).
+// TestSubtask_CascadeOnTaskHardDelete проверяет, что подзадачи физически удаляются
+// при жёстком удалении родительской задачи.
 func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
@@ -109,14 +109,21 @@ func TestSubtask_CascadeOnTaskDelete(t *testing.T) {
 		t.Fatalf("expected 2 subtasks before task deletion, got %d", countBefore)
 	}
 
-	// Удаляем родительскую задачу.
+	// Мягкое удаление: задача уходит в корзину, подзадачи сохраняются.
 	rec, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d", task.ID().Uint()), nil, token)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("delete task: expected 204, got %d", rec.Code)
+		t.Fatalf("soft-delete task: expected 204, got %d", rec.Code)
+	}
+	if countAfterSoft := app.CountSubtasks(task.ID().Uint()); countAfterSoft != 2 {
+		t.Fatalf("expected subtasks to survive soft-delete, got %d", countAfterSoft)
 	}
 
-	// Подзадачи должны быть удалены (CASCADE).
+	// Жёсткое удаление через корзину: подзадачи должны исчезнуть.
+	rec2, _ := app.Do(http.MethodDelete, fmt.Sprintf("/api/tasks/%d?permanent=true", task.ID().Uint()), nil, token)
+	if rec2.Code != http.StatusNoContent {
+		t.Fatalf("hard-delete task: expected 204, got %d: %v", rec2.Code, rec2.Body.String())
+	}
 	if countAfter := app.CountSubtasks(task.ID().Uint()); countAfter != 0 {
-		t.Fatalf("expected 0 subtasks after task deletion (CASCADE), got %d", countAfter)
+		t.Fatalf("expected 0 subtasks after hard-delete (CASCADE), got %d", countAfter)
 	}
 }

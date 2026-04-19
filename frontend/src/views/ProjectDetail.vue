@@ -16,6 +16,11 @@ import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import TaskSectionList from '../components/tasks/TaskSectionList.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
+import NoteList from '../components/notes/NoteList.vue'
+import NoteSectionList from '../components/notes/NoteSectionList.vue'
+import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
+import ProjectTrashPanel from '../components/notes/ProjectTrashPanel.vue'
 import {
   presentTasks,
   type AssigneeFilterValue,
@@ -26,6 +31,9 @@ import {
 import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
+import { useNoteStore } from '@app/note.store'
+import { useTrashTasksStore } from '@app/trashTasks.store'
+import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useProjectScopedAssignableUsers } from '@app/composables/useAdminAssignableUsers'
 import { useConfirm } from '@app/composables/useConfirm'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
@@ -33,6 +41,8 @@ import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
 import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import type { NotePermissionContext } from '@domain/note/permissions'
+import { canManageNote } from '@domain/note/permissions'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -42,6 +52,9 @@ const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
+const noteStore = useNoteStore()
+const trashTasksStore = useTrashTasksStore()
+const trashNotesStore = useTrashNotesStore()
 
 const canCreateTasks = computed(() => {
   const u = auth.user
@@ -66,6 +79,31 @@ const canEditProject = computed(() => {
   return r === 'manager' || r === 'owner'
 })
 const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
+
+const projectTab = ref<'tasks' | 'notes' | 'trash'>('tasks')
+const noteDetailOpen = ref(false)
+const noteDetailId = ref<number | null>(null)
+
+const notePermissionCtx = computed(
+  (): NotePermissionContext => ({
+    projects: projectStore.projects.map(p => ({ id: p.id, owner_id: p.owner_id })),
+    current: projectStore.current
+      ? {
+          id: projectStore.current.id,
+          owner_id: projectStore.current.owner_id,
+          caller_project_role: projectStore.current.caller_project_role,
+        }
+      : null,
+  }),
+)
+
+const canManageNotes = computed(() =>
+  canManageNote(auth.user?.id, auth.user?.role, notePermissionCtx.value, id.value),
+)
+
+const projectTasksForNotes = computed(() =>
+  projectStore.tasks.map(t => ({ id: t.id, title: t.title })),
+)
 
 const id = computed(() => {
   const raw = route.params.id
@@ -149,17 +187,19 @@ const sectionGroupsForList = computed(() => {
       tasks: [],
     })
   }
-  for (const t of displayFlat.value) {
-    const key = t.section_id == null ? 'unsectioned' : `s-${t.section_id}`
+  for (const task of displayFlat.value) {
+    const key = task.section_id == null ? 'unsectioned' : `s-${task.section_id}`
     if (!map.has(key)) {
       map.set(key, {
         key,
-        label: t.section?.name ?? `Section #${t.section_id}`,
-        order: t.section?.position ?? Number.MAX_SAFE_INTEGER,
+        label:
+          task.section?.name ??
+          t('tasks.unknownSection', { id: task.section_id }),
+        order: task.section?.position ?? Number.MAX_SAFE_INTEGER,
         tasks: [],
       })
     }
-    map.get(key)!.tasks.push(t)
+    map.get(key)!.tasks.push(task)
   }
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
@@ -272,11 +312,32 @@ watch(
   () => route.params.id,
   () => {
     showTaskComposer.value = false
+    projectTab.value = 'tasks'
     resetTaskFilters()
     void load()
   },
   { immediate: true },
 )
+
+watch(projectTab, async tab => {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  if (tab === 'notes') {
+    try {
+      await noteStore.fetchSections(id.value)
+      await noteStore.fetchList(id.value)
+    } catch {
+      toast.error(t('notes.loadFailed'))
+    }
+  }
+  if (tab === 'trash') {
+    try {
+      await trashTasksStore.fetchTasks(id.value)
+      await trashNotesStore.fetchNotes(id.value)
+    } catch {
+      toast.error(t('notes.trash.loadFailed'))
+    }
+  }
+})
 
 watch(showModal, (open) => {
   if (open && Number.isFinite(id.value) && id.value > 0) {
@@ -337,9 +398,55 @@ function openTaskDetail(taskId: number) {
   detailOpen.value = true
 }
 
+function openLinkedNote(payload: { noteId: number; projectId: number }) {
+  if (payload.projectId !== id.value) return
+  noteDetailId.value = payload.noteId
+  noteDetailOpen.value = true
+}
+
+function openNoteDetail(noteId: number) {
+  noteDetailId.value = noteId
+  noteDetailOpen.value = true
+}
+
 watch(detailOpen, (open) => {
   if (!open) detailTaskId.value = null
 })
+
+watch(noteDetailOpen, open => {
+  if (!open) noteDetailId.value = null
+})
+
+async function onNotesChanged() {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  await noteStore.fetchList(id.value, { quiet: true })
+  await projectStore.fetchTasks(id.value)
+}
+
+async function onTrashRestored() {
+  await onNotesChanged()
+}
+
+async function onRemoveNote(noteId: number) {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  const n = noteStore.notes.find(x => x.id === noteId)
+  const ok = await confirm({
+    title: t('notes.confirm.deleteTitle'),
+    message: t('notes.confirm.deleteMessage', { title: n?.title ?? '' }),
+    confirmLabelKey: 'notes.confirm.deleteConfirm',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await noteStore.remove(id.value, noteId)
+    toast.success(t('notes.detail.deleted'))
+    await onNotesChanged()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    const msg = err.response?.data?.error
+    toast.error(typeof msg === 'string' ? msg : t('notes.detail.deleteFailed'))
+  }
+}
 
 async function refreshProjectTasks() {
   await projectStore.fetchTasks(id.value)
@@ -486,7 +593,43 @@ async function createSection() {
       </div>
     </div>
 
-    <div class="mt-6 space-y-4">
+    <UiSegmentedControl
+      v-model="projectTab"
+      class="mt-6"
+      :aria-label="t('projectDetail.tabs.region')"
+      :options="[
+        { value: 'tasks', label: t('projectDetail.tabs.tasks') },
+        { value: 'notes', label: t('projectDetail.tabs.notes') },
+        { value: 'trash', label: t('projectDetail.tabs.trash') },
+      ]"
+    />
+
+    <div v-show="projectTab === 'notes'" class="mt-6 space-y-4">
+      <NoteSectionList
+        :project-id="id"
+        :can-manage="canManageNotes"
+        @updated="onNotesChanged"
+      />
+      <NoteList
+        :project-id="id"
+        :sections="noteStore.sections"
+        :can-manage="canManageNotes"
+        @open="openNoteDetail"
+        @edit="openNoteDetail"
+        @remove="onRemoveNote"
+        @refreshed="onNotesChanged"
+      />
+    </div>
+
+    <div v-show="projectTab === 'trash'" class="mt-6">
+      <ProjectTrashPanel
+        :project-id="id"
+        :can-manage="canManageNotes"
+        @restored="onTrashRestored"
+      />
+    </div>
+
+    <div v-show="projectTab === 'tasks'" class="mt-6 space-y-4">
       <div
         class="flex w-full flex-wrap items-center justify-between gap-2"
       >
@@ -627,6 +770,7 @@ async function createSection() {
           @complete="onComplete"
           @reopen="onReopen"
           @info="openTaskDetail"
+          @open-note="openLinkedNote"
           @task-updated="refreshProjectTasks"
           @move="onSectionMove"
         />
@@ -652,6 +796,7 @@ async function createSection() {
                 @complete="onComplete"
                 @reopen="onReopen"
                 @info="openTaskDetail"
+                @open-note="openLinkedNote"
                 @task-updated="refreshProjectTasks"
               />
             </div>
@@ -664,6 +809,18 @@ async function createSection() {
       v-model="detailOpen"
       :task-id="detailTaskId"
       @saved="refreshProjectTasks"
+      @open-note="openLinkedNote"
+    />
+
+    <NoteDetailModal
+      v-model="noteDetailOpen"
+      :project-id="id"
+      :note-id="noteDetailId"
+      :sections="noteStore.sections"
+      :project-tasks="projectTasksForNotes"
+      :can-manage="canManageNotes"
+      @saved="onNotesChanged"
+      @deleted="onNotesChanged"
     />
 
     <Modal v-model="editProjectModalOpen" :title="t('projectDetail.modalEditTitle')">

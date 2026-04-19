@@ -129,3 +129,39 @@ sequenceDiagram
 1. `filename="..."` — прямое имя
 2. `filename*=UTF-8''...` — RFC 5987, `decodeURIComponent`
 3. fallback — `display_name || 'report.<format>'`
+
+---
+
+## 4. Заметки: создание, связь с задачей, корзина, порядок
+
+### Создание и привязка задачи
+
+```mermaid
+sequenceDiagram
+  participant UI as NoteDetailModal / NoteList
+  participant store as note.store
+  participant api as notesApi
+  participant BE as NoteService
+
+  UI->>store: create(projectId, { title, body, section_id? })
+  store->>api: POST /projects/:id/notes
+  api->>BE: Create
+  BE-->>api: note
+  api-->>store: note
+  store-->>UI: обновлённый список
+
+  UI->>store: linkTask(projectId, noteId, taskId)
+  store->>api: POST /projects/:id/notes/:noteId/links
+  api->>BE: LinkTask (один проект)
+  BE-->>api: 204
+```
+
+### Мягкое удаление и восстановление
+
+- `DELETE /projects/:id/notes/:noteId` — заметка в корзине (soft-delete).
+- `POST /projects/:id/notes/:noteId/restore` — восстановление.
+- `DELETE ...?permanent=true` — безвозвратно. Список удалённых: `GET /projects/:id/trash/notes`.
+
+### Drag-and-drop порядка внутри / между секциями
+
+`NoteList` собирает новый порядок id по секциям и вызывает `reorderNotes`: для затронутых секций позиции применяются **снизу вверх**, затем `fetchList` для согласования с БД.

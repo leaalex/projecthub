@@ -24,6 +24,7 @@ import (
 	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/httpserver"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/projectstore"
 	"task-manager/backend/internal/infrastructure/persistence/reportstore"
 	"task-manager/backend/internal/infrastructure/persistence/sessionstore"
@@ -74,6 +75,9 @@ func NewTestApp(t *testing.T) *TestApp {
 	taskMoveSvc := application.NewTaskMoveService(taskRepo, projectRepo, db)
 	taskAssignSvc := application.NewTaskAssignService(taskRepo, projectRepo, userRepo)
 	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
+	noteRepo := notestore.NewGormRepository(db)
+	noteSvc := application.NewNoteService(noteRepo, taskRepo, projectRepo)
+	taskTrashSvc := application.NewTaskTrashService(taskRepo, projectRepo)
 
 	router := httpserver.BuildRouter(httpserver.Deps{
 		DB:                db,
@@ -91,7 +95,9 @@ func NewTestApp(t *testing.T) *TestApp {
 		Tasks:             tasksSvc,
 		TaskMove:          taskMoveSvc,
 		TaskAssign:        taskAssignSvc,
+		TaskTrash:         taskTrashSvc,
 		ProjectDeletion:   projectDelSvc,
+		Notes:             noteSvc,
 		Reports: application.NewReportingService(
 			reportstore.NewGormRepository(db),
 			taskstore.NewReportQuery(db),

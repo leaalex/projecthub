@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
+import UiInput from '../ui/UiInput.vue'
 import TaskForm from './TaskForm.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { useTaskStore } from '@app/task.store'
+import { useAuthStore } from '@app/auth.store'
+import { useProjectStore } from '@app/project.store'
+import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
 import { useCanEditTask } from '@app/composables/useCanEditTask'
 import { useConfirm } from '@app/composables/useConfirm'
 import { useToast } from '@app/composables/useToast'
+import type { Note } from '@domain/note/types'
 import type { Task, TaskPriority, TaskStatus } from '@domain/task/types'
+import { canManageNote } from '@domain/note/permissions'
 import { formatDate } from '@infra/formatters/date'
 import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
@@ -24,9 +30,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   saved: []
+  openNote: [payload: { noteId: number; projectId: number }]
 }>()
 
 const taskStore = useTaskStore()
+const auth = useAuthStore()
+const projectStore = useProjectStore()
+const noteStore = useNoteStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -44,12 +54,57 @@ const formPriority = ref<TaskPriority>('medium')
 
 const canEdit = useCanEditTask(() => task.value)
 
+const linkedNotes = ref<Note[]>([])
+const linkPickerOpen = ref(false)
+const noteSearch = ref('')
+const linkBusy = ref(false)
+
+const permCtx = computed(() => ({
+  projects: projectStore.projects.map(p => ({ id: p.id, owner_id: p.owner_id })),
+  current: projectStore.current
+    ? {
+        id: projectStore.current.id,
+        owner_id: projectStore.current.owner_id,
+        caller_project_role: projectStore.current.caller_project_role,
+      }
+    : null,
+}))
+
+const canManageNotes = computed(() => {
+  const cur = task.value
+  if (!cur) return false
+  return canManageNote(auth.user?.id, auth.user?.role, permCtx.value, cur.project_id)
+})
+
+const filteredNotesForPicker = computed(() => {
+  const q = noteSearch.value.trim().toLowerCase()
+  const pid = task.value?.project_id
+  const list = noteStore.notes.filter(n => n.project_id === pid)
+  if (!q) return list
+  return list.filter(n => n.title.toLowerCase().includes(q))
+})
+
+async function refreshLinkedNotes() {
+  const cur = task.value
+  if (!cur) {
+    linkedNotes.value = []
+    return
+  }
+  try {
+    linkedNotes.value = await noteStore.fetchLinkedByTask(cur.id)
+  } catch (e: unknown) {
+    linkedNotes.value = []
+    toast.error(extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.loadFailed')))
+  }
+}
+
 watch(
   () => [props.modelValue, props.taskId] as const,
   async ([open, id]) => {
     if (!open || id == null) {
       task.value = null
       loadError.value = null
+      linkedNotes.value = []
       return
     }
     loading.value = true
@@ -57,6 +112,7 @@ watch(
     task.value = null
     try {
       task.value = await taskStore.fetchOne(id)
+      await refreshLinkedNotes()
     } catch {
       loadError.value = t('taskDetailModal.loadError')
     } finally {
@@ -64,6 +120,16 @@ watch(
     }
   },
 )
+
+watch(linkPickerOpen, async open => {
+  if (!open || !task.value) return
+  noteSearch.value = ''
+  try {
+    await noteStore.fetchList(task.value.project_id, { quiet: true })
+  } catch (e: unknown) {
+    toast.error(extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.loadFailed')))
+  }
+})
 
 watch(
   () => [task.value, canEdit.value] as const,
@@ -120,6 +186,51 @@ async function refreshTask() {
   } catch {
     /* keep existing task */
   }
+}
+
+async function linkNoteFromPicker(noteId: number) {
+  const cur = task.value
+  if (!cur || !canManageNotes.value) return
+  linkBusy.value = true
+  try {
+    await noteStore.linkTask(cur.project_id, noteId, cur.id)
+    await refreshLinkedNotes()
+    noteStore.invalidateTaskLinks(cur.id)
+    toast.success(t('taskDetailModal.linkedNotes.linked'))
+    linkPickerOpen.value = false
+    emit('saved')
+  } catch (e: unknown) {
+    toast.error(
+      extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.linkFailed')),
+    )
+  } finally {
+    linkBusy.value = false
+  }
+}
+
+async function unlinkNote(noteId: number) {
+  const cur = task.value
+  if (!cur || !canManageNotes.value) return
+  linkBusy.value = true
+  try {
+    await noteStore.unlinkTask(cur.project_id, noteId, cur.id)
+    await refreshLinkedNotes()
+    noteStore.invalidateTaskLinks(cur.id)
+    toast.success(t('taskDetailModal.linkedNotes.unlinked'))
+    emit('saved')
+  } catch (e: unknown) {
+    toast.error(
+      extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.unlinkFailed')),
+    )
+  } finally {
+    linkBusy.value = false
+  }
+}
+
+function openLinkedNote(noteId: number) {
+  const cur = task.value
+  if (!cur) return
+  emit('openNote', { noteId, projectId: cur.project_id })
 }
 
 async function removeTask() {
@@ -305,6 +416,87 @@ async function removeTask() {
           </template>
         </TaskForm>
         <TaskSubtasksPanel :task="task" @updated="refreshTask" />
+      </div>
+
+      <div class="mt-6 border-t border-border pt-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold text-foreground">
+            {{ t('taskDetailModal.linkedNotes.heading') }}
+          </h3>
+          <Button
+            v-if="canManageNotes"
+            type="button"
+            variant="secondary"
+            :disabled="linkBusy"
+            @click="linkPickerOpen = true"
+          >
+            {{ t('taskDetailModal.linkedNotes.addLink') }}
+          </Button>
+        </div>
+        <ul class="mt-2 space-y-1">
+          <li
+            v-for="n in linkedNotes"
+            :key="n.id"
+            class="flex flex-wrap items-center justify-between gap-2 text-sm"
+          >
+            <button
+              type="button"
+              class="min-w-0 truncate text-left font-medium text-primary underline"
+              @click="openLinkedNote(n.id)"
+            >
+              {{ n.title }}
+            </button>
+            <Button
+              v-if="canManageNotes"
+              type="button"
+              variant="ghost-danger"
+              :disabled="linkBusy"
+              @click="unlinkNote(n.id)"
+            >
+              {{ t('notes.linkTask.unlink') }}
+            </Button>
+          </li>
+          <li
+            v-if="linkedNotes.length === 0"
+            class="text-xs text-muted"
+          >
+            {{ t('taskDetailModal.linkedNotes.empty') }}
+          </li>
+        </ul>
+        <Modal
+          v-model="linkPickerOpen"
+          :title="t('taskDetailModal.linkedNotes.pickTitle')"
+        >
+          <UiInput
+            v-model="noteSearch"
+            :placeholder="t('notes.linkTask.searchPlaceholder')"
+          />
+          <ul
+            class="mt-2 max-h-56 divide-y divide-border overflow-auto rounded-md border border-border"
+          >
+            <li
+              v-for="n in filteredNotesForPicker"
+              :key="n.id"
+              class="flex items-center justify-between gap-2 px-2 py-1.5 text-sm"
+            >
+              <span class="min-w-0 truncate">{{ n.title }}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                :disabled="linkBusy"
+                @click="linkNoteFromPicker(n.id)"
+              >
+                {{ t('notes.linkTask.link') }}
+              </Button>
+            </li>
+            <li
+              v-if="filteredNotesForPicker.length === 0"
+              class="px-2 py-4 text-center text-xs text-muted"
+            >
+              {{ t('notes.linkTask.empty') }}
+            </li>
+          </ul>
+        </Modal>
       </div>
     </template>
   </Modal>

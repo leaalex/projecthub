@@ -9,6 +9,7 @@
 - [IAM Aggregate — User](#iam-aggregate--user)
 - [Project Aggregate](#project-aggregate)
 - [Task Aggregate](#task-aggregate)
+- [Note (cross-aggregate)](#note-cross-aggregate)
 - [Report Aggregate](#report-aggregate)
 - [Инварианты по уровням](#инварианты-по-уровням)
 - [Транзакционные границы](#транзакционные-границы)
@@ -35,6 +36,8 @@
 ║                          ║        ║                                  ║
 ║                          ║        ║  Sections [ TaskSection ]        ║
 ║                          ║        ║   • name, position               ║
+║                          ║        ║  NoteSections [ NoteSection ]    ║
+║                          ║        ║   • name, position (note_sections)║
 ╚══════════════════════════╝        ╚══════════════════════════════════╝
           ▲                                         ▲
           │ id-ref                                  │ id-ref
@@ -52,6 +55,15 @@
 ║  Subtasks [ Subtask ]                                              ║
 ║   • title, done, position                                          ║
 ╚════════════════════════════════════════════════════════════════════╝
+          ▲                                         ▲
+          │ projectId                               │ noteId / taskId
+          │                                         │
+╔═════════╧═════════════════════════════════════════╧═════════════════╗
+║  Note (+ links) — отдельный корень, не внутри Project/Task        ║
+║──────────────────────────────────────────────────────────────────║
+║  Note: projectId → Project; sectionId? → NoteSection (в Project) ║
+║  Связи many-to-many с Task через note_task_links (тот же project)║
+╚════════════════════════════════════════════════════════════════════╝
 
 ╔══════════════════════════════╗
 ║     Report Aggregate         ║
@@ -67,7 +79,9 @@
 - `Task` — самостоятельный агрегат, **не** часть `Project`. Связь выражена id-ссылкой `projectId`.
 - `Project` ничего не знает о списке задач; запрос «задачи проекта» — это query к `Task`-репозиторию с фильтром `projectId = ?`.
 - Внешний мир обращается к агрегату **только через его корень**.
-- `ProjectMember` и `TaskSection` живут внутри `Project`, потому что их инварианты уникальности и порядка локальны для проекта.
+- `ProjectMember`, `TaskSection` и **`NoteSection`** живут внутри `Project` (в БД — `task_sections` и `note_sections`), потому что их инварианты уникальности и порядка локальны для проекта.
+- **HTTP:** CRUD и reorder для **`NoteSection`** используют ту же проверку, что и для **`TaskSection`** — `CanManageProjectTasks` (владелец / manager), как единая политика управления структурой проекта.
+- **`Note`** — отдельный корень агрегата: хранится в `notestore`, ссылается на проект и опционально на `NoteSection`; связи с задачами — отдельная таблица `note_task_links`.
 - `Subtask` живёт внутри `Task` по той же причине.
 
 ---
@@ -122,13 +136,13 @@
 
 ## Project Aggregate
 
-**Корень:** `Project` — [`backend/internal/domain/project`](../../backend/internal/domain/project) (агрегат: `Project`, `Member`, `Section`; VO `Kind`, `Role`).
+**Корень:** `Project` — [`backend/internal/domain/project`](../../backend/internal/domain/project) (агрегат: `Project`, `Member`, `Section`, **`NoteSection`**; VO `Kind`, `Role`).
 
-**Персистентность:** [`backend/internal/infrastructure/persistence/projectstore`](../../backend/internal/infrastructure/persistence/projectstore) (`ProjectRecord` / `MemberRecord` / `SectionRecord`; схема в миграциях / `database.AutoMigrate`).
+**Персистентность:** [`backend/internal/infrastructure/persistence/projectstore`](../../backend/internal/infrastructure/persistence/projectstore) (`ProjectRecord` / `MemberRecord` / `SectionRecord` / **`NoteSectionRecord`**; схема в миграциях / `database.AutoMigrate`).
 
 **Сценарии HTTP:** [`application/project_service.go`](../../backend/internal/application/project_service.go) и [`application/member_removal_service.go`](../../backend/internal/application/member_removal_service.go).
 
-**Внутренние сущности:** `Member`, `Section` (в БД — `project_members`, `task_sections`).
+**Внутренние сущности:** `Member`, `Section` (в БД — `project_members`, `task_sections`), **`NoteSection`** (`note_sections`).
 
 ### Value-objects
 
@@ -142,7 +156,7 @@
 - `personal`-проект не может иметь `Members` — только `Owner`.
 - Владелец (`ownerId`) не хранится в `Members`; его права шире любой роли `Role` участника.
 - `Members` уникальны по `(projectId, userId)`.
-- `Sections` внутри проекта имеют уникальные `position`; перенумерация — единственная транзакция проекта.
+- `Sections` и **`NoteSections`** внутри проекта имеют уникальные `position`; перенумерация — в рамках команд агрегата проекта.
 - `team`-проект может создать только пользователь с ролью `creator` или выше.
 
 ### Команды
@@ -151,7 +165,38 @@
 `AddMember(userId, role)`, `UpdateMemberRole(userId, role)`, `RemoveMember(userId, policy)`,
 `TransferOwnership(newOwnerId)`,
 `AddSection(name, position)`, `RenameSection(id, name)`, `ReorderSections(order)`, `RemoveSection(id)`,
+`AddNoteSection`, `RenameNoteSection`, `ReorderNoteSections`, `RemoveNoteSection` — зеркально для **`NoteSection`**,
 Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`; жёсткое удаление — `ProjectDeletionService.HardDelete`
+
+---
+
+## Note (cross-aggregate)
+
+**Корень:** `Note` — [`backend/internal/domain/note`](../../backend/internal/domain/note).
+
+**Персистентность:** [`backend/internal/infrastructure/persistence/notestore`](../../backend/internal/infrastructure/persistence/notestore) (`NoteRecord`, `NoteTaskLinkRecord`).
+
+**Сценарии API:** [`application.NoteService`](../../backend/internal/application/note_service.go) — CRUD, soft-delete / restore / hard-delete, `Move` (секция + позиция), связи с задачами `LinkTask` / `UnlinkTask`.
+
+### Инварианты
+
+- `Note.projectId` задан и совпадает с проектом всех связанных задач (связь отклоняется, если задача в другом проекте).
+- `sectionId`, если задан, должен быть **`NoteSection`** того же проекта (не `TaskSection`).
+- Удаление заметки по умолчанию — **soft-delete** (`deleted_at`); восстановление и окончательное удаление — отдельные команды.
+- При **жёстком удалении проекта** записи заметок и связей удаляются до удаления задач и самого проекта (`notestore.DeleteByProject` в транзакции `ProjectDeletionService.HardDelete`).
+
+### Связь Note ↔ Task
+
+Таблица `note_task_links` (many-to-many). Обогащение списков задач: поля `linked_notes` / `linked_note_preview` / `linked_notes_count` в JSON задачи там, где это поддерживает бэкенд.
+
+```mermaid
+flowchart LR
+  Project --> NoteSection
+  Project --> Task
+  NoteSection --> Note
+  Note --> note_task_links
+  Task --> note_task_links
+```
 
 ---
 
@@ -225,6 +270,7 @@ Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`
 | Sections уникальны по position | Project |
 | Subtask.taskId == Task.id | Task |
 | Task.projectId задан | Task |
+| Note.projectId задан; связанные задачи в том же проекте | Note |
 | Report-артефакт неизменяем после создания | Report |
 
 ### B. Cross-aggregate — через доменный сервис в одной транзакции
@@ -233,7 +279,7 @@ Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`
 
 | Инвариант | Сервис |
 |-----------|--------|
-| При удалении проекта задачи обрабатываются по политике | `ProjectDeletionService` |
+| При удалении проекта задачи и заметки обрабатываются по политике | `ProjectDeletionService` |
 | При удалении участника его задачи переназначаются | `MemberRemovalService` |
 | Task.sectionId принадлежит Task.projectId | `TaskMoveService` |
 | Task.assigneeId — участник Task.projectId (или nil) | `TaskAssignService` |
@@ -259,7 +305,7 @@ Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`
 | POST /projects/:id/members | `ProjectService.AddMember` | 1 × Project |
 | DELETE /projects/:id/members/:uid (с transfer) | `MemberRemovalService` | Project + Task(N) |
 | PATCH /projects/:id/owner | `ProjectService.TransferOwnership` | 1 × Project |
-| DELETE /projects/:id?permanent=true | `ProjectDeletionService.HardDelete` | Task(N) + Member(K) + Section(M) + Project |
+| DELETE /projects/:id?permanent=true | `ProjectDeletionService.HardDelete` | Note(\*) + Task(N) + Member(K) + Section(M) + NoteSection(\*) + Project |
 | DELETE /projects/:id (без permanent) | `ProjectService.Delete` → `project.Repository.SoftDelete` | 1 × Project (`deleted_at`) |
 | POST /projects/:id/restore | `ProjectDeletionService.Restore` | 1 × Project |
 | POST /tasks | `TaskService.Create` | 1 × Task |
@@ -269,6 +315,9 @@ Soft-delete через `ProjectService.Delete` / `project.Repository.SoftDelete`
 | POST /projects/:id/tasks/move | `TaskMoveService` | 1 × Task (+ RO Project/Section) |
 | POST /tasks/:id/subtasks | `TaskService.AddSubtask` | 1 × Task |
 | POST /reports/generate | `ReportingService.Generate` | 1 × Report |
+| POST /projects/:id/notes | `NoteService.Create` | 1 × Note (+ read Project) |
+| POST /projects/:id/notes/:nid/move | `NoteService.Move` | 1 × Note |
+| POST /projects/:id/notes/:nid/links | `NoteService.LinkTask` | Note + read Task |
 
 ---
 
@@ -304,8 +353,9 @@ backend/internal/
 ├── domain/
 │   ├── user/           # IAM aggregate: User, FullName, Role
 │   ├── session/        # refresh-сессии (opaque token → hash в БД)
-│   ├── project/        # Project aggregate: Project, Member, Section
+│   ├── project/        # Project aggregate: Project, Member, Section, NoteSection
 │   ├── task/           # Task aggregate: Task, Subtask
+│   ├── note/           # Note aggregate: Note (+ links к Task)
 │   └── report/         # Report aggregate: SavedReport
 ├── application/
 │   ├── project_deletion_service.go   # cross-aggregate: delete + cascade policy
@@ -328,9 +378,9 @@ backend/internal/
 
 ```
 backend/internal/
-├── domain/user, domain/project, domain/session, domain/report, domain/task
-├── application/   ← Auth, User, Project, MemberRemoval, Task*, ReportingService, … (+ общие ошибки в errors.go)
-├── infrastructure/persistence/{userstore,sessionstore,projectstore,taskstore,reportstore}
+├── domain/user, domain/project, domain/session, domain/report, domain/task, domain/note
+├── application/   ← Auth, User, Project, MemberRemoval, Task*, Note*, ReportingService, … (+ общие ошибки в errors.go)
+├── infrastructure/persistence/{userstore,sessionstore,projectstore,taskstore,notestore,reportstore}
 ├── infrastructure/reportexport  ← CSV/XLSX/PDF/TXT (read-модель из domain/report)
 ├── infrastructure/auth  ← JWT (SignJWT / ParseJWT)
 ├── interface/http/  ← package handler (Gin handlers)
@@ -385,3 +435,4 @@ backend/internal/
 | 2026-04-18 | `handlers/` перенесён в `interface/http/` (`package handler`); `httpserver/router.go` импортирует новый путь. |
 | 2026-04-18 | DDD-миграция закрыта: из git-индекса удалены остатки `internal/models/`, `internal/services/`, `internal/utils/`; правило `10-backend-ddd.mdc` приведено к `infrastructure/persistence/`; `plans/directory-structure.md` помечен deprecated. |
 | 2026-04-18 | **Frontend:** введены слои `frontend/src/domain`, `infrastructure`, `application`; документ [docs/architecture/frontend.md](./frontend.md); правило `.cursor/rules/14-frontend-ddd.mdc`. |
+| 2026-04-19 | **Notes:** домен `domain/note`, персистентность `notestore`; в агрегате `Project` — сущность **`NoteSection`** (`note_sections`); заметки с soft-delete, связи Note↔Task, API и UI (Tiptap + markdown); при `HardDelete` проекта сначала удаляются заметки и связи. |

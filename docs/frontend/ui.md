@@ -13,9 +13,9 @@
 | `/forgot-password` | `ForgotPassword.vue` | — | *(только ссылка на логин)* |
 | `/dashboard` | `Dashboard.vue` | `project.store`, `report.store` | `ActivityFeed`, `StatsCard`, `UiBreadcrumb`, `UiCard`, `UiSkeleton` |
 | `/projects` | `Projects.vue` | `auth.store`, `project.store`, `useConfirm` | `ProjectList`, `ProjectForm`, `UiModal`, `UiEmptyState` |
-| `/projects/:id` | `ProjectDetail.vue` | `auth.store`, `project.store`, `task.store`, `useProjectScopedAssignableUsers`, `useCanEditTask`, `useTaskListPresentation`, `useConfirm`, `useToast` | `TaskSectionList`, `TaskFiltersPanel`, `TaskDetailModal`, `TaskForm`, `TaskInlineComposer` |
+| `/projects/:id` | `ProjectDetail.vue` | + `note.store`, `trashTasks.store`, `trashNotes.store` | Вкладки **Tasks / Notes / Trash** (`UiSegmentedControl`); заметки: `NoteSectionList`, `NoteList`, `NoteDetailModal`, `ProjectTrashPanel`; задачи — как раньше |
 | `/projects/:id/settings` | `ProjectSettings.vue` | `auth.store`, `project.store` | `ProjectMembers`, `AddMemberModal`, `TransferOwnershipModal` |
-| `/tasks` | `Tasks.vue` | `auth.store`, `project.store`, `task.store`, `useTasksPageAssignableUsers`, `useCanEditTask`, `useTaskListPresentation`, `useToast` | `TaskSectionList`, `TaskFiltersPanel`, `TaskDetailModal`, `TaskForm`, `TaskInlineComposer` |
+| `/tasks` | `Tasks.vue` | + `note.store` (модалка заметки) | `TaskSectionList`, `TaskDetailModal`, `NoteDetailModal` при открытии связанной заметки с карточки/деталей задачи |
 | `/reports` | `Reports.vue` | `report.store`, `useConfirm`, `useToast` | `ReportSettings`, `ReportViewer`, `UiCard`, `UiModal`, `UiTable` |
 | `/profile` | `Profile.vue` | `auth.store`, `ui.store`, `useToast` | `UiBreadcrumb`, `UiButton`, `UiCard`, `UiInput`, `UiSegmentedControl` |
 | `/admin/users` | `Admin/Users.vue` | `auth.store`, `user.store`, `useConfirm`, `useToast` | `AdminUserModal`, `UiAvatar`, `UiMenuButton`, `UiEmptyState` |
@@ -111,12 +111,28 @@
 | `ReportViewer.vue` | Отображение недельного отчёта (текст + хост для графика) |
 | `Charts/WeeklyChart.vue` | График недельных метрик (chart.js) |
 
+### `components/notes/` — Заметки
+
+| Компонент | Назначение |
+|-----------|-----------|
+| `NoteMarkdownEditor.vue` | WYSIWYG-редактор тела заметки (Tiptap + `tiptap-markdown`, сериализация в MD); тулбар с `aria-label`/`title` и строками `notes.editor.toolbar.*` (i18n) |
+| `NoteMarkdownView.vue` | Только чтение того же содержимого в стиле редактора |
+| `markdown.css` | Базовые стили ProseMirror для редактора/превью |
+| `NoteForm.vue` | Заголовок, секция, тело (markdown) |
+| `NoteCard.vue` | Карточка в списке: превью, дата, меню |
+| `NoteList.vue` | Группировка по note-секциям + HTML5 DnD, вызов `noteStore.reorderNotes` |
+| `NoteSectionList.vue` | CRUD и порядок секций заметок |
+| `NoteInlineComposer.vue` | Быстрое создание в шапке секции |
+| `NoteDetailModal.vue` | Просмотр/редактирование, связанные задачи, `NoteLinkedTasksPicker` |
+| `NoteLinkedTasksPicker.vue` | Поиск задач проекта и кнопка «Связать» |
+| `ProjectTrashPanel.vue` | Удалённые задачи и заметки проекта (restore / delete forever) |
+
 ### `components/tasks/` — Задачи
 
 | Компонент | Назначение |
 |-----------|-----------|
-| `TaskCard.vue` | Компактная карточка задачи (статус, приоритет, исполнитель, действия) |
-| `TaskDetailModal.vue` | Полный редактор задачи в модальном окне |
+| `TaskCard.vue` | Компактная карточка задачи; при наличии `linked_notes` — строка со ссылкой на заметку (`openNote`) |
+| `TaskDetailModal.vue` | Полный редактор задачи; блок «Связанные заметки», линк через `note.store` |
 | `TaskFiltersPanel.vue` | Панель фильтров (поиск, статус, приоритет, исполнитель, сортировка, группировка) |
 | `TaskForm.vue` | Поля создания / редактирования задачи |
 | `TaskInlineComposer.vue` | Инлайн-композер для быстрого создания задачи прямо в списке |
@@ -133,3 +149,4 @@
 - **Toast:** вызывается через `useToast()` из `@app/composables/useToast`; не обращаться к `toast.store` напрямую из views.
 - **Confirm:** вызывается через `useConfirm()` из `@app/composables/useConfirm`; возвращает `Promise<boolean>`.
 - **Transition:** page-переходы через CSS-классы `.page-enter-*` / `.page-leave-*` в `App.vue`.
+- **Заметки:** источник правды для текста — **Markdown** на сервере; в браузере Tiptap с `tiptap-markdown` (`getMarkdown()` при сохранении).

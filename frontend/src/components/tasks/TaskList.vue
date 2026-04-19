@@ -26,6 +26,7 @@ const emit = defineEmits<{
   complete: [id: number]
   reopen: [id: number]
   info: [id: number]
+  openNote: [payload: { noteId: number; projectId: number }]
   taskUpdated: []
 }>()
 </script>
@@ -55,6 +56,7 @@ const emit = defineEmits<{
         @complete="emit('complete', $event)"
         @reopen="emit('reopen', $event)"
         @info="emit('info', $event)"
+        @open-note="emit('openNote', $event)"
         @updated="emit('taskUpdated')"
       />
       <p

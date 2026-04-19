@@ -16,6 +16,8 @@ type TaskHandler struct {
 	Tasks     *application.TaskService
 	Move      *application.TaskMoveService
 	AssignSvc *application.TaskAssignService
+	TaskTrash *application.TaskTrashService
+	Notes     *application.NoteService
 	Users     user.Repository
 }
 
@@ -154,7 +156,20 @@ func (h *TaskHandler) Get(c *gin.Context) {
 		return
 	}
 	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
+
+	// Enrich with linked notes for detail view.
+	var notePreviews []linkedNotePreview
+	if h.Notes != nil {
+		linked, err := h.Notes.ListLinkedNotes(c.Request.Context(), uint(id), uid, role)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		for _, n := range linked {
+			notePreviews = append(notePreviews, linkedNotePreview{ID: n.ID().Uint(), Title: n.Title()})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"task": taskToJSONWithNotes(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl, notePreviews)})
 }
 
 func (h *TaskHandler) Update(c *gin.Context) {
@@ -210,7 +225,50 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
 		return
 	}
-	if err := h.Tasks.Delete(c.Request.Context(), uint(id), uid, role); err != nil {
+	permanent := c.DefaultQuery("permanent", "false") == "true"
+	if permanent && h.TaskTrash != nil {
+		// Задача может быть уже в корзине — используем Unscoped-поиск.
+		t, ferr := h.Tasks.Tasks.FindByIDUnscoped(c.Request.Context(), task.ID(uint(id)))
+		if ferr != nil {
+			handleServiceError(c, ferr)
+			return
+		}
+		if ferr := h.TaskTrash.HardDelete(c.Request.Context(), uint(id), t.ProjectID().Uint(), uid, role); ferr != nil {
+			handleServiceError(c, ferr)
+			return
+		}
+	} else {
+		if err := h.Tasks.Delete(c.Request.Context(), uint(id), uid, role); err != nil {
+			handleServiceError(c, err)
+			return
+		}
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// RestoreTask восстанавливает задачу из корзины.
+func (h *TaskHandler) RestoreTask(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	projectID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
+		return
+	}
+	taskID, err := strconv.ParseUint(c.Param("taskId"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad task id"})
+		return
+	}
+	if err := h.TaskTrash.Restore(c.Request.Context(), uint(taskID), uint(projectID), uid, role); err != nil {
 		handleServiceError(c, err)
 		return
 	}

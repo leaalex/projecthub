@@ -19,8 +19,17 @@ type ListFilter struct {
 // Repository — персистентность агрегата Task.
 type Repository interface {
 	FindByID(ctx context.Context, id ID) (*Task, error)
+	// FindByIDUnscoped находит задачу, включая мягко удалённые.
+	FindByIDUnscoped(ctx context.Context, id ID) (*Task, error)
 	Save(ctx context.Context, t *Task) error
+	// Delete — мягкое удаление (корзина).
 	Delete(ctx context.Context, id ID) error
+	// Restore снимает мягкое удаление.
+	Restore(ctx context.Context, id ID) error
+	// HardDelete физически удаляет задачу и подзадачи.
+	HardDelete(ctx context.Context, id ID) error
+	// ListDeletedByProject — мягко удалённые задачи проекта.
+	ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*Task, error)
 	DeleteByProject(ctx context.Context, projectID project.ID) error
 	ListVisible(ctx context.Context, filter ListFilter) ([]*Task, error)
 	NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error)

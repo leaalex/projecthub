@@ -1,0 +1,264 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { Note, CreateNotePayload, UpdateNotePayload, NoteSection } from '@domain/note/types'
+import { notesApi } from '@infra/api/notes'
+import { projectsApi } from '@infra/api/projects'
+
+/** Ключ группы: `unsectioned` | `ns-{sectionId}` */
+export function parseNoteSectionGroupKey(key: string): number | null {
+  if (key === 'unsectioned') return null
+  if (key.startsWith('ns-')) {
+    const n = Number(key.slice(3))
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+export function noteSectionGroupKey(sectionId: number | null | undefined): string {
+  if (sectionId == null) return 'unsectioned'
+  return `ns-${sectionId}`
+}
+
+export function extractNoteAxiosError(e: unknown, fallback: string): string {
+  const err = e as { response?: { data?: { error?: string } } }
+  const msg = err.response?.data?.error
+  return typeof msg === 'string' ? msg : fallback
+}
+
+export const useNoteStore = defineStore('note', () => {
+  const notes = ref<Note[]>([])
+  const sections = ref<NoteSection[]>([])
+  const currentProjectId = ref<number | null>(null)
+  const loading = ref(false)
+  const sectionsLoading = ref(false)
+  /** Ошибка последней загрузки (сырой объект); в UI показывайте локализованный fallback. */
+  const error = ref<unknown | null>(null)
+  const savingId = ref<number | null>(null)
+  const deletingId = ref<number | null>(null)
+  /** Кэш связей задача → заметки (по необходимости). */
+  const linksByTaskId = ref<Map<number, Note[]>>(new Map())
+
+  async function fetchList(projectId: number, options: { quiet?: boolean } = {}) {
+    if (!options.quiet) loading.value = true
+    error.value = null
+    try {
+      const { data } = await notesApi.list(projectId)
+      notes.value = data.notes ?? []
+      currentProjectId.value = projectId
+    } catch (e: unknown) {
+      error.value = e
+      throw e
+    } finally {
+      if (!options.quiet) loading.value = false
+    }
+  }
+
+  async function fetchSections(projectId: number, options: { quiet?: boolean } = {}) {
+    if (!options.quiet) sectionsLoading.value = true
+    try {
+      const { data } = await projectsApi.noteSections.list(projectId)
+      sections.value = data.sections ?? []
+    } finally {
+      if (!options.quiet) sectionsLoading.value = false
+    }
+  }
+
+  async function createSection(projectId: number, name: string): Promise<NoteSection> {
+    const { data } = await projectsApi.noteSections.create(projectId, name)
+    sections.value = [...sections.value, data.section].sort(
+      (a, b) => a.position - b.position || a.id - b.id,
+    )
+    return data.section
+  }
+
+  async function renameSection(
+    projectId: number,
+    sectionId: number,
+    name: string,
+  ): Promise<void> {
+    const { data } = await projectsApi.noteSections.update(projectId, sectionId, name)
+    const i = sections.value.findIndex(s => s.id === sectionId)
+    if (i >= 0) sections.value[i] = data.section
+  }
+
+  async function removeSection(projectId: number, sectionId: number): Promise<void> {
+    await projectsApi.noteSections.remove(projectId, sectionId)
+    sections.value = sections.value.filter(s => s.id !== sectionId)
+    notes.value = notes.value.map(n =>
+      n.section_id === sectionId ? { ...n, section_id: null } : n,
+    )
+  }
+
+  async function reorderSections(projectId: number, sectionIds: number[]): Promise<void> {
+    await projectsApi.noteSections.reorder(projectId, sectionIds)
+    await fetchSections(projectId, { quiet: true })
+  }
+
+  async function fetchOne(projectId: number, noteId: number): Promise<Note> {
+    const { data } = await notesApi.get(projectId, noteId)
+    return data.note
+  }
+
+  async function create(projectId: number, payload: CreateNotePayload): Promise<Note> {
+    savingId.value = -1
+    try {
+      const { data } = await notesApi.create(projectId, payload)
+      notes.value = [data.note, ...notes.value.filter(n => n.id !== data.note.id)]
+      return data.note
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  async function update(
+    projectId: number,
+    noteId: number,
+    payload: UpdateNotePayload,
+  ): Promise<Note> {
+    savingId.value = noteId
+    try {
+      const { data } = await notesApi.update(projectId, noteId, payload)
+      const i = notes.value.findIndex(n => n.id === noteId)
+      if (i >= 0) notes.value[i] = data.note
+      return data.note
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  async function remove(projectId: number, noteId: number): Promise<void> {
+    deletingId.value = noteId
+    try {
+      await notesApi.remove(projectId, noteId)
+      notes.value = notes.value.filter(n => n.id !== noteId)
+    } finally {
+      deletingId.value = null
+    }
+  }
+
+  async function restore(projectId: number, noteId: number): Promise<void> {
+    await notesApi.restore(projectId, noteId)
+  }
+
+  async function permanentDelete(projectId: number, noteId: number): Promise<void> {
+    await notesApi.permanentDelete(projectId, noteId)
+  }
+
+  async function move(
+    projectId: number,
+    noteId: number,
+    payload: { section_id?: number | null; position: number },
+    options: { refetch?: boolean } = {},
+  ): Promise<Note> {
+    const { data } = await notesApi.move(projectId, noteId, payload)
+    const i = notes.value.findIndex(n => n.id === noteId)
+    if (i >= 0) notes.value[i] = data.note
+    else notes.value.push(data.note)
+    if (options.refetch !== false) {
+      await fetchList(projectId, { quiet: true })
+    }
+    return data.note
+  }
+
+  /**
+   * Применить порядок после drag-n-drop: секции обрабатываются по порядку `keys`
+   * (при переносе между секциями сначала целевая, затем исходная); позиции — снизу вверх,
+   * чтобы не ломать уникальность порядка в БД между запросами.
+   */
+  async function reorderNotes(
+    projectId: number,
+    keys: string[],
+    groupNoteIds: Map<string, number[]>,
+  ): Promise<void> {
+    for (const key of keys) {
+      const sectionId = parseNoteSectionGroupKey(key)
+      const ids = groupNoteIds.get(key) ?? []
+      for (let pos = ids.length - 1; pos >= 0; pos--) {
+        const noteId = ids[pos]
+        const n = notes.value.find(x => x.id === noteId)
+        if (!n) continue
+        if (n.section_id !== sectionId || n.position !== pos) {
+          await move(
+            projectId,
+            noteId,
+            { section_id: sectionId, position: pos },
+            { refetch: false },
+          )
+        }
+      }
+    }
+    await fetchList(projectId, { quiet: true })
+  }
+
+  async function listLinks(projectId: number, noteId: number): Promise<number[]> {
+    return notesApi.links.list(projectId, noteId)
+  }
+
+  async function linkTask(
+    projectId: number,
+    noteId: number,
+    taskId: number,
+  ): Promise<void> {
+    await notesApi.links.add(projectId, noteId, taskId)
+    linksByTaskId.value.delete(taskId)
+  }
+
+  async function unlinkTask(
+    projectId: number,
+    noteId: number,
+    taskId: number,
+  ): Promise<void> {
+    await notesApi.links.remove(projectId, noteId, taskId)
+    linksByTaskId.value.delete(taskId)
+  }
+
+  async function fetchLinkedByTask(taskId: number): Promise<Note[]> {
+    const { data } = await notesApi.linkedByTask(taskId)
+    const list = data.notes ?? []
+    linksByTaskId.value.set(taskId, list)
+    return list
+  }
+
+  function invalidateTaskLinks(taskId: number) {
+    linksByTaskId.value.delete(taskId)
+  }
+
+  function patchNoteInList(noteId: number, patch: Partial<Note>) {
+    const i = notes.value.findIndex(n => n.id === noteId)
+    if (i >= 0) {
+      notes.value[i] = { ...notes.value[i], ...patch }
+    }
+  }
+
+  return {
+    notes,
+    sections,
+    currentProjectId,
+    loading,
+    sectionsLoading,
+    error,
+    savingId,
+    deletingId,
+    linksByTaskId,
+    fetchList,
+    fetchSections,
+    createSection,
+    renameSection,
+    removeSection,
+    reorderSections,
+    fetchOne,
+    create,
+    update,
+    remove,
+    restore,
+    permanentDelete,
+    move,
+    reorderNotes,
+    listLinks,
+    linkTask,
+    unlinkTask,
+    fetchLinkedByTask,
+    invalidateTaskLinks,
+    patchNoteInList,
+  }
+})

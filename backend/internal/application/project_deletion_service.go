@@ -6,13 +6,14 @@ import (
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/projectstore"
 	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 
 	"gorm.io/gorm"
 )
 
-// ProjectDeletionService — soft-delete, restore и жёсткое удаление с каскадом по задачам.
+// ProjectDeletionService — soft-delete, restore и жёсткое удаление с каскадом по задачам и заметкам.
 type ProjectDeletionService struct {
 	Projects project.Repository
 	Tasks    task.Repository
@@ -61,12 +62,16 @@ func (s *ProjectDeletionService) Restore(ctx context.Context, id, callerID uint,
 	return s.Projects.Restore(ctx, project.ID(id))
 }
 
-// HardDelete физически удаляет задачи, затем участников, секции и проект.
+// HardDelete физически удаляет заметки, задачи, затем участников, секции и проект.
 func (s *ProjectDeletionService) HardDelete(ctx context.Context, id, callerID uint, role user.Role) error {
 	if err := s.canHardOrSoft(ctx, project.ID(id), callerID, role); err != nil {
 		return err
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		nr := notestore.NewGormRepository(tx)
+		if err := nr.DeleteByProject(ctx, project.ID(id)); err != nil {
+			return err
+		}
 		tr := taskstore.NewGormRepository(tx)
 		if err := tr.DeleteByProject(ctx, project.ID(id)); err != nil {
 			return err

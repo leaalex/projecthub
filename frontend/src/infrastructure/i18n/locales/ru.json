@@ -215,7 +215,13 @@
     "createSectionFailed": "Не удалось создать раздел",
     "unsectioned": "Без раздела",
     "emptySection": "В этом разделе нет задач.",
-    "emptyGroup": "В этой группе нет задач."
+    "emptyGroup": "В этой группе нет задач.",
+    "tabs": {
+      "region": "Содержимое проекта",
+      "tasks": "Задачи",
+      "notes": "Заметки",
+      "trash": "Корзина"
+    }
   },
   "tasks": {
     "title": "Задачи",
@@ -235,6 +241,8 @@
     "modalNewTitle": "Новая задача",
     "submitCreate": "Создать",
     "unsectioned": "Без раздела",
+    "unknownSection": "Раздел #{id}",
+    "openLinkedNoteFailed": "Не удалось загрузить заметку или проект",
     "emptySection": "В этом разделе нет задач.",
     "emptyGroup": "В этой группе нет задач.",
     "toasts": {
@@ -560,6 +568,9 @@
       "deleteFailed": "Не удалось удалить задачу",
       "deleted": "Задача удалена"
     },
+    "linkedNotes": {
+      "open": "Открыть связанную заметку: {title}"
+    },
     "confirm": {
       "deleteTitle": "Удалить задачу",
       "deleteMessage": "Удалить «{title}»? Это действие нельзя отменить.",
@@ -653,12 +664,125 @@
     "buttons": {
       "deleteTask": "Удалить задачу"
     },
+    "linkedNotes": {
+      "heading": "Связанные заметки",
+      "addLink": "Добавить связь",
+      "empty": "Нет заметок, связанных с задачей.",
+      "pickTitle": "Выберите заметку",
+      "linked": "Заметка связана",
+      "unlinked": "Связь удалена",
+      "linkFailed": "Не удалось связать заметку",
+      "unlinkFailed": "Не удалось убрать связь",
+      "loadFailed": "Не удалось загрузить связанные заметки"
+    },
     "toasts": {
       "enterTitle": "Введите название задачи",
       "updated": "Задача обновлена",
       "updateFailed": "Не удалось обновить задачу",
       "deleted": "Задача удалена",
       "deleteFailed": "Не удалось удалить задачу"
+    }
+  },
+  "notes": {
+    "title": "Заметки",
+    "create": "Новая заметка",
+    "restore": "Восстановить",
+    "loadFailed": "Не удалось загрузить заметки",
+    "reorderFailed": "Не удалось изменить порядок заметок",
+    "unsectioned": "Без раздела",
+    "unknownSection": "Секция #{id}",
+    "emptySection": "В этом разделе нет заметок.",
+    "form": {
+      "title": "Название",
+      "titlePlaceholder": "Заголовок заметки",
+      "titleRequired": "Введите заголовок",
+      "section": "Раздел",
+      "body": "Содержимое",
+      "bodyPlaceholder": "Текст в Markdown…"
+    },
+    "section": {
+      "none": "Без раздела",
+      "heading": "Разделы заметок",
+      "add": "Добавить раздел",
+      "namePlaceholder": "Название раздела…",
+      "empty": "Разделов пока нет.",
+      "created": "Раздел создан",
+      "createFailed": "Не удалось создать раздел",
+      "renamed": "Раздел переименован",
+      "renameFailed": "Не удалось переименовать раздел",
+      "removed": "Раздел удалён",
+      "removeFailed": "Не удалось удалить раздел",
+      "reorderFailed": "Не удалось изменить порядок разделов"
+    },
+    "inline": {
+      "titlePlaceholder": "Быстрый заголовок…",
+      "add": "Добавить",
+      "more": "Ещё",
+      "less": "Свернуть",
+      "hint": "Нужен Markdown или другой раздел?",
+      "openForm": "Полная форма",
+      "createFailed": "Не удалось создать заметку"
+    },
+    "editor": {
+      "toolbar": {
+        "bold": "Жирный",
+        "italic": "Курсив",
+        "code": "Код в строке",
+        "heading2": "Заголовок 2",
+        "bulletList": "Маркированный список",
+        "orderedList": "Нумерованный список",
+        "blockquote": "Цитата",
+        "undo": "Отменить",
+        "redo": "Повторить"
+      }
+    },
+    "card": {
+      "linkedTasks": "Связанных задач: {n}",
+      "noteActions": "Действия с заметкой"
+    },
+    "detail": {
+      "title": "Заметка",
+      "loadError": "Не удалось загрузить заметку.",
+      "saved": "Заметка сохранена",
+      "saveFailed": "Не удалось сохранить заметку",
+      "deleted": "Заметка в корзине",
+      "deleteFailed": "Не удалось удалить заметку",
+      "linkedTasks": "Связанные задачи",
+      "noLinkedTasks": "Пока нет связанных задач."
+    },
+    "confirm": {
+      "deleteTitle": "Удалить заметку",
+      "deleteMessage": "Переместить «{title}» в корзину?",
+      "deleteConfirm": "Удалить",
+      "deleteCancel": "Отмена"
+    },
+    "linkTask": {
+      "searchPlaceholder": "Поиск задач…",
+      "link": "Связать",
+      "unlink": "Отвязать",
+      "empty": "Нет подходящих задач.",
+      "linked": "Задача связана",
+      "unlinked": "Связь с задачей удалена",
+      "linkFailed": "Не удалось связать задачу",
+      "unlinkFailed": "Не удалось отвязать задачу"
+    },
+    "trash": {
+      "loadFailed": "Не удалось загрузить корзину",
+      "tasksHeading": "Удалённые задачи",
+      "notesHeading": "Удалённые заметки",
+      "emptyTasks": "Нет удалённых задач.",
+      "emptyNotes": "Нет удалённых заметок.",
+      "deleteForever": "Удалить навсегда",
+      "taskRestored": "Задача восстановлена",
+      "noteRestored": "Заметка восстановлена",
+      "restoreFailed": "Не удалось восстановить",
+      "taskPurged": "Задача удалена безвозвратно",
+      "notePurged": "Заметка удалена безвозвратно",
+      "purgeFailed": "Не удалось удалить навсегда",
+      "confirmPermanentTitle": "Удалить безвозвратно?",
+      "confirmPermanentTask": "Задачу нельзя будет восстановить.",
+      "confirmPermanentNote": "Заметку нельзя будет восстановить.",
+      "confirmPermanent": "Удалить навсегда"
     }
   },
   "taskForm": {

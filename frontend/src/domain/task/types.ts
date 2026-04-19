@@ -14,6 +14,12 @@ export interface Subtask {
   updated_at: string
 }
 
+/** Краткое представление заметки, связанной с задачей (API). */
+export type LinkedNotePreview = {
+  id: number
+  title: string
+}
+
 export interface Task {
   id: number
   title: string
@@ -35,4 +41,8 @@ export interface Task {
   caller_can_manage?: boolean
   /** From API: caller may change status (includes executors assigned to the task). */
   caller_can_change_status?: boolean
+  /** Связанные заметки (список задач проекта / деталь задачи). */
+  linked_notes?: LinkedNotePreview[]
+  linked_notes_count?: number
+  linked_note_preview?: LinkedNotePreview | null
 }

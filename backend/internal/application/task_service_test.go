@@ -14,16 +14,30 @@ import (
 
 // memTasks — минимальный in-memory task.Repository.
 type memTasks struct {
-	mu   sync.Mutex
-	byID map[uint]*task.Task
-	next uint
+	mu          sync.Mutex
+	byID        map[uint]*task.Task
+	softDeleted map[uint]struct{}
+	next        uint
 }
 
 func newMemTasks() *memTasks {
-	return &memTasks{byID: map[uint]*task.Task{}}
+	return &memTasks{byID: map[uint]*task.Task{}, softDeleted: map[uint]struct{}{}}
 }
 
 func (m *memTasks) FindByID(ctx context.Context, id task.ID) (*task.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t, ok := m.byID[id.Uint()]
+	if !ok {
+		return nil, task.ErrTaskNotFound
+	}
+	if _, del := m.softDeleted[id.Uint()]; del {
+		return nil, task.ErrTaskNotFound
+	}
+	return t, nil
+}
+
+func (m *memTasks) FindByIDUnscoped(ctx context.Context, id task.ID) (*task.Task, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	t, ok := m.byID[id.Uint()]
@@ -47,8 +61,41 @@ func (m *memTasks) Save(ctx context.Context, t *task.Task) error {
 func (m *memTasks) Delete(ctx context.Context, id task.ID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.byID, id.Uint())
+	if _, ok := m.byID[id.Uint()]; !ok {
+		return task.ErrTaskNotFound
+	}
+	m.softDeleted[id.Uint()] = struct{}{}
 	return nil
+}
+
+func (m *memTasks) Restore(ctx context.Context, id task.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.softDeleted, id.Uint())
+	return nil
+}
+
+func (m *memTasks) HardDelete(ctx context.Context, id task.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.byID, id.Uint())
+	delete(m.softDeleted, id.Uint())
+	return nil
+}
+
+func (m *memTasks) ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*task.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []*task.Task
+	for id, tk := range m.byID {
+		if tk.ProjectID() != projectID {
+			continue
+		}
+		if _, del := m.softDeleted[id]; del {
+			out = append(out, tk)
+		}
+	}
+	return out, nil
 }
 
 func (m *memTasks) DeleteByProject(ctx context.Context, projectID project.ID) error {
@@ -57,6 +104,7 @@ func (m *memTasks) DeleteByProject(ctx context.Context, projectID project.ID) er
 	for id, tk := range m.byID {
 		if tk.ProjectID() == projectID {
 			delete(m.byID, id)
+			delete(m.softDeleted, id)
 		}
 	}
 	return nil
@@ -66,7 +114,10 @@ func (m *memTasks) ListVisible(ctx context.Context, filter task.ListFilter) ([]*
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []*task.Task
-	for _, tk := range m.byID {
+	for id, tk := range m.byID {
+		if _, del := m.softDeleted[id]; del {
+			continue
+		}
 		if filter.ProjectID != nil && tk.ProjectID() != *filter.ProjectID {
 			continue
 		}
@@ -83,7 +134,10 @@ func (m *memTasks) ListByAssignee(ctx context.Context, projectID project.ID, ass
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []*task.Task
-	for _, tk := range m.byID {
+	for id, tk := range m.byID {
+		if _, del := m.softDeleted[id]; del {
+			continue
+		}
 		if tk.ProjectID() != projectID {
 			continue
 		}
@@ -99,7 +153,10 @@ func (m *memTasks) ReassignByAssignee(ctx context.Context, projectID project.ID,
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := time.Now()
-	for _, tk := range m.byID {
+	for id, tk := range m.byID {
+		if _, del := m.softDeleted[id]; del {
+			continue
+		}
 		if tk.ProjectID() != projectID {
 			continue
 		}
@@ -121,6 +178,9 @@ func (m *memTasks) ReassignOne(ctx context.Context, id task.ID, projectID projec
 	defer m.mu.Unlock()
 	tk, ok := m.byID[id.Uint()]
 	if !ok {
+		return task.ErrTaskNotFound
+	}
+	if _, del := m.softDeleted[id.Uint()]; del {
 		return task.ErrTaskNotFound
 	}
 	if tk.ProjectID() != projectID {

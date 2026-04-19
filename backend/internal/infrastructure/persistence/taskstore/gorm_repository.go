@@ -36,6 +36,21 @@ func (r *GormRepository) FindByID(ctx context.Context, id task.ID) (*task.Task, 
 	return recordToDomain(&tr, subRows)
 }
 
+func (r *GormRepository) FindByIDUnscoped(ctx context.Context, id task.ID) (*task.Task, error) {
+	var tr TaskRecord
+	if err := r.db.WithContext(ctx).Unscoped().First(&tr, id.Uint()).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, task.ErrTaskNotFound
+		}
+		return nil, err
+	}
+	var subRows []SubtaskRecord
+	if err := r.db.WithContext(ctx).Where("task_id = ?", tr.ID).Order("position ASC, id ASC").Find(&subRows).Error; err != nil {
+		return nil, err
+	}
+	return recordToDomain(&tr, subRows)
+}
+
 func (r *GormRepository) NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
 	q := r.db.WithContext(ctx).Model(&TaskRecord{}).Where("project_id = ?", projectID.Uint())
 	if sectionID == nil {
@@ -108,21 +123,68 @@ func (r *GormRepository) Save(ctx context.Context, t *task.Task) error {
 }
 
 func (r *GormRepository) Delete(ctx context.Context, id task.ID) error {
+	return r.db.WithContext(ctx).Delete(&TaskRecord{}, id.Uint()).Error
+}
+
+func (r *GormRepository) Restore(ctx context.Context, id task.ID) error {
+	return r.db.WithContext(ctx).Unscoped().
+		Model(&TaskRecord{}).
+		Where("id = ?", id.Uint()).
+		Update("deleted_at", nil).Error
+}
+
+func (r *GormRepository) HardDelete(ctx context.Context, id task.ID) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("task_id = ?", id.Uint()).Delete(&SubtaskRecord{}).Error; err != nil {
+		if err := tx.Unscoped().Where("task_id = ?", id.Uint()).Delete(&SubtaskRecord{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&TaskRecord{}, id.Uint()).Error
+		return tx.Unscoped().Delete(&TaskRecord{}, id.Uint()).Error
 	})
+}
+
+func (r *GormRepository) ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*task.Task, error) {
+	var rows []TaskRecord
+	if err := r.db.WithContext(ctx).Unscoped().
+		Where("project_id = ? AND deleted_at IS NOT NULL", projectID.Uint()).
+		Order("deleted_at DESC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	ids := make([]uint, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ID
+	}
+	var allSubs []SubtaskRecord
+	if err := r.db.WithContext(ctx).Where("task_id IN ?", ids).Order("position ASC, id ASC").Find(&allSubs).Error; err != nil {
+		return nil, err
+	}
+	byTask := make(map[uint][]SubtaskRecord)
+	for i := range allSubs {
+		tid := allSubs[i].TaskID
+		byTask[tid] = append(byTask[tid], allSubs[i])
+	}
+	out := make([]*task.Task, 0, len(rows))
+	for i := range rows {
+		subs := byTask[rows[i].ID]
+		tr, err := recordToDomain(&rows[i], subs)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, tr)
+	}
+	return out, nil
 }
 
 func (r *GormRepository) DeleteByProject(ctx context.Context, projectID project.ID) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		subQ := tx.Model(&TaskRecord{}).Select("id").Where("project_id = ?", projectID.Uint())
-		if err := tx.Where("task_id IN (?)", subQ).Delete(&SubtaskRecord{}).Error; err != nil {
+		subQ := tx.Unscoped().Model(&TaskRecord{}).Select("id").Where("project_id = ?", projectID.Uint())
+		if err := tx.Unscoped().Where("task_id IN (?)", subQ).Delete(&SubtaskRecord{}).Error; err != nil {
 			return err
 		}
-		return tx.Where("project_id = ?", projectID.Uint()).Delete(&TaskRecord{}).Error
+		return tx.Unscoped().Where("project_id = ?", projectID.Uint()).Delete(&TaskRecord{}).Error
 	})
 }
 

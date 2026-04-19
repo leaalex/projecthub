@@ -82,3 +82,22 @@ func taskToJSON(t *task.Task, section *project.Section, projectIDForSection uint
 	}
 	return out
 }
+
+// taskToJSONWithNotes — как taskToJSON, но добавляет linked_notes_count и linked_note_preview.
+func taskToJSONWithNotes(t *task.Task, section *project.Section, projectIDForSection uint, assignee *user.User, acl application.TaskCallerACL, linkedNotes []linkedNotePreview) gin.H {
+	out := taskToJSON(t, section, projectIDForSection, assignee, acl)
+	out["linked_notes_count"] = len(linkedNotes)
+	if len(linkedNotes) > 0 {
+		out["linked_note_preview"] = linkedNotes[0]
+	} else {
+		out["linked_note_preview"] = nil
+	}
+	out["linked_notes"] = linkedNotes
+	return out
+}
+
+// linkedNotePreview — краткое представление заметки для задачи.
+type linkedNotePreview struct {
+	ID    uint   `json:"id"`
+	Title string `json:"title"`
+}

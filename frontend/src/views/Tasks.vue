@@ -15,6 +15,7 @@ import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import TaskSectionList from '../components/tasks/TaskSectionList.vue'
+import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import {
   presentTasks,
   type AssigneeFilterValue,
@@ -25,12 +26,15 @@ import {
 import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
+import { useNoteStore } from '@app/note.store'
 import { useTasksPageAssignableUsers } from '@app/composables/useAdminAssignableUsers'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
 import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import type { NotePermissionContext } from '@domain/note/permissions'
+import { canManageNote } from '@domain/note/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +42,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
+const noteStore = useNoteStore()
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
@@ -97,6 +102,39 @@ const detailTaskId = ref<number | null>(null)
 /** List view: inline create form toggled by "New task". */
 const showListComposer = ref(false)
 
+const noteDetailOpen = ref(false)
+const noteDetailId = ref<number | null>(null)
+const noteDetailProjectId = ref(0)
+
+const notePermissionCtx = computed(
+  (): NotePermissionContext => ({
+    projects: projectStore.projects.map(p => ({ id: p.id, owner_id: p.owner_id })),
+    current: projectStore.current
+      ? {
+          id: projectStore.current.id,
+          owner_id: projectStore.current.owner_id,
+          caller_project_role: projectStore.current.caller_project_role,
+        }
+      : null,
+  }),
+)
+
+const canManageNotesForNoteModal = computed(() =>
+  canManageNote(
+    auth.user?.id,
+    auth.user?.role,
+    notePermissionCtx.value,
+    noteDetailProjectId.value,
+  ),
+)
+
+const projectTasksForNoteModal = computed(() => {
+  const pid = noteDetailProjectId.value
+  return taskStore.tasks
+    .filter(t => t.project_id === pid)
+    .map(t => ({ id: t.id, title: t.title }))
+})
+
 const inlineComposerProjectId = computed(() => {
   if (filterProject.value === '') return undefined
   const n = Number(filterProject.value)
@@ -154,17 +192,19 @@ const sectionGroupsForList = computed(() => {
       tasks: [],
     })
   }
-  for (const t of displayFlat.value) {
-    const key = t.section_id == null ? 'unsectioned' : `s-${t.section_id}`
+  for (const task of displayFlat.value) {
+    const key = task.section_id == null ? 'unsectioned' : `s-${task.section_id}`
     if (!map.has(key)) {
       map.set(key, {
         key,
-        label: t.section?.name ?? `Section #${t.section_id}`,
-        order: t.section?.position ?? Number.MAX_SAFE_INTEGER,
+        label:
+          task.section?.name ??
+          t('tasks.unknownSection', { id: task.section_id }),
+        order: task.section?.position ?? Number.MAX_SAFE_INTEGER,
         tasks: [],
       })
     }
-    map.get(key)!.tasks.push(t)
+    map.get(key)!.tasks.push(task)
   }
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
@@ -187,8 +227,25 @@ function openTaskDetail(taskId: number) {
   detailOpen.value = true
 }
 
+async function openLinkedNote(payload: { noteId: number; projectId: number }) {
+  noteDetailProjectId.value = payload.projectId
+  noteDetailId.value = payload.noteId
+  noteDetailOpen.value = true
+  try {
+    await projectStore.fetchOne(payload.projectId).catch(() => {})
+    await noteStore.fetchSections(payload.projectId)
+    await noteStore.fetchList(payload.projectId, { quiet: true })
+  } catch {
+    toast.error(t('tasks.openLinkedNoteFailed'))
+  }
+}
+
 watch(detailOpen, (open) => {
   if (!open) detailTaskId.value = null
+})
+
+watch(noteDetailOpen, open => {
+  if (!open) noteDetailId.value = null
 })
 
 onMounted(async () => {
@@ -468,6 +525,7 @@ async function onSectionMove(payload: {
           @complete="onComplete"
           @reopen="onReopen"
           @info="openTaskDetail"
+          @open-note="openLinkedNote"
           @task-updated="load"
           @move="onSectionMove"
         />
@@ -493,6 +551,7 @@ async function onSectionMove(payload: {
               @complete="onComplete"
               @reopen="onReopen"
               @info="openTaskDetail"
+              @open-note="openLinkedNote"
               @task-updated="load"
             />
           </div>
@@ -519,6 +578,18 @@ async function onSectionMove(payload: {
       v-model="detailOpen"
       :task-id="detailTaskId"
       @saved="load"
+      @open-note="openLinkedNote"
+    />
+
+    <NoteDetailModal
+      v-model="noteDetailOpen"
+      :project-id="noteDetailProjectId"
+      :note-id="noteDetailId"
+      :sections="noteStore.sections"
+      :project-tasks="projectTasksForNoteModal"
+      :can-manage="canManageNotesForNoteModal"
+      @saved="load"
+      @deleted="load"
     />
   </div>
 </template>
