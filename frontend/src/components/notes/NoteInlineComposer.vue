@@ -8,14 +8,14 @@ import Button from '../ui/UiButton.vue'
 import UiInput from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
 import NoteForm from './NoteForm.vue'
-import type { NoteSection } from '@domain/note/types'
+import type { ProjectSection } from '@domain/project/types'
 
 const { t } = useI18n()
 const toast = useToast()
 
 const props = defineProps<{
   projectId: number
-  sections: NoteSection[]
+  sections: ProjectSection[]
   sectionId: number | null
   canManage: boolean
 }>()

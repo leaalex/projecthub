@@ -38,6 +38,7 @@
     "dashboard": "Dashboard",
     "projects": "Projects",
     "tasks": "Tasks",
+    "notes": "Notes",
     "reports": "Reports",
     "users": "Users",
     "uiKit": "UI kit",
@@ -71,6 +72,8 @@
       "projectsSub": "All projects",
       "tasks": "Tasks",
       "tasksSub": "Task list",
+      "notes": "Notes",
+      "notesSub": "All notes",
       "reports": "Reports",
       "reportsSub": "Weekly reports",
       "profile": "Profile",
@@ -85,6 +88,8 @@
       "newProjectSub": "Open projects",
       "newTask": "New task",
       "newTaskSub": "Open tasks",
+      "newNote": "New note",
+      "newNoteSub": "Open notes",
       "signOut": "Sign out",
       "signOutSub": "End session"
     },
@@ -157,6 +162,26 @@
     "deleteConfirm": "Delete",
     "deleteButton": "Delete project"
   },
+  "project": {
+    "itemKind": {
+      "all": "All",
+      "tasks": "Tasks",
+      "notes": "Notes"
+    },
+    "section": {
+      "heading": "Sections",
+      "add": "Add section",
+      "namePlaceholder": "Section name…",
+      "empty": "No sections yet.",
+      "created": "Section created",
+      "createFailed": "Could not create section",
+      "renamed": "Section renamed",
+      "renameFailed": "Could not rename section",
+      "removed": "Section removed",
+      "removeFailed": "Could not remove section",
+      "reorderFailed": "Could not reorder sections"
+    }
+  },
   "projectForm": {
     "nameLabel": "Name",
     "descriptionLabel": "Description",
@@ -182,6 +207,13 @@
     "editProject": "Edit project",
     "searchPlaceholder": "Search title or description…",
     "newTask": "New task",
+    "newNote": "New note",
+    "manualSectionOrder": "Manual order in section",
+    "itemKind": {
+      "region": "Item type"
+    },
+    "emptyWorkspaceTitle": "No tasks or notes yet",
+    "emptyWorkspaceDescription": "Create a task or a note to get started.",
     "addSection": "Add section",
     "sectionNamePlaceholder": "Section name…",
     "taskFiltersRegion": "Task filters and sort",
@@ -585,10 +617,6 @@
   "taskList": {
     "emptyDefault": "No tasks yet."
   },
-  "taskSectionList": {
-    "emptyDefault": "No tasks yet.",
-    "emptyInSection": "No tasks in this section."
-  },
   "taskInlineComposer": {
     "srTitle": "Task title",
     "srDescription": "Description",
@@ -685,6 +713,48 @@
   },
   "notes": {
     "title": "Notes",
+    "pageTitle": "Notes",
+    "subtitleDefault": "Notes from projects you can access.",
+    "subtitleAdmin": "All notes in projects you can access.",
+    "breadcrumb": "Notes",
+    "searchPlaceholder": "Search notes…",
+    "newNote": "New note",
+    "noteFiltersRegion": "Note filters",
+    "modalNewTitle": "New note",
+    "submitCreate": "Create note",
+    "filters": {
+      "project": "Project",
+      "allProjects": "All projects",
+      "sortBy": "Sort by",
+      "groupBy": "Group list",
+      "groupProject": "By project",
+      "groupSection": "By section",
+      "groupNone": "No grouping",
+      "sortUpdated": "Updated",
+      "sortTitle": "Title",
+      "reset": "Reset filters",
+      "unknownProject": "Project #{id}",
+      "aria": {
+        "project": "Filter by project",
+        "clearProject": "Clear project filter",
+        "sortGroup": "Sort and grouping",
+        "sortBy": "Sort notes by",
+        "sortDir": "Sort direction",
+        "groupBy": "Group notes"
+      }
+    },
+    "emptyNoNotesTitle": "No notes yet",
+    "emptyNoNotesCanCreate": "Create your first note in a project.",
+    "emptyNoNotesGuest": "There are no notes in your projects.",
+    "emptyNoMatchTitle": "No matching notes",
+    "emptyNoMatchDescription": "Try changing search or filters.",
+    "toasts": {
+      "created": "Note created",
+      "createFailed": "Could not create note",
+      "deleted": "Note moved to trash",
+      "deleteFailed": "Could not delete note",
+      "loadFailed": "Could not load notes"
+    },
     "create": "New note",
     "restore": "Restore",
     "loadFailed": "Could not load notes",
@@ -693,6 +763,7 @@
     "unknownSection": "Section #{id}",
     "emptySection": "No notes in this section.",
     "form": {
+      "project": "Project",
       "title": "Title",
       "titlePlaceholder": "Note title",
       "titleRequired": "Enter a title",

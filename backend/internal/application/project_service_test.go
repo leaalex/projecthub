@@ -21,7 +21,6 @@ type memProjects struct {
 	nextPID  uint
 	nextMID  uint
 	nextSID  uint
-	nextNSID uint
 }
 
 func newMemProjects() *memProjects {
@@ -117,12 +116,6 @@ func (m *memProjects) Save(ctx context.Context, p *project.Project) error {
 		if sec.ID().Uint() == 0 {
 			m.nextSID++
 			sec.AssignID(project.SectionID(m.nextSID))
-		}
-	}
-	for _, ns := range p.NoteSections() {
-		if ns.ID().Uint() == 0 {
-			m.nextNSID++
-			ns.AssignID(project.NoteSectionID(m.nextNSID))
 		}
 	}
 	m.byID[p.ID().Uint()] = p

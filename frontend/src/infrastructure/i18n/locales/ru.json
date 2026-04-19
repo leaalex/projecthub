@@ -38,6 +38,7 @@
     "dashboard": "Обзор",
     "projects": "Проекты",
     "tasks": "Задачи",
+    "notes": "Заметки",
     "reports": "Отчёты",
     "users": "Пользователи",
     "uiKit": "UI kit",
@@ -71,6 +72,8 @@
       "projectsSub": "Все проекты",
       "tasks": "Задачи",
       "tasksSub": "Список задач",
+      "notes": "Заметки",
+      "notesSub": "Все заметки",
       "reports": "Отчёты",
       "reportsSub": "Еженедельные отчёты",
       "profile": "Профиль",
@@ -85,6 +88,8 @@
       "newProjectSub": "Открыть проекты",
       "newTask": "Новая задача",
       "newTaskSub": "Открыть задачи",
+      "newNote": "Новая заметка",
+      "newNoteSub": "Открыть заметки",
       "signOut": "Выйти",
       "signOutSub": "Завершить сессию"
     },
@@ -157,6 +162,26 @@
     "deleteConfirm": "Удалить",
     "deleteButton": "Удалить проект"
   },
+  "project": {
+    "itemKind": {
+      "all": "Все",
+      "tasks": "Задачи",
+      "notes": "Заметки"
+    },
+    "section": {
+      "heading": "Разделы",
+      "add": "Добавить раздел",
+      "namePlaceholder": "Название раздела…",
+      "empty": "Пока нет разделов.",
+      "created": "Раздел создан",
+      "createFailed": "Не удалось создать раздел",
+      "renamed": "Раздел переименован",
+      "renameFailed": "Не удалось переименовать раздел",
+      "removed": "Раздел удалён",
+      "removeFailed": "Не удалось удалить раздел",
+      "reorderFailed": "Не удалось изменить порядок разделов"
+    }
+  },
   "projectForm": {
     "nameLabel": "Название",
     "descriptionLabel": "Описание",
@@ -182,6 +207,13 @@
     "editProject": "Редактировать проект",
     "searchPlaceholder": "Поиск по названию или описанию…",
     "newTask": "Новая задача",
+    "newNote": "Новая заметка",
+    "manualSectionOrder": "Ручной порядок внутри раздела",
+    "itemKind": {
+      "region": "Тип элементов"
+    },
+    "emptyWorkspaceTitle": "Пока нет задач и заметок",
+    "emptyWorkspaceDescription": "Создайте задачу или заметку, чтобы начать.",
     "addSection": "Добавить раздел",
     "sectionNamePlaceholder": "Название раздела…",
     "taskFiltersRegion": "Фильтры и сортировка задач",
@@ -585,10 +617,6 @@
   "taskList": {
     "emptyDefault": "Пока нет задач."
   },
-  "taskSectionList": {
-    "emptyDefault": "Пока нет задач.",
-    "emptyInSection": "В этой секции нет задач."
-  },
   "taskInlineComposer": {
     "srTitle": "Название задачи",
     "srDescription": "Описание",
@@ -685,6 +713,48 @@
   },
   "notes": {
     "title": "Заметки",
+    "pageTitle": "Заметки",
+    "subtitleDefault": "Заметки из проектов, к которым у вас есть доступ.",
+    "subtitleAdmin": "Все заметки в проектах, к которым у вас есть доступ.",
+    "breadcrumb": "Заметки",
+    "searchPlaceholder": "Поиск заметок…",
+    "newNote": "Новая заметка",
+    "noteFiltersRegion": "Фильтры заметок",
+    "modalNewTitle": "Новая заметка",
+    "submitCreate": "Создать заметку",
+    "filters": {
+      "project": "Проект",
+      "allProjects": "Все проекты",
+      "sortBy": "Сортировка",
+      "groupBy": "Группировка",
+      "groupProject": "По проекту",
+      "groupSection": "По разделу",
+      "groupNone": "Без групп",
+      "sortUpdated": "По дате",
+      "sortTitle": "По названию",
+      "reset": "Сбросить фильтры",
+      "unknownProject": "Проект #{id}",
+      "aria": {
+        "project": "Фильтр по проекту",
+        "clearProject": "Сбросить проект",
+        "sortGroup": "Сортировка и группировка",
+        "sortBy": "Сортировать заметки",
+        "sortDir": "Направление сортировки",
+        "groupBy": "Группировать заметки"
+      }
+    },
+    "emptyNoNotesTitle": "Заметок пока нет",
+    "emptyNoNotesCanCreate": "Создайте первую заметку в проекте.",
+    "emptyNoNotesGuest": "В ваших проектах нет заметок.",
+    "emptyNoMatchTitle": "Нет совпадений",
+    "emptyNoMatchDescription": "Измените поиск или фильтры.",
+    "toasts": {
+      "created": "Заметка создана",
+      "createFailed": "Не удалось создать заметку",
+      "deleted": "Заметка в корзине",
+      "deleteFailed": "Не удалось удалить заметку",
+      "loadFailed": "Не удалось загрузить заметки"
+    },
     "create": "Новая заметка",
     "restore": "Восстановить",
     "loadFailed": "Не удалось загрузить заметки",
@@ -693,6 +763,7 @@
     "unknownSection": "Секция #{id}",
     "emptySection": "В этом разделе нет заметок.",
     "form": {
+      "project": "Проект",
       "title": "Название",
       "titlePlaceholder": "Заголовок заметки",
       "titleRequired": "Введите заголовок",

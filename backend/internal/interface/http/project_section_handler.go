@@ -10,8 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type TaskSectionHandler struct {
-	Projects *application.ProjectService
+type ProjectSectionHandler struct {
+	Projects     *application.ProjectService
+	SectionItems *application.SectionItemsReorderService
 }
 
 func sectionJSON(projectID uint, s *project.Section) gin.H {
@@ -37,7 +38,7 @@ type sectionReorderBody struct {
 	SectionIDs []uint `json:"section_ids" binding:"required,min=1"`
 }
 
-func (h *TaskSectionHandler) List(c *gin.Context) {
+func (h *ProjectSectionHandler) List(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -70,7 +71,7 @@ func (h *TaskSectionHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"sections": out})
 }
 
-func (h *TaskSectionHandler) Create(c *gin.Context) {
+func (h *ProjectSectionHandler) Create(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -109,7 +110,7 @@ func (h *TaskSectionHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"section": sectionJSON(pid, sec)})
 }
 
-func (h *TaskSectionHandler) Update(c *gin.Context) {
+func (h *ProjectSectionHandler) Update(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -153,7 +154,7 @@ func (h *TaskSectionHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"section": sectionJSON(pid, sec)})
 }
 
-func (h *TaskSectionHandler) Delete(c *gin.Context) {
+func (h *ProjectSectionHandler) Delete(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -191,7 +192,7 @@ func (h *TaskSectionHandler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *TaskSectionHandler) Reorder(c *gin.Context) {
+func (h *ProjectSectionHandler) Reorder(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -223,6 +224,58 @@ func (h *TaskSectionHandler) Reorder(c *gin.Context) {
 		return
 	}
 	if err := h.Projects.ReorderSections(c.Request.Context(), pid, body.SectionIDs); err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+type sectionItemsReorderBody struct {
+	Items []application.SectionItemRef `json:"items" binding:"required,min=1,dive"`
+}
+
+// ReorderItems задаёт порядок задач и заметок внутри секции (sectionId=0 — без секции).
+func (h *ProjectSectionHandler) ReorderItems(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	projectIDRaw, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
+		return
+	}
+	sectionIDRaw, err := strconv.ParseUint(c.Param("sectionId"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad section id"})
+		return
+	}
+	pid := uint(projectIDRaw)
+	var secPtr *uint
+	if sectionIDRaw != 0 {
+		v := uint(sectionIDRaw)
+		secPtr = &v
+	}
+	var body sectionItemsReorderBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if h.SectionItems == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "section items reorder not configured"})
+		return
+	}
+	if err := h.SectionItems.Reorder(c.Request.Context(), uid, role, application.SectionItemsReorderInput{
+		ProjectID: pid,
+		SectionID: secPtr,
+		Items:     body.Items,
+	}); err != nil {
 		handleServiceError(c, err)
 		return
 	}

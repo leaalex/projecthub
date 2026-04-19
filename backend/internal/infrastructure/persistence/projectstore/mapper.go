@@ -7,7 +7,7 @@ import (
 	"task-manager/backend/internal/domain/user"
 )
 
-func recordToDomain(pr *ProjectRecord, memRows []MemberRecord, secRows []SectionRecord, noteSecRows []NoteSectionRecord) (*project.Project, error) {
+func recordToDomain(pr *ProjectRecord, memRows []MemberRecord, secRows []SectionRecord) (*project.Project, error) {
 	kind, err := project.ParseKind(pr.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("project %d kind: %w", pr.ID, err)
@@ -38,17 +38,6 @@ func recordToDomain(pr *ProjectRecord, memRows []MemberRecord, secRows []Section
 			s.UpdatedAt,
 		))
 	}
-	noteSections := make([]*project.NoteSection, 0, len(noteSecRows))
-	for i := range noteSecRows {
-		ns := &noteSecRows[i]
-		noteSections = append(noteSections, project.ReconstituteNoteSection(
-			project.NoteSectionID(ns.ID),
-			ns.Name,
-			ns.Position,
-			ns.CreatedAt,
-			ns.UpdatedAt,
-		))
-	}
 	return project.Reconstitute(
 		project.ID(pr.ID),
 		pr.Name,
@@ -57,7 +46,6 @@ func recordToDomain(pr *ProjectRecord, memRows []MemberRecord, secRows []Section
 		user.ID(pr.OwnerID),
 		members,
 		sections,
-		noteSections,
 		pr.CreatedAt,
 		pr.UpdatedAt,
 	), nil
@@ -100,21 +88,6 @@ func sectionToRecord(projectID project.ID, s *project.Section) SectionRecord {
 		id = s.ID().Uint()
 	}
 	return SectionRecord{
-		ID:        id,
-		ProjectID: projectID.Uint(),
-		Name:      s.Name(),
-		Position:  s.Position(),
-		CreatedAt: s.CreatedAt(),
-		UpdatedAt: s.UpdatedAt(),
-	}
-}
-
-func noteSectionToRecord(projectID project.ID, s *project.NoteSection) NoteSectionRecord {
-	id := uint(0)
-	if s.ID() != 0 {
-		id = s.ID().Uint()
-	}
-	return NoteSectionRecord{
 		ID:        id,
 		ProjectID: projectID.Uint(),
 		Name:      s.Name(),

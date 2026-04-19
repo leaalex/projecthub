@@ -43,13 +43,16 @@ func Open(databasePath string) (*gorm.DB, error) {
 	// SQLite: одиночный писатель; ограничиваем пул, чтобы избежать конкурирующих соединений.
 	sqlDB.SetMaxOpenConns(1)
 
+	if err := migrateProjectSections(db); err != nil {
+		return nil, err
+	}
+
 	if err := db.AutoMigrate(
 		&userstore.Record{},
 		&sessionstore.Record{},
 		&projectstore.ProjectRecord{},
 		&projectstore.MemberRecord{},
 		&projectstore.SectionRecord{},
-		&projectstore.NoteSectionRecord{},
 		&taskstore.TaskRecord{},
 		&taskstore.SubtaskRecord{},
 		&notestore.NoteRecord{},

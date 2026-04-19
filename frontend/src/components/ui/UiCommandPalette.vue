@@ -63,6 +63,13 @@ const navItems = computed<Item[]>(() => {
       run: () => void router.push('/tasks'),
     },
     {
+      id: 'nav-notes',
+      kind: 'nav',
+      label: t('commandPalette.nav.notes'),
+      subtitle: t('commandPalette.nav.notesSub'),
+      run: () => void router.push('/notes'),
+    },
+    {
       id: 'nav-reports',
       kind: 'nav',
       label: t('commandPalette.nav.reports'),
@@ -97,7 +104,10 @@ const navItems = computed<Item[]>(() => {
   }
   if (auth.user?.role === 'user' && !showProjectsAndTasks.value) {
     return base.filter(
-      (x) => x.id !== 'nav-projects' && x.id !== 'nav-tasks',
+      (x) =>
+        x.id !== 'nav-projects' &&
+        x.id !== 'nav-tasks' &&
+        x.id !== 'nav-notes',
     )
   }
   return base
@@ -120,6 +130,13 @@ const actionItems = computed<Item[]>(() => {
         label: t('commandPalette.action.newTask'),
         subtitle: t('commandPalette.action.newTaskSub'),
         run: () => void router.push('/tasks'),
+      },
+      {
+        id: 'act-new-note',
+        kind: 'action',
+        label: t('commandPalette.action.newNote'),
+        subtitle: t('commandPalette.action.newNoteSub'),
+        run: () => void router.push('/notes'),
       },
     )
   }

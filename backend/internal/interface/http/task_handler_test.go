@@ -169,7 +169,7 @@ func TestTask_MoveInProject(t *testing.T) {
 	task1ID := uint(d1["task"].(map[string]any)["id"].(float64))
 
 	// Создаём секцию.
-	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/task-sections", p.ID().Uint()), map[string]any{
+	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", p.ID().Uint()), map[string]any{
 		"name": "Section A",
 	}, token)
 	if recS.Code != http.StatusCreated {

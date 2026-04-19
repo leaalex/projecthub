@@ -49,6 +49,7 @@ func main() {
 	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
 	noteRepo := notestore.NewGormRepository(db)
 	noteSvc := application.NewNoteService(noteRepo, taskRepo, projectRepo)
+	sectionItemsSvc := application.NewSectionItemsReorderService(taskRepo, noteRepo, projectRepo, db)
 	taskTrashSvc := application.NewTaskTrashService(taskRepo, projectRepo)
 
 	reportRepo := reportstore.NewGormRepository(db)
@@ -69,6 +70,7 @@ func main() {
 		Projects:          projectsSvc,
 		MemberRemoval:     memberRemovalSvc,
 		Tasks:             tasksSvc,
+		SectionItems:      sectionItemsSvc,
 		TaskMove:          taskMoveSvc,
 		TaskAssign:        taskAssignSvc,
 		TaskTrash:         taskTrashSvc,

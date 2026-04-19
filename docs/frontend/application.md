@@ -106,7 +106,7 @@
 
 **State:** `notes`, `sections` (note-секции), `currentProjectId`, `loading`, `sectionsLoading`, `error`, `savingId`, `deletingId`, `linksByTaskId` (кэш `GET /tasks/:id/notes`).
 
-**Actions:** `fetchList`, `fetchSections`, `fetchOne`, `create`, `update`, `remove`, `restore`, `permanentDelete`, `move` (опционально `refetch: false` для пакетного DnD), **`reorderNotes(projectId, keys, groupNoteIds)`** — порядок после drag-and-drop; `createSection` / `renameSection` / `removeSection` / `reorderSections` через `projectsApi.noteSections`; `linkTask`, `unlinkTask`, `fetchLinkedByTask`, `invalidateTaskLinks`; **`patchNoteInList(noteId, patch)`** — точечное обновление строки в `notes` (например `linked_task_ids` после загрузки в модалке).
+**Actions:** **`fetchAll(params?)`** — `GET /notes` (опционально `project_id`); **`currentProjectId = null`**; остальное как у списка проекта. **`fetchList`**, `fetchSections`, `fetchOne`, `create`, `update`, `remove`, `restore`, `permanentDelete`, `move` (опционально `refetch: false` для пакетного DnD), **`reorderNotes(projectId, keys, groupNoteIds)`** — порядок после drag-and-drop; `createSection` / `renameSection` / `removeSection` / `reorderSections` через `projectsApi.noteSections`; `linkTask`, `unlinkTask`, `fetchLinkedByTask`, `invalidateTaskLinks`; **`patchNoteInList(noteId, patch)`** — точечное обновление строки в `notes` (например `linked_task_ids` после загрузки в модалке).
 
 **Экспорт:** `extractNoteAxiosError`, `parseNoteSectionGroupKey`, `noteSectionGroupKey`.
 
@@ -256,3 +256,7 @@
 ### [`composables/useTaskListPresentation.ts`](../../frontend/src/application/composables/useTaskListPresentation.ts)
 
 Обёртка над `domain/task/presentation` с i18n-метками групп. Экспортирует `groupTasks`, `presentTasks` (с i18n-переводами групп), а также реэкспортирует типы из `@domain/task/presentation`.
+
+### [`composables/useNoteListPresentation.ts`](../../frontend/src/application/composables/useNoteListPresentation.ts)
+
+Клиентский **поиск** (заголовок + plain-превью тела), **сортировка** (`updated_at` / `title`) и **группировка** (`none` | `project` | `section`) для страницы `/notes`. Экспорт: `presentNotes`, `filterNotes`, `sortNotes`, типы `NoteSortKey`, `NoteGroupBy`, `SortDir`, `NoteGroup`.

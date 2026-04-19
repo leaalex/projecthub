@@ -64,7 +64,7 @@ func TestNote_SetBody(t *testing.T) {
 func TestNote_MoveToSection(t *testing.T) {
 	now := time.Now()
 	n, _ := note.NewNote(project.ID(1), nil, user.ID(1), "T", "", 0, now)
-	sid := project.NoteSectionID(42)
+	sid := project.SectionID(42)
 	n.MoveToSection(&sid, 5, now.Add(time.Second))
 	if n.SectionID() == nil || *n.SectionID() != sid {
 		t.Errorf("expected section 42, got %v", n.SectionID())
@@ -76,7 +76,7 @@ func TestNote_MoveToSection(t *testing.T) {
 
 func TestNote_Reconstitute(t *testing.T) {
 	now := time.Now()
-	sid := project.NoteSectionID(7)
+	sid := project.SectionID(7)
 	n := note.Reconstitute(
 		note.ID(99), project.ID(3), &sid, user.ID(5),
 		"Restored note", "body", 2, now, now,

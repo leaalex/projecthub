@@ -2,7 +2,8 @@
 import { PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Note, NoteSection } from '@domain/note/types'
+import type { Note } from '@domain/note/types'
+import type { ProjectSection } from '@domain/project/types'
 import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
 import { useToast } from '@app/composables/useToast'
 import { useConfirm } from '@app/composables/useConfirm'
@@ -21,7 +22,7 @@ const props = defineProps<{
   modelValue: boolean
   projectId: number
   noteId: number | null
-  sections: NoteSection[]
+  sections: ProjectSection[]
   projectTasks: { id: number; title: string }[]
   canManage: boolean
 }>()

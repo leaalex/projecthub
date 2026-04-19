@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FunnelIcon, PencilSquareIcon, UsersIcon } from '@heroicons/vue/24/outline'
+import { ArchiveBoxIcon, FunnelIcon, PencilSquareIcon, UsersIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -13,16 +13,14 @@ import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
-import TaskList from '../components/tasks/TaskList.vue'
+import NoteInlineComposer from '../components/notes/NoteInlineComposer.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
-import TaskSectionList from '../components/tasks/TaskSectionList.vue'
-import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
-import NoteList from '../components/notes/NoteList.vue'
-import NoteSectionList from '../components/notes/NoteSectionList.vue'
+import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import ProjectTrashPanel from '../components/notes/ProjectTrashPanel.vue'
+import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
+import { presentProjectItems, type ProjectItemKindFilter } from '@app/composables/useProjectItemsPresentation'
 import {
-  presentTasks,
   type AssigneeFilterValue,
   type SortDir,
   type TaskGroupBy,
@@ -31,7 +29,7 @@ import {
 import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
-import { useNoteStore } from '@app/note.store'
+import { extractNoteAxiosError, useNoteStore } from '@app/note.store'
 import { useTrashTasksStore } from '@app/trashTasks.store'
 import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useProjectScopedAssignableUsers } from '@app/composables/useAdminAssignableUsers'
@@ -39,7 +37,6 @@ import { useConfirm } from '@app/composables/useConfirm'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
-import { taskSectionHeaderStats } from '@domain/task/stats'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
@@ -67,7 +64,6 @@ const canCreateTasks = computed(() => {
   return r === 'manager' || r === 'owner'
 })
 
-/** Name/description — same gate as task management (owner, manager, admin, staff). */
 const canEditProject = computed(() => {
   const u = auth.user
   if (!u) return false
@@ -80,9 +76,16 @@ const canEditProject = computed(() => {
 })
 const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
-const projectTab = ref<'tasks' | 'notes' | 'trash'>('tasks')
 const noteDetailOpen = ref(false)
 const noteDetailId = ref<number | null>(null)
+const trashModalOpen = ref(false)
+
+const showSectionAdd = ref(false)
+const newSectionName = ref('')
+const savingSection = ref(false)
+
+const itemKind = ref<ProjectItemKindFilter>('all')
+const manualOrder = ref(true)
 
 const notePermissionCtx = computed(
   (): NotePermissionContext => ({
@@ -97,7 +100,7 @@ const notePermissionCtx = computed(
   }),
 )
 
-const canManageNotes = computed(() =>
+const canManageNoteOnProject = computed(() =>
   canManageNote(auth.user?.id, auth.user?.role, notePermissionCtx.value, id.value),
 )
 
@@ -121,6 +124,7 @@ const projectOptions = computed(() =>
 const detailOpen = ref(false)
 const detailTaskId = ref<number | null>(null)
 const showTaskComposer = ref(false)
+const showNoteComposer = ref(false)
 const filtersOpen = ref(false)
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus[]>([])
@@ -138,9 +142,6 @@ const modalProjectId = ref(0)
 const modalStatus = ref<TaskStatus>('todo')
 const modalPriority = ref<TaskPriority>('medium')
 const modalSaving = ref(false)
-const addingSection = ref(false)
-const newSectionName = ref('')
-const savingSection = ref(false)
 
 const editProjectModalOpen = ref(false)
 const editName = ref('')
@@ -149,68 +150,28 @@ const editSaving = ref(false)
 
 const showAssigneeFilter = computed(() => assignableUsers.value.length > 0)
 
-const presentation = computed(() =>
-  presentTasks(
+const itemGroups = computed(() =>
+  presentProjectItems(
     projectStore.tasks,
+    noteStore.notes,
+    projectStore.sections,
     {
+      kindFilter: itemKind.value,
       search: searchQuery.value,
       priority: clientPriority.value,
       assignee: assigneeFilter.value,
-      sortKey: sortKey.value,
-      sortDir: sortDir.value,
-      groupBy: groupBy.value,
-      sections: projectStore.sections,
       status: filterStatus.value,
+      sortKey: manualOrder.value ? 'position' : sortKey.value,
+      sortDir: sortDir.value,
+      manualSectionOrder: manualOrder.value,
     },
     t,
   ),
 )
 
-const displayFlat = computed(() => presentation.value.flat)
-const displayGroups = computed(() => presentation.value.groups)
-const sectionGroupsForList = computed(() => {
-  const map = new Map<
-    string,
-    { key: string; label: string; order: number; tasks: typeof displayFlat.value }
-  >()
-  map.set('unsectioned', {
-    key: 'unsectioned',
-    label: t('projectDetail.unsectioned'),
-    order: -1,
-    tasks: [],
-  })
-  for (const s of [...projectStore.sections].sort((a, b) => a.position - b.position || a.id - b.id)) {
-    map.set(`s-${s.id}`, {
-      key: `s-${s.id}`,
-      label: s.name,
-      order: s.position,
-      tasks: [],
-    })
-  }
-  for (const task of displayFlat.value) {
-    const key = task.section_id == null ? 'unsectioned' : `s-${task.section_id}`
-    if (!map.has(key)) {
-      map.set(key, {
-        key,
-        label:
-          task.section?.name ??
-          t('tasks.unknownSection', { id: task.section_id }),
-        order: task.section?.position ?? Number.MAX_SAFE_INTEGER,
-        tasks: [],
-      })
-    }
-    map.get(key)!.tasks.push(task)
-  }
-  return [...map.values()]
-    .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, tasks }) => ({
-      key,
-      label,
-      tasks: [...tasks].sort(
-        (a, b) => a.position - b.position || a.id - b.id,
-      ),
-    }))
-})
+const totalItemCount = computed(() =>
+  itemGroups.value.reduce((n, g) => n + g.items.length, 0),
+)
 
 const projectBreadcrumbItems = computed(() => {
   const p = projectStore.current
@@ -238,11 +199,12 @@ function resetTaskFilters() {
   groupBy.value = 'section'
   filterProject.value = ''
   filterStatus.value = []
+  itemKind.value = 'all'
+  manualOrder.value = true
 }
 
 const pageLoading = ref(true)
 const loadError = ref<string | null>(null)
-/** Bumps on each load so stale async work never leaves the UI stuck loading. */
 let loadGeneration = 0
 
 async function load() {
@@ -265,6 +227,7 @@ async function load() {
       return
     }
 
+    // cheap cache warm for project list (sidebar / command palette)
     await projectStore.fetchList().catch(() => {})
     if (gen !== loadGeneration) return
 
@@ -273,7 +236,6 @@ async function load() {
 
     await projectStore.fetchMembers(id.value).catch(() => {
       projectStore.members = []
-      // Keep id so assignableUsers can still use owner from `current` (e.g. members request failed).
       projectStore.membersProjectId = id.value
     })
     if (gen !== loadGeneration) return
@@ -284,6 +246,9 @@ async function load() {
     })
     await projectStore.fetchSections(id.value).catch(() => {
       projectStore.sections = []
+    })
+    await noteStore.fetchList(id.value).catch(() => {
+      noteStore.notes = []
     })
   } catch (e: unknown) {
     if (gen !== loadGeneration) return
@@ -312,32 +277,13 @@ watch(
   () => route.params.id,
   () => {
     showTaskComposer.value = false
-    projectTab.value = 'tasks'
+    showNoteComposer.value = false
+    trashModalOpen.value = false
     resetTaskFilters()
     void load()
   },
   { immediate: true },
 )
-
-watch(projectTab, async tab => {
-  if (!Number.isFinite(id.value) || id.value <= 0) return
-  if (tab === 'notes') {
-    try {
-      await noteStore.fetchSections(id.value)
-      await noteStore.fetchList(id.value)
-    } catch {
-      toast.error(t('notes.loadFailed'))
-    }
-  }
-  if (tab === 'trash') {
-    try {
-      await trashTasksStore.fetchTasks(id.value)
-      await trashNotesStore.fetchNotes(id.value)
-    } catch {
-      toast.error(t('notes.trash.loadFailed'))
-    }
-  }
-})
 
 watch(showModal, (open) => {
   if (open && Number.isFinite(id.value) && id.value > 0) {
@@ -417,14 +363,19 @@ watch(noteDetailOpen, open => {
   if (!open) noteDetailId.value = null
 })
 
-async function onNotesChanged() {
+async function onWorkspaceRefreshed() {
   if (!Number.isFinite(id.value) || id.value <= 0) return
   await noteStore.fetchList(id.value, { quiet: true })
   await projectStore.fetchTasks(id.value)
+  await projectStore.fetchSections(id.value).catch(() => {})
+}
+
+async function onNotesChanged() {
+  await onWorkspaceRefreshed()
 }
 
 async function onTrashRestored() {
-  await onNotesChanged()
+  await onWorkspaceRefreshed()
 }
 
 async function onRemoveNote(noteId: number) {
@@ -455,6 +406,28 @@ async function refreshProjectTasks() {
 async function onInlineComposerCreated() {
   await refreshProjectTasks()
   showTaskComposer.value = false
+}
+
+async function onNoteInlineCreated() {
+  await onNotesChanged()
+  showNoteComposer.value = false
+}
+
+async function createSectionFromToolbar() {
+  const name = newSectionName.value.trim()
+  if (!name || !Number.isFinite(id.value) || id.value <= 0) return
+  savingSection.value = true
+  try {
+    await projectStore.createSection(id.value, name)
+    newSectionName.value = ''
+    showSectionAdd.value = false
+    toast.success(t('project.section.created'))
+    await onNotesChanged()
+  } catch (e: unknown) {
+    toast.error(extractNoteAxiosError(e, t('project.section.createFailed')))
+  } finally {
+    savingSection.value = false
+  }
 }
 
 async function createTaskFromModal() {
@@ -510,42 +483,14 @@ async function onReopen(taskId: number) {
   }
 }
 
-async function onSectionMove(payload: {
-  taskId: number
-  sectionId: number | null
-  position: number
-}) {
+async function openTrashModal() {
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  trashModalOpen.value = true
   try {
-    await taskStore.moveTask(id.value, {
-      task_id: payload.taskId,
-      section_id: payload.sectionId,
-      position: payload.position,
-    })
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.moveTaskFailed'))
-  }
-}
-
-async function createSection() {
-  const name = newSectionName.value.trim()
-  if (!name) {
-    toast.error(t('projectDetail.enterSectionName'))
-    return
-  }
-  savingSection.value = true
-  try {
-    await projectStore.createSection(id.value, name)
-    newSectionName.value = ''
-    addingSection.value = false
-    toast.success(t('projectDetail.sectionCreated'))
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.createSectionFailed'))
-  } finally {
-    savingSection.value = false
+    await trashTasksStore.fetchTasks(id.value)
+    await trashNotesStore.fetchNotes(id.value)
+  } catch {
+    toast.error(t('notes.trash.loadFailed'))
   }
 }
 </script>
@@ -581,6 +526,15 @@ async function createSection() {
           <span class="ml-1.5">{{ t('projectDetail.members') }}</span>
         </router-link>
         <Button
+          type="button"
+          variant="secondary"
+          class="inline-flex shrink-0 items-center gap-1"
+          @click="openTrashModal"
+        >
+          <ArchiveBoxIcon class="h-4 w-4" aria-hidden="true" />
+          {{ t('projectDetail.tabs.trash') }}
+        </Button>
+        <Button
           v-if="canEditProject"
           type="button"
           variant="secondary"
@@ -593,68 +547,44 @@ async function createSection() {
       </div>
     </div>
 
-    <UiSegmentedControl
-      v-model="projectTab"
-      class="mt-6"
-      :aria-label="t('projectDetail.tabs.region')"
-      :options="[
-        { value: 'tasks', label: t('projectDetail.tabs.tasks') },
-        { value: 'notes', label: t('projectDetail.tabs.notes') },
-        { value: 'trash', label: t('projectDetail.tabs.trash') },
-      ]"
-    />
-
-    <div v-show="projectTab === 'notes'" class="mt-6 space-y-4">
-      <NoteSectionList
-        :project-id="id"
-        :can-manage="canManageNotes"
-        @updated="onNotesChanged"
-      />
-      <NoteList
-        :project-id="id"
-        :sections="noteStore.sections"
-        :can-manage="canManageNotes"
-        @open="openNoteDetail"
-        @edit="openNoteDetail"
-        @remove="onRemoveNote"
-        @refreshed="onNotesChanged"
-      />
-    </div>
-
-    <div v-show="projectTab === 'trash'" class="mt-6">
-      <ProjectTrashPanel
-        :project-id="id"
-        :can-manage="canManageNotes"
-        @restored="onTrashRestored"
-      />
-    </div>
-
-    <div v-show="projectTab === 'tasks'" class="mt-6 space-y-4">
-      <div
-        class="flex w-full flex-wrap items-center justify-between gap-2"
-      >
-        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <div class="min-w-[8rem] max-w-md flex-1">
-            <UiInput
-              id="project-tasks-search"
-              v-model="searchQuery"
-              :placeholder="t('projectDetail.searchPlaceholder')"
-              autocomplete="off"
-              :aria-label="t('common.search')"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            class="shrink-0 px-2.5"
-            :aria-expanded="filtersOpen"
-            aria-controls="project-task-filters-panel"
-            @click="filtersOpen = !filtersOpen"
-          >
-            <FunnelIcon class="h-4 w-4" aria-hidden="true" />
-            <span class="sr-only">{{ t('common.filters') }}</span>
-          </Button>
+    <div class="mt-6 flex w-full flex-wrap items-center justify-between gap-2">
+      <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <div class="min-w-[8rem] max-w-md flex-1">
+          <UiInput
+            id="project-workspace-search"
+            v-model="searchQuery"
+            :placeholder="t('projectDetail.searchPlaceholder')"
+            autocomplete="off"
+            :aria-label="t('common.search')"
+          />
         </div>
+        <UiSegmentedControl
+          v-model="itemKind"
+          class="shrink-0"
+          :aria-label="t('projectDetail.itemKind.region')"
+          :options="[
+            { value: 'all', label: t('project.itemKind.all') },
+            { value: 'tasks', label: t('project.itemKind.tasks') },
+            { value: 'notes', label: t('project.itemKind.notes') },
+          ]"
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          class="shrink-0 px-2.5"
+          :aria-expanded="filtersOpen"
+          aria-controls="project-workspace-filters"
+          @click="filtersOpen = !filtersOpen"
+        >
+          <FunnelIcon class="h-4 w-4" aria-hidden="true" />
+          <span class="sr-only">{{ t('common.filters') }}</span>
+        </Button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label v-if="itemKind !== 'notes'" class="flex items-center gap-2 text-xs text-muted">
+          <input v-model="manualOrder" type="checkbox" class="rounded border-border" />
+          {{ t('projectDetail.manualSectionOrder') }}
+        </label>
         <Button
           v-if="canCreateTasks"
           type="button"
@@ -665,145 +595,128 @@ async function createSection() {
           {{ t('projectDetail.newTask') }}
         </Button>
         <Button
-          v-if="canCreateTasks"
+          v-if="canManageNoteOnProject"
           type="button"
           variant="secondary"
           class="shrink-0"
-          @click="addingSection = !addingSection"
+          @click="showNoteComposer = !showNoteComposer"
         >
-          {{ addingSection ? t('common.cancel') : t('projectDetail.addSection') }}
+          {{ t('projectDetail.newNote') }}
+        </Button>
+        <Button
+          v-if="canManageNoteOnProject"
+          type="button"
+          variant="secondary"
+          class="shrink-0"
+          @click="showSectionAdd = !showSectionAdd"
+        >
+          {{ showSectionAdd ? t('common.cancel') : t('projectDetail.addSection') }}
         </Button>
       </div>
-
-      <div
-        v-if="addingSection && canCreateTasks"
-        class="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3"
-      >
-        <UiInput
-          id="new-section-name"
-          v-model="newSectionName"
-          class="min-w-[14rem] flex-1"
-          :placeholder="t('projectDetail.sectionNamePlaceholder')"
-        />
-        <Button type="button" :loading="savingSection" @click="createSection">
-          {{ t('common.create') }}
-        </Button>
-      </div>
-
-      <div
-        v-show="filtersOpen"
-        id="project-task-filters-panel"
-        role="region"
-        :aria-label="t('projectDetail.taskFiltersRegion')"
-      >
-        <TaskFiltersPanel
-          v-model:filter-project="filterProject"
-          v-model:filter-status="filterStatus"
-          v-model:client-priority="clientPriority"
-          v-model:assignee-filter="assigneeFilter"
-          v-model:sort-key="sortKey"
-          v-model:sort-dir="sortDir"
-          v-model:group-by="groupBy"
-          :projects="projectOptions"
-          :assignable-users="assignableUsers"
-          :show-assignee-filter="showAssigneeFilter"
-          hide-project-filter
-          @reset="resetTaskFilters"
-        />
-      </div>
-
-      <template v-if="!displayFlat.length && projectStore.tasks.length > 0">
-        <EmptyState
-          class="mt-6"
-          :title="t('projectDetail.emptyNoMatchTitle')"
-          :description="t('projectDetail.emptyNoMatchDescription')"
-        >
-          <Button variant="secondary" type="button" @click="resetTaskFilters">
-            {{ t('projectDetail.resetFilters') }}
-          </Button>
-        </EmptyState>
-      </template>
-      <template v-else-if="!displayFlat.length">
-        <EmptyState
-          class="mt-6"
-          :title="t('projectDetail.emptyNoTasksTitle')"
-          :description="
-            canCreateTasks
-              ? t('projectDetail.emptyNoTasksCanCreate')
-              : t('projectDetail.emptyNoTasksGuest')
-          "
-        >
-          <Button
-            v-if="canCreateTasks"
-            type="button"
-            :disabled="!Number.isFinite(id) || id <= 0"
-            @click="showModal = true"
-          >
-            {{ t('projectDetail.newTask') }}
-          </Button>
-        </EmptyState>
-      </template>
-      <template v-else>
-        <div class="mt-6 space-y-4">
-          <div
-            v-if="canCreateTasks && showTaskComposer"
-            class="overflow-hidden rounded-lg border border-border bg-surface"
-          >
-            <div class="border-b border-border px-3 py-3">
-              <TaskInlineComposer
-                variant="plain"
-                :project-id="id"
-                :disabled="!Number.isFinite(id) || id <= 0"
-                @created="onInlineComposerCreated"
-                @dismiss="showTaskComposer = false"
-              />
-            </div>
-          </div>
-
-          <TaskSectionList
-          :groups="sectionGroupsForList"
-          :can-edit-task="canManageTask"
-          :can-change-status-task="canChangeTaskStatus"
-          :projects="projectOptions"
-          :assignable-users="assignableUsers"
-          :empty-message="t('projectDetail.emptySection')"
-          @complete="onComplete"
-          @reopen="onReopen"
-          @info="openTaskDetail"
-          @open-note="openLinkedNote"
-          @task-updated="refreshProjectTasks"
-          @move="onSectionMove"
-        />
-          <template v-if="groupBy !== 'section' && groupBy !== 'none'">
-            <div
-              v-for="g in displayGroups"
-              :key="g.key"
-              class="space-y-2"
-            >
-              <h2 class="text-sm font-semibold text-foreground">
-                {{ g.label }}
-                <span class="font-normal text-muted">{{
-                  taskSectionHeaderStats(g.tasks)
-                }}</span>
-              </h2>
-              <TaskList
-                :tasks="g.tasks"
-                :can-edit-task="canManageTask"
-                :can-change-status-task="canChangeTaskStatus"
-                :projects="projectOptions"
-                :assignable-users="assignableUsers"
-                :empty-message="t('projectDetail.emptyGroup')"
-                @complete="onComplete"
-                @reopen="onReopen"
-                @info="openTaskDetail"
-                @open-note="openLinkedNote"
-                @task-updated="refreshProjectTasks"
-              />
-            </div>
-          </template>
-        </div>
-      </template>
     </div>
+
+    <div
+      v-if="canManageNoteOnProject && showSectionAdd"
+      class="mt-3 flex flex-wrap items-center gap-2"
+    >
+      <UiInput
+        v-model="newSectionName"
+        class="min-w-[12rem] max-w-md flex-1"
+        :placeholder="t('project.section.namePlaceholder')"
+        @keydown.enter.prevent="createSectionFromToolbar"
+      />
+      <Button type="button" :loading="savingSection" @click="createSectionFromToolbar">
+        {{ t('common.create') }}
+      </Button>
+    </div>
+
+    <div
+      v-show="filtersOpen && itemKind !== 'notes'"
+      id="project-workspace-filters"
+      role="region"
+      class="mt-4"
+      :aria-label="t('projectDetail.taskFiltersRegion')"
+    >
+      <TaskFiltersPanel
+        v-model:filter-project="filterProject"
+        v-model:filter-status="filterStatus"
+        v-model:client-priority="clientPriority"
+        v-model:assignee-filter="assigneeFilter"
+        v-model:sort-key="sortKey"
+        v-model:sort-dir="sortDir"
+        v-model:group-by="groupBy"
+        :projects="projectOptions"
+        :assignable-users="assignableUsers"
+        :show-assignee-filter="showAssigneeFilter"
+        hide-project-filter
+        hide-group-by
+        @reset="resetTaskFilters"
+      />
+    </div>
+
+    <div v-if="canCreateTasks && showTaskComposer" class="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
+      <div class="border-b border-border px-3 py-3">
+        <TaskInlineComposer
+          variant="plain"
+          :project-id="id"
+          :disabled="!Number.isFinite(id) || id <= 0"
+          @created="onInlineComposerCreated"
+          @dismiss="showTaskComposer = false"
+        />
+      </div>
+    </div>
+
+    <div v-if="canManageNoteOnProject && showNoteComposer" class="mt-6 overflow-hidden rounded-lg border border-border bg-surface p-3">
+      <NoteInlineComposer
+        :project-id="id"
+        :sections="projectStore.sections"
+        :section-id="null"
+        :can-manage="canManageNoteOnProject"
+        @created="onNoteInlineCreated"
+      />
+    </div>
+
+    <template v-if="totalItemCount === 0 && (projectStore.tasks.length > 0 || noteStore.notes.length > 0)">
+      <EmptyState
+        class="mt-6"
+        :title="t('projectDetail.emptyNoMatchTitle')"
+        :description="t('projectDetail.emptyNoMatchDescription')"
+      >
+        <Button variant="secondary" type="button" @click="resetTaskFilters">
+          {{ t('projectDetail.resetFilters') }}
+        </Button>
+      </EmptyState>
+    </template>
+    <template v-else-if="totalItemCount === 0">
+      <EmptyState
+        class="mt-6"
+        :title="t('projectDetail.emptyWorkspaceTitle')"
+        :description="t('projectDetail.emptyWorkspaceDescription')"
+      />
+    </template>
+    <!-- TODO(items-reorder): wire task DnD to unified section items reorder endpoint -->
+    <ProjectItemList
+      v-else
+      class="mt-6"
+      :groups="itemGroups"
+      :project-id="Number.isFinite(id) ? id : 0"
+      :can-manage-sections="canManageNoteOnProject"
+      :can-manage-note="canManageNoteOnProject"
+      :can-edit-task="canManageTask"
+      :can-change-status-task="canChangeTaskStatus"
+      :projects="projectOptions"
+      :assignable-users="assignableUsers"
+      :enable-task-drag="false"
+      @sections-updated="onNotesChanged"
+      @complete="onComplete"
+      @reopen="onReopen"
+      @info="openTaskDetail"
+      @open-note="openLinkedNote"
+      @task-updated="refreshProjectTasks"
+      @open-note-detail="openNoteDetail"
+      @edit-note="openNoteDetail"
+      @remove-note="onRemoveNote"
+    />
 
     <TaskDetailModal
       v-model="detailOpen"
@@ -816,12 +729,20 @@ async function createSection() {
       v-model="noteDetailOpen"
       :project-id="id"
       :note-id="noteDetailId"
-      :sections="noteStore.sections"
+      :sections="projectStore.sections"
       :project-tasks="projectTasksForNotes"
-      :can-manage="canManageNotes"
+      :can-manage="canManageNoteOnProject"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
     />
+
+    <Modal v-model="trashModalOpen" :title="t('projectDetail.tabs.trash')">
+      <ProjectTrashPanel
+        :project-id="id"
+        :can-manage="canManageNoteOnProject"
+        @restored="onTrashRestored"
+      />
+    </Modal>
 
     <Modal v-model="editProjectModalOpen" :title="t('projectDetail.modalEditTitle')">
       <ProjectForm

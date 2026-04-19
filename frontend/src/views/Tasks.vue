@@ -14,7 +14,7 @@ import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
 import TaskInlineComposer from '../components/tasks/TaskInlineComposer.vue'
 import TaskList from '../components/tasks/TaskList.vue'
-import TaskSectionList from '../components/tasks/TaskSectionList.vue'
+import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import {
   presentTasks,
@@ -217,6 +217,15 @@ const sectionGroupsForList = computed(() => {
     }))
 })
 
+const sectionWorkspaceGroups = computed(() =>
+  sectionGroupsForList.value.map((g, idx) => ({
+    key: g.key,
+    label: g.label,
+    order: idx,
+    items: g.tasks.map((t) => ({ kind: 'task' as const, task: t })),
+  })),
+)
+
 const tasksBreadcrumbItems = computed(() => [
   { label: t('common.home'), to: '/dashboard' },
   { label: t('tasks.breadcrumb') },
@@ -233,7 +242,7 @@ async function openLinkedNote(payload: { noteId: number; projectId: number }) {
   noteDetailOpen.value = true
   try {
     await projectStore.fetchOne(payload.projectId).catch(() => {})
-    await noteStore.fetchSections(payload.projectId)
+    await projectStore.fetchSections(payload.projectId)
     await noteStore.fetchList(payload.projectId, { quiet: true })
   } catch {
     toast.error(t('tasks.openLinkedNoteFailed'))
@@ -515,8 +524,9 @@ async function onSectionMove(payload: {
           </div>
         </div>
 
-        <TaskSectionList
-          :groups="sectionGroupsForList"
+        <ProjectItemList
+          :groups="sectionWorkspaceGroups"
+          :can-manage-note="false"
           :can-edit-task="canManageTask"
           :can-change-status-task="canChangeTaskStatus"
           :projects="inlineComposerProjects"
@@ -585,7 +595,7 @@ async function onSectionMove(payload: {
       v-model="noteDetailOpen"
       :project-id="noteDetailProjectId"
       :note-id="noteDetailId"
-      :sections="noteStore.sections"
+      :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageNotesForNoteModal"
       @saved="load"

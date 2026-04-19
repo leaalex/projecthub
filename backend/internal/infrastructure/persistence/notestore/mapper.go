@@ -7,9 +7,9 @@ import (
 )
 
 func toDomain(r *NoteRecord) *note.Note {
-	var secID *project.NoteSectionID
+	var secID *project.SectionID
 	if r.SectionID != nil {
-		s := project.NoteSectionID(*r.SectionID)
+		s := project.SectionID(*r.SectionID)
 		secID = &s
 	}
 	return note.Reconstitute(

@@ -26,7 +26,6 @@ func handleServiceError(c *gin.Context, err error) {
 		errors.Is(err, application.ErrTargetUserNotFound),
 		errors.Is(err, project.ErrNotMember),
 		errors.Is(err, project.ErrSectionNotFound),
-		errors.Is(err, project.ErrNoteSectionNotFound),
 		errors.Is(err, task.ErrTaskSectionNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 

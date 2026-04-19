@@ -1,18 +1,8 @@
-/** Секция заметок проекта (`note_sections`). */
-export interface NoteSection {
-  id: number
-  project_id: number
-  name: string
-  position: number
-  created_at: string
-  updated_at: string
-}
-
 /** Заметка, связанная с проектом. */
 export interface Note {
   id: number
   project_id: number
-  /** id из `note_sections`, не task_sections. */
+  /** id из `project_sections` */
   section_id: number | null
   author_id: number
   title: string

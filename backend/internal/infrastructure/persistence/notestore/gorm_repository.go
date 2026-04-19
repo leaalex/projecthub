@@ -86,6 +86,24 @@ func (r *GormRepository) DeleteByProject(ctx context.Context, projectID project.
 	})
 }
 
+func (r *GormRepository) ListVisible(ctx context.Context, filter note.ListFilter) ([]*note.Note, error) {
+	q := r.db.WithContext(ctx).Model(&NoteRecord{})
+	if !filter.CallerIsSystem {
+		if len(filter.VisibleProjectIDs) == 0 {
+			return nil, nil
+		}
+		q = q.Where("project_id IN ?", filter.VisibleProjectIDs)
+	}
+	if filter.ProjectID != nil {
+		q = q.Where("project_id = ?", filter.ProjectID.Uint())
+	}
+	var rows []NoteRecord
+	if err := q.Order("updated_at DESC").Order("id DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rowsToDomain(rows), nil
+}
+
 func (r *GormRepository) ListByProject(ctx context.Context, projectID project.ID) ([]*note.Note, error) {
 	var rows []NoteRecord
 	if err := r.db.WithContext(ctx).
@@ -108,7 +126,7 @@ func (r *GormRepository) ListDeletedByProject(ctx context.Context, projectID pro
 	return rowsToDomain(rows), nil
 }
 
-func (r *GormRepository) NextPosition(ctx context.Context, projectID project.ID, sectionID *project.NoteSectionID) (int, error) {
+func (r *GormRepository) NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
 	q := r.db.WithContext(ctx).Model(&NoteRecord{}).Where("project_id = ?", projectID.Uint())
 	if sectionID == nil {
 		q = q.Where("section_id IS NULL")

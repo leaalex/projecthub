@@ -96,6 +96,41 @@ func (h *NoteHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"notes": out})
 }
 
+// ListAll возвращает живые заметки по всем проектам, видимым пользователю (GET /notes).
+// Query: project_id — опционально ограничить одним проектом (если нет доступа — пустой список).
+func (h *NoteHandler) ListAll(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var projectID *uint
+	if p := c.Query("project_id"); p != "" {
+		n, err := strconv.ParseUint(p, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad project_id"})
+			return
+		}
+		v := uint(n)
+		projectID = &v
+	}
+	notes, err := h.Notes.ListVisible(c.Request.Context(), uid, role, projectID)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	out := make([]gin.H, 0, len(notes))
+	for _, n := range notes {
+		out = append(out, noteToJSON(n))
+	}
+	c.JSON(http.StatusOK, gin.H{"notes": out})
+}
+
 func (h *NoteHandler) Create(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {

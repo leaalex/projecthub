@@ -117,11 +117,11 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 	app.SeedTask(projectID)
 
 	// Заметка, секция заметок и связь note↔task — проверяем каскад при permanent delete.
-	recSec, dSec := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/note-sections", projectID), map[string]any{
+	recSec, dSec := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", projectID), map[string]any{
 		"name": "NotesSec",
 	}, token)
 	if recSec.Code != http.StatusCreated {
-		t.Fatalf("note-section: expected 201, got %d: %v", recSec.Code, dSec)
+		t.Fatalf("section: expected 201, got %d: %v", recSec.Code, dSec)
 	}
 	secID := uint(dSec["section"].(map[string]any)["id"].(float64))
 	recN, dN := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", projectID), map[string]any{
@@ -170,20 +170,20 @@ func TestProject_DeleteOrphansTasksBaseline(t *testing.T) {
 		t.Fatalf("expected 0 tasks after hard-delete, got %d", app.CountTasks(projectID))
 	}
 
-	var noteRows, noteSecRows, linkRows int64
+	var noteRows, secRows, linkRows int64
 	if err := app.DB.Model(&notestore.NoteRecord{}).Unscoped().Where("project_id = ?", projectID).Count(&noteRows).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := app.DB.Model(&projectstore.NoteSectionRecord{}).Unscoped().Where("project_id = ?", projectID).Count(&noteSecRows).Error; err != nil {
+	if err := app.DB.Model(&projectstore.SectionRecord{}).Unscoped().Where("project_id = ?", projectID).Count(&secRows).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := app.DB.Model(&notestore.NoteTaskLinkRecord{}).Unscoped().
 		Where("note_id = ?", noteID).Count(&linkRows).Error; err != nil {
 		t.Fatal(err)
 	}
-	if noteRows != 0 || noteSecRows != 0 || linkRows != 0 {
-		t.Fatalf("expected 0 notes, 0 note_sections, 0 links after hard-delete; got notes=%d sections=%d links=%d",
-			noteRows, noteSecRows, linkRows)
+	if noteRows != 0 || secRows != 0 || linkRows != 0 {
+		t.Fatalf("expected 0 notes, 0 project_sections, 0 links after hard-delete; got notes=%d sections=%d links=%d",
+			noteRows, secRows, linkRows)
 	}
 }
 

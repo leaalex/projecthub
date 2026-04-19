@@ -148,8 +148,8 @@
 
 | Экспорт | Описание |
 |---------|----------|
-| `NotePermissionContext` | `{ projects: { id, owner_id }[], current?: { id, owner_id, caller_project_role } }` — без импорта из `domain/project` |
-| `canManageNote(userId, userRole, ctx, projectId)` | Управление заметками: `admin`/`staff`, владелец проекта, роль `manager`/`owner` в проекте |
+| `NotePermissionContext` | `{ projects: { id, owner_id, caller_project_role? }[], current?: … }` — роль участника в элементe `projects` нужна для глобальной страницы `/notes` |
+| `canManageNote(userId, userRole, ctx, projectId)` | `admin`/`staff`, владелец, `manager`/`owner` по `caller_project_role` в списке проектов или по `current` |
 
 ---
 

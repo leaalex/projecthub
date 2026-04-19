@@ -71,7 +71,7 @@ func (s *NoteService) canView(ctx context.Context, projectID, callerID uint, rol
 	return has, err
 }
 
-func (s *NoteService) ensureNoteSectionInProject(ctx context.Context, pid project.ID, sectionID *project.NoteSectionID) error {
+func (s *NoteService) ensureNoteSectionInProject(ctx context.Context, pid project.ID, sectionID *project.SectionID) error {
 	if sectionID == nil {
 		return nil
 	}
@@ -79,8 +79,8 @@ func (s *NoteService) ensureNoteSectionInProject(ctx context.Context, pid projec
 	if err != nil {
 		return err
 	}
-	if p.NoteSectionByID(*sectionID) == nil {
-		return project.ErrNoteSectionNotFound
+	if p.SectionByID(*sectionID) == nil {
+		return project.ErrSectionNotFound
 	}
 	return nil
 }
@@ -96,9 +96,9 @@ func (s *NoteService) Create(ctx context.Context, callerID uint, role user.Role,
 	}
 
 	pid := project.ID(input.ProjectID)
-	var secID *project.NoteSectionID
+	var secID *project.SectionID
 	if input.SectionID != nil {
-		s2 := project.NoteSectionID(*input.SectionID)
+		s2 := project.SectionID(*input.SectionID)
 		secID = &s2
 	}
 	if err := s.ensureNoteSectionInProject(ctx, pid, secID); err != nil {
@@ -146,6 +146,41 @@ func (s *NoteService) List(ctx context.Context, projectID, callerID uint, role u
 		return nil, ErrForbidden
 	}
 	return s.Notes.ListByProject(ctx, project.ID(projectID))
+}
+
+// visibleProjectIDs — проекты, где пользователь владелец или участник (как у задач).
+func (s *NoteService) visibleProjectIDs(ctx context.Context, userID uint) ([]uint, error) {
+	uid := user.ID(userID)
+	owned, err := s.Projects.ListOwnedProjectIDs(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	memberships, err := s.Projects.ListMemberships(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	members := make([]uint, len(memberships))
+	for i, id := range memberships {
+		members[i] = id.Uint()
+	}
+	return unionUintIDs(owned, members), nil
+}
+
+// ListVisible возвращает живые заметки по всем видимым проектам (опционально один project_id).
+func (s *NoteService) ListVisible(ctx context.Context, callerID uint, role user.Role, projectID *uint) ([]*note.Note, error) {
+	f := note.ListFilter{CallerIsSystem: user.IsSystemRole(role)}
+	if !f.CallerIsSystem {
+		vis, err := s.visibleProjectIDs(ctx, callerID)
+		if err != nil {
+			return nil, err
+		}
+		f.VisibleProjectIDs = vis
+	}
+	if projectID != nil {
+		pid := project.ID(*projectID)
+		f.ProjectID = &pid
+	}
+	return s.Notes.ListVisible(ctx, f)
 }
 
 // Update обновляет заголовок и/или тело заметки.
@@ -287,9 +322,9 @@ func (s *NoteService) Move(ctx context.Context, noteID, callerID uint, role user
 	if !ok {
 		return nil, ErrForbidden
 	}
-	var secID *project.NoteSectionID
+	var secID *project.SectionID
 	if sectionID != nil {
-		s2 := project.NoteSectionID(*sectionID)
+		s2 := project.SectionID(*sectionID)
 		secID = &s2
 	}
 	if err := s.ensureNoteSectionInProject(ctx, n.ProjectID(), secID); err != nil {

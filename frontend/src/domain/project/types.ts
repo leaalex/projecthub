@@ -65,7 +65,8 @@ export interface RemoveMemberResult {
   transferred?: number
 }
 
-export interface TaskSection {
+/** Общие секции проекта (`project_sections`) — для задач и заметок. */
+export interface ProjectSection {
   id: number
   project_id: number
   name: string
@@ -73,6 +74,9 @@ export interface TaskSection {
   created_at: string
   updated_at: string
 }
+
+/** @deprecated Используйте `ProjectSection`. */
+export type TaskSection = ProjectSection
 
 export interface TaskMovePayload {
   task_id: number

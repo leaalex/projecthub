@@ -6,6 +6,13 @@ import { api } from '@infra/http/client'
  */
 export const notesApi = {
   /**
+   * Список живых заметок по всем видимым проектам.
+   * @http GET /notes
+   */
+  listAll: (params?: { project_id?: number }) =>
+    api.get<{ notes: Note[] }>('/notes', { params }),
+
+  /**
    * Список живых заметок проекта.
    * @http GET /projects/:projectId/notes
    */

@@ -6,12 +6,13 @@ import type {
   ProjectKind,
   ProjectMember,
   ProjectMemberRole,
+  ProjectSection,
   RemoveMemberResult,
-  TaskSection,
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
 import type { Task } from '@domain/task/types'
+import { useNoteStore } from '@app/note.store'
 import { projectsApi } from '@infra/api/projects'
 
 function projectKindFromApi(k: unknown): ProjectKind {
@@ -34,7 +35,7 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const current = ref<Project | null>(null)
   const tasks = ref<Task[]>([])
-  const sections = ref<TaskSection[]>([])
+  const sections = ref<ProjectSection[]>([])
   const members = ref<ProjectMember[]>([])
   /** Which project `members` belongs to; drives `assignableUsers`. */
   const membersProjectId = ref<number | null>(null)
@@ -131,8 +132,29 @@ export const useProjectStore = defineStore('project', () => {
   async function deleteSection(projectId: number, sectionId: number) {
     await projectsApi.sections.remove(projectId, sectionId)
     sections.value = sections.value.filter((s) => s.id !== sectionId)
-    // Backend moves tasks to unsectioned, refresh project tasks for accurate UI.
-    await fetchTasks(projectId)
+    const noteStore = useNoteStore()
+    // Backend clears section_id on tasks and notes; keep both stores in sync.
+    await Promise.all([
+      fetchTasks(projectId),
+      noteStore.fetchList(projectId, { quiet: true }),
+    ])
+  }
+
+  async function reorderSectionItems(
+    projectId: number,
+    sectionId: number | null,
+    items: { kind: 'task' | 'note'; id: number }[],
+  ) {
+    if (sectionId != null && sectionId < 0) {
+      throw new Error('invalid section id')
+    }
+    const sid = sectionId ?? 0
+    await projectsApi.sections.reorderItems(projectId, sid, items)
+    const noteStore = useNoteStore()
+    await Promise.all([
+      fetchTasks(projectId),
+      noteStore.fetchList(projectId, { quiet: true }),
+    ])
   }
 
   async function reorderSections(projectId: number, sectionIds: number[]) {
@@ -317,6 +339,7 @@ export const useProjectStore = defineStore('project', () => {
     updateSection,
     deleteSection,
     reorderSections,
+    reorderSectionItems,
     fetchMembers,
     addMember,
     updateMemberRole,

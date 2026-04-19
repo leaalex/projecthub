@@ -22,13 +22,16 @@ type Repository interface {
 	// DeleteByProject физически удаляет все заметки и связи проекта (каскадное удаление проекта).
 	DeleteByProject(ctx context.Context, projectID project.ID) error
 
+	// ListVisible возвращает живые заметки по фильтру видимости проектов (глобальный список).
+	ListVisible(ctx context.Context, filter ListFilter) ([]*Note, error)
+
 	// ListByProject возвращает живые (не удалённые) заметки проекта.
 	ListByProject(ctx context.Context, projectID project.ID) ([]*Note, error)
 	// ListDeletedByProject возвращает мягко удалённые заметки проекта.
 	ListDeletedByProject(ctx context.Context, projectID project.ID) ([]*Note, error)
 
 	// NextPosition возвращает следующую позицию в секции/проекте для новой заметки.
-	NextPosition(ctx context.Context, projectID project.ID, sectionID *project.NoteSectionID) (int, error)
+	NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error)
 
 	// ListLinkedTasks возвращает id задач, связанных с заметкой.
 	ListLinkedTasks(ctx context.Context, noteID ID) ([]task.ID, error)

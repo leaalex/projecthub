@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Note, CreateNotePayload, UpdateNotePayload, NoteSection } from '@domain/note/types'
+import type { Note, CreateNotePayload, UpdateNotePayload } from '@domain/note/types'
 import { notesApi } from '@infra/api/notes'
-import { projectsApi } from '@infra/api/projects'
 
 /** Ключ группы: `unsectioned` | `ns-{sectionId}` */
 export function parseNoteSectionGroupKey(key: string): number | null {
@@ -27,16 +26,36 @@ export function extractNoteAxiosError(e: unknown, fallback: string): string {
 
 export const useNoteStore = defineStore('note', () => {
   const notes = ref<Note[]>([])
-  const sections = ref<NoteSection[]>([])
   const currentProjectId = ref<number | null>(null)
   const loading = ref(false)
-  const sectionsLoading = ref(false)
   /** Ошибка последней загрузки (сырой объект); в UI показывайте локализованный fallback. */
   const error = ref<unknown | null>(null)
   const savingId = ref<number | null>(null)
   const deletingId = ref<number | null>(null)
   /** Кэш связей задача → заметки (по необходимости). */
   const linksByTaskId = ref<Map<number, Note[]>>(new Map())
+
+  async function fetchAll(
+    params: { project_id?: number } = {},
+    options: { quiet?: boolean } = {},
+  ) {
+    if (!options.quiet) loading.value = true
+    error.value = null
+    try {
+      const { data } = await notesApi.listAll(
+        params.project_id != null
+          ? { project_id: params.project_id }
+          : undefined,
+      )
+      notes.value = data.notes ?? []
+      currentProjectId.value = null
+    } catch (e: unknown) {
+      error.value = e
+      throw e
+    } finally {
+      if (!options.quiet) loading.value = false
+    }
+  }
 
   async function fetchList(projectId: number, options: { quiet?: boolean } = {}) {
     if (!options.quiet) loading.value = true
@@ -51,47 +70,6 @@ export const useNoteStore = defineStore('note', () => {
     } finally {
       if (!options.quiet) loading.value = false
     }
-  }
-
-  async function fetchSections(projectId: number, options: { quiet?: boolean } = {}) {
-    if (!options.quiet) sectionsLoading.value = true
-    try {
-      const { data } = await projectsApi.noteSections.list(projectId)
-      sections.value = data.sections ?? []
-    } finally {
-      if (!options.quiet) sectionsLoading.value = false
-    }
-  }
-
-  async function createSection(projectId: number, name: string): Promise<NoteSection> {
-    const { data } = await projectsApi.noteSections.create(projectId, name)
-    sections.value = [...sections.value, data.section].sort(
-      (a, b) => a.position - b.position || a.id - b.id,
-    )
-    return data.section
-  }
-
-  async function renameSection(
-    projectId: number,
-    sectionId: number,
-    name: string,
-  ): Promise<void> {
-    const { data } = await projectsApi.noteSections.update(projectId, sectionId, name)
-    const i = sections.value.findIndex(s => s.id === sectionId)
-    if (i >= 0) sections.value[i] = data.section
-  }
-
-  async function removeSection(projectId: number, sectionId: number): Promise<void> {
-    await projectsApi.noteSections.remove(projectId, sectionId)
-    sections.value = sections.value.filter(s => s.id !== sectionId)
-    notes.value = notes.value.map(n =>
-      n.section_id === sectionId ? { ...n, section_id: null } : n,
-    )
-  }
-
-  async function reorderSections(projectId: number, sectionIds: number[]): Promise<void> {
-    await projectsApi.noteSections.reorder(projectId, sectionIds)
-    await fetchSections(projectId, { quiet: true })
   }
 
   async function fetchOne(projectId: number, noteId: number): Promise<Note> {
@@ -164,12 +142,21 @@ export const useNoteStore = defineStore('note', () => {
    * Применить порядок после drag-n-drop: секции обрабатываются по порядку `keys`
    * (при переносе между секциями сначала целевая, затем исходная); позиции — снизу вверх,
    * чтобы не ломать уникальность порядка в БД между запросами.
+   *
+   * @deprecated Используйте `projectStore.reorderSectionItems` (POST `/sections/:sid/items/reorder`)
+   * для смешанного порядка задач и заметок; этот путь остаётся для постепенной миграции UI.
    */
   async function reorderNotes(
     projectId: number,
     keys: string[],
     groupNoteIds: Map<string, number[]>,
   ): Promise<void> {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[noteStore.reorderNotes] deprecated: prefer projectStore.reorderSectionItems for unified section order',
+      )
+    }
     for (const key of keys) {
       const sectionId = parseNoteSectionGroupKey(key)
       const ids = groupNoteIds.get(key) ?? []
@@ -232,20 +219,14 @@ export const useNoteStore = defineStore('note', () => {
 
   return {
     notes,
-    sections,
     currentProjectId,
     loading,
-    sectionsLoading,
     error,
     savingId,
     deletingId,
     linksByTaskId,
+    fetchAll,
     fetchList,
-    fetchSections,
-    createSection,
-    renameSection,
-    removeSection,
-    reorderSections,
     fetchOne,
     create,
     update,

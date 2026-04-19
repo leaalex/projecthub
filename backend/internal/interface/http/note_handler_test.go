@@ -211,14 +211,14 @@ func TestNote_Move_BetweenSections(t *testing.T) {
 	token, _ := app.Login(owner.Email().String(), pass)
 	p := app.SeedProject(owner.ID().Uint(), "team")
 
-	recA, dA := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/note-sections", p.ID().Uint()), map[string]any{
+	recA, dA := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", p.ID().Uint()), map[string]any{
 		"name": "A",
 	}, token)
 	if recA.Code != http.StatusCreated {
 		t.Fatal(dA)
 	}
 	sidA := uint(dA["section"].(map[string]any)["id"].(float64))
-	recB, dB := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/note-sections", p.ID().Uint()), map[string]any{
+	recB, dB := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", p.ID().Uint()), map[string]any{
 		"name": "B",
 	}, token)
 	if recB.Code != http.StatusCreated {
@@ -280,5 +280,74 @@ func TestNote_List_ViewerCanRead_ButCannotMutate_403(t *testing.T) {
 	}, memberToken)
 	if recCreate.Code != http.StatusForbidden {
 		t.Fatalf("executor create: expected 403, got %d", recCreate.Code)
+	}
+}
+
+func TestNote_ListAll_AcrossProjects(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p1 := app.SeedProject(owner.ID().Uint(), "team")
+	p2 := app.SeedProject(owner.ID().Uint(), "team")
+
+	_, _ = app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", p1.ID().Uint()), map[string]any{
+		"title": "A",
+	}, token)
+	_, _ = app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", p2.ID().Uint()), map[string]any{
+		"title": "B",
+	}, token)
+
+	rec, data := app.Do(http.MethodGet, "/api/notes", nil, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
+	}
+	notes := data["notes"].([]any)
+	if len(notes) != 2 {
+		t.Fatalf("expected 2 notes across projects, got %d", len(notes))
+	}
+
+	rec2, data2 := app.Do(http.MethodGet, fmt.Sprintf("/api/notes?project_id=%d", p2.ID().Uint()), nil, token)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %v", rec2.Code, data2)
+	}
+	notes2 := data2["notes"].([]any)
+	if len(notes2) != 1 {
+		t.Fatalf("expected 1 note for project filter, got %d", len(notes2))
+	}
+	titles := notes2[0].(map[string]any)["title"]
+	if titles != "B" {
+		t.Fatalf("expected note B, got %v", titles)
+	}
+}
+
+func TestNote_ListAll_ForbiddenProjectIgnored(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	userA, passA := app.SeedUserWithPassword(domainuser.RoleCreator, "a12345678")
+	userB, passB := app.SeedUserWithPassword(domainuser.RoleCreator, "b12345678")
+	tokenA, _ := app.Login(userA.Email().String(), passA)
+	tokenB, _ := app.Login(userB.Email().String(), passB)
+
+	pA := app.SeedProject(userA.ID().Uint(), "team")
+	pB := app.SeedProject(userB.ID().Uint(), "team")
+
+	_, _ = app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pA.ID().Uint()), map[string]any{
+		"title": "Mine",
+	}, tokenA)
+	_, _ = app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pB.ID().Uint()), map[string]any{
+		"title": "Theirs",
+	}, tokenB)
+
+	rec, data := app.Do(http.MethodGet, fmt.Sprintf("/api/notes?project_id=%d", pB.ID().Uint()), nil, tokenA)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %v", rec.Code, data)
+	}
+	notes := data["notes"].([]any)
+	if len(notes) != 0 {
+		t.Fatalf("expected empty list for foreign project, got %d", len(notes))
+	}
+
+	recBad, _ := app.Do(http.MethodGet, "/api/notes?project_id=notnum", nil, tokenA)
+	if recBad.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 bad project_id, got %d", recBad.Code)
 	}
 }

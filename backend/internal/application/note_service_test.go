@@ -100,6 +100,33 @@ func (m *memNotes) DeleteByProject(_ context.Context, projectID project.ID) erro
 	return nil
 }
 
+func (m *memNotes) ListVisible(_ context.Context, filter note.ListFilter) ([]*note.Note, error) {
+	if !filter.CallerIsSystem && len(filter.VisibleProjectIDs) == 0 {
+		return nil, nil
+	}
+	var out []*note.Note
+	for _, n := range m.byID {
+		pid := n.ProjectID().Uint()
+		if !filter.CallerIsSystem {
+			ok := false
+			for _, v := range filter.VisibleProjectIDs {
+				if v == pid {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				continue
+			}
+		}
+		if filter.ProjectID != nil && n.ProjectID() != *filter.ProjectID {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
 func (m *memNotes) ListByProject(_ context.Context, projectID project.ID) ([]*note.Note, error) {
 	var out []*note.Note
 	for _, n := range m.byID {
@@ -120,7 +147,7 @@ func (m *memNotes) ListDeletedByProject(_ context.Context, projectID project.ID)
 	return out, nil
 }
 
-func (m *memNotes) NextPosition(_ context.Context, projectID project.ID, sectionID *project.NoteSectionID) (int, error) {
+func (m *memNotes) NextPosition(_ context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
 	return 1, nil
 }
 
@@ -281,6 +308,77 @@ func TestNoteService_LinkTask_sameProject(t *testing.T) {
 	// Duplicate link rejected.
 	if err := svc.LinkTask(context.Background(), n.ID().Uint(), tk.ID().Uint(), 1, user.RoleCreator); err != note.ErrLinkAlreadyExists {
 		t.Fatalf("expected ErrLinkAlreadyExists, got %v", err)
+	}
+}
+
+func TestNoteService_ListVisible_ScopesByMembership(t *testing.T) {
+	memP := newMemProjects()
+	memT := newMemTasks()
+	memN := newMemNotes()
+	svc := application.NewNoteService(memN, memT, memP)
+
+	pMine, _ := project.NewProject(user.ID(1), user.RoleCreator, "Mine", "", project.KindTeam)
+	pMine.Touch(time.Now())
+	_ = memP.Save(context.Background(), pMine)
+
+	pOther, _ := project.NewProject(user.ID(99), user.RoleCreator, "Other", "", project.KindTeam)
+	pOther.Touch(time.Now())
+	_ = memP.Save(context.Background(), pOther)
+
+	n1, err := svc.Create(context.Background(), 1, user.RoleCreator, application.NoteCreate{
+		ProjectID: pMine.ID().Uint(),
+		Title:     "In mine",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// User 99 creates note in their project; user 1 must not see it without membership.
+	_, err = svc.Create(context.Background(), 99, user.RoleCreator, application.NoteCreate{
+		ProjectID: pOther.ID().Uint(),
+		Title:     "Secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	all, err := svc.ListVisible(context.Background(), 1, user.RoleCreator, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 1 || all[0].ID() != n1.ID() {
+		t.Fatalf("expected 1 note for user 1, got %d", len(all))
+	}
+
+	pidOther := pOther.ID().Uint()
+	filtered, err := svc.ListVisible(context.Background(), 1, user.RoleCreator, &pidOther)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 0 {
+		t.Fatalf("expected 0 notes when filtering to foreign project, got %d", len(filtered))
+	}
+
+	// Add user 1 as member of pOther → sees both when unfiltered.
+	if _, err := pOther.AddMember(user.ID(1), project.RoleViewer, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	_ = memP.Save(context.Background(), pOther)
+
+	all2, err := svc.ListVisible(context.Background(), 1, user.RoleCreator, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all2) != 2 {
+		t.Fatalf("expected 2 notes after membership, got %d", len(all2))
+	}
+
+	filtered2, err := svc.ListVisible(context.Background(), 1, user.RoleCreator, &pidOther)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered2) != 1 {
+		t.Fatalf("expected 1 note in other project after membership, got %d", len(filtered2))
 	}
 }
 

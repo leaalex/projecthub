@@ -25,11 +25,14 @@ const props = withDefaults(
     showAssigneeFilter?: boolean
     /** Hide project filter and “By project” grouping (single-project context). */
     hideProjectFilter?: boolean
+    /** Hide “Group list only” (e.g. mixed project workspace is always by section). */
+    hideGroupBy?: boolean
   }>(),
   {
     showAssigneeFilter: false,
     assignableUsers: () => [],
     hideProjectFilter: false,
+    hideGroupBy: false,
   },
 )
 
@@ -282,7 +285,7 @@ const clearBtnClass =
             :options="sortDirSegmented"
           />
         </div>
-        <div class="flex shrink-0 flex-col gap-1.5">
+        <div v-if="!hideGroupBy" class="flex shrink-0 flex-col gap-1.5">
           <label class="block text-xs font-medium text-foreground">{{
             t('taskFiltersPanel.labels.groupListOnly')
           }}</label>

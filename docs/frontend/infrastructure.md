@@ -98,6 +98,7 @@ response 401
 
 | Метод | HTTP | Путь |
 |-------|------|------|
+| `notesApi.listAll(params?)` | GET | `/notes` (опционально `project_id`) — все видимые заметки |
 | `notesApi.list/get/create/update/remove/restore/permanentDelete/move` | — | `/projects/:projectId/notes` и вложенные `:noteId` |
 | `notesApi.links.add/remove` | POST/DELETE | связь заметки с задачей |
 | `notesApi.linkedByTask(taskId)` | GET | `/tasks/:taskId/notes` |

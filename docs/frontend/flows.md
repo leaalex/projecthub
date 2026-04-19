@@ -134,6 +134,21 @@ sequenceDiagram
 
 ## 4. Заметки: создание, связь с задачей, корзина, порядок
 
+### Глобальный список (`/notes`)
+
+```mermaid
+sequenceDiagram
+  participant UI as Notes.vue
+  participant store as note.store
+  participant api as notesApi
+  UI->>store: fetchAll({ project_id? })
+  store->>api: GET /notes
+  api-->>store: notes[]
+  UI->>UI: presentNotes — поиск, сортировка и группировка на клиенте
+```
+
+Создание с страницы: `NoteForm` с `projects[]` → `POST /projects/:id/notes` для выбранного проекта. Реордер на этой странице не показывается (он остаётся в контексте проекта).
+
 ### Создание и привязка задачи
 
 ```mermaid

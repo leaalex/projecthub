@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Note, NoteSection } from '@domain/note/types'
+import type { Note } from '@domain/note/types'
+import type { ProjectSection } from '@domain/project/types'
 import { useNoteStore, noteSectionGroupKey, extractNoteAxiosError } from '@app/note.store'
 import { useToast } from '@app/composables/useToast'
 import NoteCard from './NoteCard.vue'
@@ -12,7 +13,7 @@ const toast = useToast()
 
 const props = defineProps<{
   projectId: number
-  sections: NoteSection[]
+  sections: ProjectSection[]
   canManage: boolean
 }>()
 
@@ -190,7 +191,7 @@ async function onDropAt(destKey: string, destIndex: number) {
                 class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
               />
               <NoteCard
-                class="rounded-none border-0"
+                variant="list"
                 :note="n"
                 :can-manage="canManage"
                 @open="emit('open', $event)"

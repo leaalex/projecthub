@@ -5,6 +5,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
   FolderIcon,
   HomeIcon,
   MagnifyingGlassIcon,
@@ -39,6 +40,7 @@ const iconMap: Record<string, Component> = {
   home: HomeIcon,
   folder: FolderIcon,
   check: ClipboardDocumentCheckIcon,
+  note: DocumentTextIcon,
   chart: ChartBarIcon,
   swatch: SwatchIcon,
   users: UsersIcon,
@@ -51,10 +53,14 @@ const mainLinks = computed((): NavLink[] => {
     { to: '/dashboard', label: t('nav.dashboard'), icon: 'home' },
     { to: '/projects', label: t('nav.projects'), icon: 'folder' },
     { to: '/tasks', label: t('nav.tasks'), icon: 'check' },
+    { to: '/notes', label: t('nav.notes'), icon: 'note' },
     { to: '/reports', label: t('nav.reports'), icon: 'chart' },
   ]
   if (auth.user?.role === 'user' && !showProjectsAndTasks.value) {
-    return base.filter((link) => link.to !== '/projects' && link.to !== '/tasks')
+    return base.filter(
+      (link) =>
+        link.to !== '/projects' && link.to !== '/tasks' && link.to !== '/notes',
+    )
   }
   return base
 })

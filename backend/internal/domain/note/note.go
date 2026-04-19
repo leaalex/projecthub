@@ -12,7 +12,7 @@ import (
 type Note struct {
 	id        ID
 	projectID project.ID
-	sectionID *project.NoteSectionID
+	sectionID *project.SectionID
 	authorID  user.ID
 	title     string
 	body      string
@@ -24,7 +24,7 @@ type Note struct {
 // NewNote создаёт новую заметку (без id до первого Save).
 func NewNote(
 	projectID project.ID,
-	sectionID *project.NoteSectionID,
+	sectionID *project.SectionID,
 	authorID user.ID,
 	title, body string,
 	position int,
@@ -50,7 +50,7 @@ func NewNote(
 func Reconstitute(
 	id ID,
 	projectID project.ID,
-	sectionID *project.NoteSectionID,
+	sectionID *project.SectionID,
 	authorID user.ID,
 	title, body string,
 	position int,
@@ -71,7 +71,7 @@ func Reconstitute(
 
 func (n *Note) ID() ID                        { return n.id }
 func (n *Note) ProjectID() project.ID         { return n.projectID }
-func (n *Note) SectionID() *project.NoteSectionID { return n.sectionID }
+func (n *Note) SectionID() *project.SectionID { return n.sectionID }
 func (n *Note) AuthorID() user.ID             { return n.authorID }
 func (n *Note) Title() string                 { return n.title }
 func (n *Note) Body() string                  { return n.body }
@@ -108,7 +108,7 @@ func (n *Note) SetBody(body string, now time.Time) {
 }
 
 // MoveToSection перемещает заметку в секцию/позицию.
-func (n *Note) MoveToSection(sectionID *project.NoteSectionID, position int, now time.Time) {
+func (n *Note) MoveToSection(sectionID *project.SectionID, position int, now time.Time) {
 	n.sectionID = sectionID
 	n.position = position
 	n.Touch(now)

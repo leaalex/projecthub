@@ -9,10 +9,21 @@ import UiMenuButton from '../ui/UiMenuButton.vue'
 
 const { t, locale } = useI18n()
 
-const props = defineProps<{
-  note: Note
-  canManage: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    note: Note
+    canManage: boolean
+    /** Вертикальный список: без скругления и без контура (рамки). */
+    variant?: 'card' | 'list'
+  }>(),
+  { variant: 'card' },
+)
+
+const rootClass = computed(() =>
+  props.variant === 'list'
+    ? 'flex gap-3 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none transition-colors hover:bg-surface-muted/25'
+    : 'flex gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-muted/30',
+)
 
 const emit = defineEmits<{
   open: [id: number]
@@ -44,9 +55,7 @@ function onMenuSelect(v: string | number) {
 </script>
 
 <template>
-  <div
-    class="flex gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-muted/30"
-  >
+  <div :class="rootClass">
     <button
       type="button"
       class="min-w-0 flex-1 text-left"

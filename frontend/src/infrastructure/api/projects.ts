@@ -2,12 +2,12 @@ import type {
   Project,
   ProjectMember,
   ProjectMemberRole,
+  ProjectSection,
   RemoveMemberResult,
-  TaskSection,
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
-import type { NoteSection, NoteTrashItem } from '@domain/note/types'
+import type { NoteTrashItem } from '@domain/note/types'
 import type { Task } from '@domain/task/types'
 import { api } from '@infra/http/client'
 
@@ -93,57 +93,65 @@ export const projectsApi = {
   },
 
   /**
-   * Секции канбана (`/projects/:id/task-sections`).
+   * Общие секции проекта (`/projects/:id/sections`).
    */
   sections: {
     /**
-     * Список секций задач проекта.
-     * @http GET /projects/:projectId/task-sections
+     * Список секций проекта.
+     * @http GET /projects/:projectId/sections
      */
     list: (projectId: number) =>
-      api.get<{ sections?: TaskSection[] | null }>(
-        `/projects/${projectId}/task-sections`,
+      api.get<{ sections?: ProjectSection[] | null }>(
+        `/projects/${projectId}/sections`,
       ),
 
     /**
      * Создать секцию.
-     * @http POST /projects/:projectId/task-sections
+     * @http POST /projects/:projectId/sections
      */
     create: (projectId: number, name: string) =>
-      api.post<{ section: TaskSection }>(
-        `/projects/${projectId}/task-sections`,
+      api.post<{ section: ProjectSection }>(
+        `/projects/${projectId}/sections`,
         { name },
       ),
 
     /**
      * Переименовать секцию.
-     * @http PUT /projects/:projectId/task-sections/:sectionId
+     * @http PUT /projects/:projectId/sections/:sectionId
      */
     update: (projectId: number, sectionId: number, name: string) =>
-      api.put<{ section: TaskSection }>(
-        `/projects/${projectId}/task-sections/${sectionId}`,
+      api.put<{ section: ProjectSection }>(
+        `/projects/${projectId}/sections/${sectionId}`,
         { name },
       ),
 
     /**
      * Удалить секцию.
-     * @http DELETE /projects/:projectId/task-sections/:sectionId
+     * @http DELETE /projects/:projectId/sections/:sectionId
      */
     remove: (projectId: number, sectionId: number) =>
-      api.delete(
-        `/projects/${projectId}/task-sections/${sectionId}`,
-      ),
+      api.delete(`/projects/${projectId}/sections/${sectionId}`),
 
     /**
      * Задать порядок секций.
-     *
-     * @param projectId — id проекта
-     * @param section_ids — упорядоченный список id секций
-     * @http POST /projects/:projectId/task-sections/reorder
+     * @http POST /projects/:projectId/sections/reorder
      */
     reorder: (projectId: number, section_ids: number[]) =>
-      api.post(`/projects/${projectId}/task-sections/reorder`, {
+      api.post(`/projects/${projectId}/sections/reorder`, {
         section_ids,
+      }),
+
+    /**
+     * Порядок задач и заметок внутри секции (sectionId `0` — без секции).
+     * @http POST /projects/:projectId/sections/:sectionId/items/reorder
+     */
+    reorderItems: (
+      projectId: number,
+      sectionId: number,
+      items: { kind: 'task' | 'note'; id: number }[],
+    ) =>
+      api.post(`/projects/${projectId}/sections/${sectionId}/items/reorder`, {
+        items,
       }),
   },
 
@@ -216,51 +224,6 @@ export const projectsApi = {
         `/projects/${projectId}/members/${userId}/transfer-tasks`,
         { transfers },
       ),
-  },
-
-  /**
-   * Секции заметок (`/projects/:id/note-sections`).
-   */
-  noteSections: {
-    /**
-     * @http GET /projects/:projectId/note-sections
-     */
-    list: (projectId: number) =>
-      api.get<{ sections?: NoteSection[] | null }>(
-        `/projects/${projectId}/note-sections`,
-      ),
-
-    /**
-     * @http POST /projects/:projectId/note-sections
-     */
-    create: (projectId: number, name: string) =>
-      api.post<{ section: NoteSection }>(
-        `/projects/${projectId}/note-sections`,
-        { name },
-      ),
-
-    /**
-     * @http PUT /projects/:projectId/note-sections/:sectionId
-     */
-    update: (projectId: number, sectionId: number, name: string) =>
-      api.put<{ section: NoteSection }>(
-        `/projects/${projectId}/note-sections/${sectionId}`,
-        { name },
-      ),
-
-    /**
-     * @http DELETE /projects/:projectId/note-sections/:sectionId
-     */
-    remove: (projectId: number, sectionId: number) =>
-      api.delete(`/projects/${projectId}/note-sections/${sectionId}`),
-
-    /**
-     * @http POST /projects/:projectId/note-sections/reorder
-     */
-    reorder: (projectId: number, section_ids: number[]) =>
-      api.post(`/projects/${projectId}/note-sections/reorder`, {
-        section_ids,
-      }),
   },
 
   /**

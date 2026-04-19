@@ -16,6 +16,7 @@
 | `/projects/:id` | `ProjectDetail.vue` | + `note.store`, `trashTasks.store`, `trashNotes.store` | Вкладки **Tasks / Notes / Trash** (`UiSegmentedControl`); заметки: `NoteSectionList`, `NoteList`, `NoteDetailModal`, `ProjectTrashPanel`; задачи — как раньше |
 | `/projects/:id/settings` | `ProjectSettings.vue` | `auth.store`, `project.store` | `ProjectMembers`, `AddMemberModal`, `TransferOwnershipModal` |
 | `/tasks` | `Tasks.vue` | + `note.store` (модалка заметки) | `TaskSectionList`, `TaskDetailModal`, `NoteDetailModal` при открытии связанной заметки с карточки/деталей задачи |
+| `/notes` | `Notes.vue` | `note.store` (`fetchAll`), `project.store`, `task.store`, `useNoteListPresentation` | `NoteFiltersPanel`, `NoteCard`, `NoteDetailModal`, создание через `NoteForm` с выбором проекта |
 | `/reports` | `Reports.vue` | `report.store`, `useConfirm`, `useToast` | `ReportSettings`, `ReportViewer`, `UiCard`, `UiModal`, `UiTable` |
 | `/profile` | `Profile.vue` | `auth.store`, `ui.store`, `useToast` | `UiBreadcrumb`, `UiButton`, `UiCard`, `UiInput`, `UiSegmentedControl` |
 | `/admin/users` | `Admin/Users.vue` | `auth.store`, `user.store`, `useConfirm`, `useToast` | `AdminUserModal`, `UiAvatar`, `UiMenuButton`, `UiEmptyState` |
@@ -121,6 +122,7 @@
 | `NoteForm.vue` | Заголовок, секция, тело (markdown) |
 | `NoteCard.vue` | Карточка в списке: превью, дата, меню |
 | `NoteList.vue` | Группировка по note-секциям + HTML5 DnD, вызов `noteStore.reorderNotes` |
+| `NoteFiltersPanel.vue` | Панель фильтров глобальной страницы `/notes`: проект, сортировка, группировка (секция — только при фильтре по одному проекту) |
 | `NoteSectionList.vue` | CRUD и порядок секций заметок |
 | `NoteInlineComposer.vue` | Быстрое создание в шапке секции |
 | `NoteDetailModal.vue` | Просмотр/редактирование, связанные задачи, `NoteLinkedTasksPicker` |

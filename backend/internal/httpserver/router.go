@@ -31,6 +31,7 @@ type Deps struct {
 	Projects          *application.ProjectService
 	MemberRemoval     *application.MemberRemovalService
 	Tasks             *application.TaskService
+	SectionItems      *application.SectionItemsReorderService
 	TaskMove          *application.TaskMoveService
 	TaskAssign        *application.TaskAssignService
 	TaskTrash         *application.TaskTrashService
@@ -65,9 +66,8 @@ func BuildRouter(deps Deps) *gin.Engine {
 		Users:     deps.UserRepo,
 	}
 	noteHandler := &handler.NoteHandler{Notes: deps.Notes}
-	noteSectionHandler := &handler.NoteSectionHandler{Projects: deps.Projects}
 	trashHandler := &handler.TrashHandler{Tasks: deps.TaskTrash, Notes: deps.Notes}
-	taskSectionHandler := &handler.TaskSectionHandler{Projects: deps.Projects}
+	projectSectionHandler := &handler.ProjectSectionHandler{Projects: deps.Projects, SectionItems: deps.SectionItems}
 	subtaskHandler := &handler.SubtaskHandler{Tasks: deps.Tasks}
 	userHandler := &handler.UserHandler{Svc: deps.Users}
 	reportHandler := &handler.ReportHandler{Svc: deps.Reports}
@@ -98,16 +98,12 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects.POST("", projectHandler.Create)
 	projects.GET("/:id/tasks", projectHandler.ListProjectTasks)
 	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
-	projects.GET("/:id/task-sections", taskSectionHandler.List)
-	projects.POST("/:id/task-sections", taskSectionHandler.Create)
-	projects.PUT("/:id/task-sections/:sectionId", taskSectionHandler.Update)
-	projects.DELETE("/:id/task-sections/:sectionId", taskSectionHandler.Delete)
-	projects.POST("/:id/task-sections/reorder", taskSectionHandler.Reorder)
-	projects.GET("/:id/note-sections", noteSectionHandler.List)
-	projects.POST("/:id/note-sections", noteSectionHandler.Create)
-	projects.PUT("/:id/note-sections/:sectionId", noteSectionHandler.Update)
-	projects.DELETE("/:id/note-sections/:sectionId", noteSectionHandler.Delete)
-	projects.POST("/:id/note-sections/reorder", noteSectionHandler.Reorder)
+	projects.GET("/:id/sections", projectSectionHandler.List)
+	projects.POST("/:id/sections", projectSectionHandler.Create)
+	projects.PUT("/:id/sections/:sectionId", projectSectionHandler.Update)
+	projects.DELETE("/:id/sections/:sectionId", projectSectionHandler.Delete)
+	projects.POST("/:id/sections/reorder", projectSectionHandler.Reorder)
+	projects.POST("/:id/sections/:sectionId/items/reorder", projectSectionHandler.ReorderItems)
 	projects.GET("/:id/notes", noteHandler.List)
 	projects.POST("/:id/notes", noteHandler.Create)
 	projects.GET("/:id/notes/:noteId", noteHandler.Get)
@@ -130,6 +126,8 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects.GET("/:id", projectHandler.Get)
 	projects.PUT("/:id", projectHandler.Update)
 	projects.DELETE("/:id", projectHandler.Delete)
+
+	protected.GET("/notes", noteHandler.ListAll)
 
 	tasks := protected.Group("/tasks")
 	tasks.GET("", taskHandler.List)
