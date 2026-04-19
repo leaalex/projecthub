@@ -45,15 +45,15 @@
     "admin": "Админ",
     "profile": "Профиль",
     "signOut": "Выйти",
-    "commandPalette": "Командная палитра",
-    "commandPaletteShortcut": "Командная палитра — ⌘K или Ctrl+K",
+    "commandPalette": "Палитра команд",
+    "commandPaletteShortcut": "Палитра команд — ⌘K или Ctrl+K",
     "expandSidebar": "Развернуть боковую панель",
     "collapseSidebar": "Свернуть боковую панель",
     "toggleSidebar": "Переключить ширину боковой панели",
     "mainNavigation": "Основная навигация"
   },
   "commandPalette": {
-    "ariaLabel": "Командная палитра",
+    "ariaLabel": "Палитра команд",
     "placeholder": "Поиск по навигации, проектам, задачам…",
     "noMatches": "Ничего не найдено",
     "hintNavigate": "навигация",
