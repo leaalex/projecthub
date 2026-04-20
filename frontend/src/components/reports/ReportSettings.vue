@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineExpose, onMounted, ref } from 'vue'
+import { computed, defineExpose, onMounted, ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiButton from '../ui/UiButton.vue'
 import UiCheckboxRow from '../ui/UiCheckboxRow.vue'
@@ -74,25 +74,7 @@ const selectedStatuses = ref<TaskStatus[]>([...statusKeys])
 const priorityKeys: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 const selectedPriorities = ref<TaskPriority[]>([...priorityKeys])
 
-const fieldDefs = computed(() =>
-  (
-    [
-      'title',
-      'description',
-      'status',
-      'priority',
-      'project',
-      'assignee',
-      'due_date',
-      'created_at',
-      'updated_at',
-    ] as const
-  ).map((key) => ({
-    key,
-    label: t(`enums.reportField.${key}`),
-  })),
-)
-const selectedFields = ref<string[]>([
+const DEFAULT_REPORT_FIELDS = [
   'title',
   'description',
   'status',
@@ -102,7 +84,26 @@ const selectedFields = ref<string[]>([
   'due_date',
   'created_at',
   'updated_at',
-])
+] as const
+
+function sameMembers<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false
+  const sb = new Set(b)
+  return a.every(x => sb.has(x))
+}
+
+function fieldsMatchDefault(fields: string[]): boolean {
+  if (fields.length !== DEFAULT_REPORT_FIELDS.length) return false
+  return sameMembers(fields, DEFAULT_REPORT_FIELDS)
+}
+
+const fieldDefs = computed(() =>
+  DEFAULT_REPORT_FIELDS.map((key) => ({
+    key,
+    label: t(`enums.reportField.${key}`),
+  })),
+)
+const selectedFields = ref<string[]>([...DEFAULT_REPORT_FIELDS])
 
 const groupBy = ref<ReportGroupBy>('')
 
@@ -162,9 +163,23 @@ const canSubmit = computed(
   () => selectedFields.value.length > 0 && !props.generating,
 )
 
+const isDirty: ComputedRef<boolean> = computed(() => {
+  if (dateFrom.value.trim() !== '' || dateTo.value.trim() !== '') return true
+  if (selectedProjectIds.value.length > 0) return true
+  if (selectedUserIds.value.length > 0) return true
+  if (format.value !== 'xlsx') return true
+  if (pdfLayout.value !== 'table') return true
+  if (!sameMembers(selectedStatuses.value, statusKeys)) return true
+  if (!sameMembers(selectedPriorities.value, priorityKeys)) return true
+  if (!fieldsMatchDefault(selectedFields.value)) return true
+  if (groupBy.value !== '') return true
+  return false
+})
+
 defineExpose({
   submit,
   canSubmit,
+  isDirty,
 })
 </script>
 

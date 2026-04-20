@@ -11,6 +11,7 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import Modal from '../components/ui/UiModal.vue'
 import NoteCard from '../components/notes/NoteCard.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
+import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import NoteForm from '../components/notes/NoteForm.vue'
 import NoteFiltersPanel from '../components/notes/NoteFiltersPanel.vue'
 import {
@@ -125,11 +126,26 @@ const notesBreadcrumbItems = computed(() => [
 const showCreateModal = ref(false)
 const createProjectIdPrefill = ref<number | null>(null)
 const createSaving = ref(false)
+const createTitle = ref('')
+const createBody = ref('')
+const createSectionId = ref<number | null>(null)
+
+const createModalDirty = computed(
+  () =>
+    showCreateModal.value
+    && (createTitle.value.trim() !== ''
+      || createBody.value.trim() !== ''
+      || createSectionId.value !== null),
+)
 
 const detailOpen = ref(false)
 const detailNoteId = ref<number | null>(null)
 const detailProjectId = ref(0)
 const detailModalMode = ref<'view' | 'edit'>('view')
+
+const taskDetailOpen = ref(false)
+const taskDetailId = ref<number | null>(null)
+const taskDetailMode = ref<'view' | 'edit'>('view')
 
 const projectTasksForNoteModal = computed(() => {
   const pid = detailProjectId.value
@@ -166,6 +182,21 @@ function openNoteEdit(noteId: number, projectId: number) {
   detailOpen.value = true
 }
 
+function openTaskFromNote(taskId: number) {
+  detailOpen.value = false
+  taskDetailId.value = taskId
+  taskDetailMode.value = 'view'
+  taskDetailOpen.value = true
+}
+
+function openNoteFromTask(payload: { noteId: number; projectId: number }) {
+  taskDetailOpen.value = false
+  detailProjectId.value = payload.projectId
+  detailNoteId.value = payload.noteId
+  detailModalMode.value = 'view'
+  detailOpen.value = true
+}
+
 async function prepareNoteModalContext(projectId: number) {
   await projectStore.fetchOne(projectId).catch(() => {})
   await projectStore.fetchSections(projectId)
@@ -180,6 +211,10 @@ watch(detailOpen, async open => {
   }
   const pid = detailProjectId.value
   if (pid > 0) await prepareNoteModalContext(pid)
+})
+
+watch(taskDetailOpen, open => {
+  if (!open) taskDetailId.value = null
 })
 
 onMounted(async () => {
@@ -221,7 +256,12 @@ watch(
 )
 
 watch(showCreateModal, async open => {
-  if (!open) return
+  if (!open) {
+    createTitle.value = ''
+    createBody.value = ''
+    createSectionId.value = null
+    return
+  }
   const filtered = Number(filterProject.value)
   if (filterProject.value !== '' && Number.isFinite(filtered) && filtered > 0) {
     createProjectIdPrefill.value = filtered
@@ -436,8 +476,12 @@ async function onCreateSubmit(payload: {
       v-if="canCreateNotes"
       v-model="showCreateModal"
       :title="t('notes.modalNewTitle')"
+      :dirty="createModalDirty"
     >
       <NoteForm
+        v-model:title="createTitle"
+        v-model:body="createBody"
+        v-model:section-id="createSectionId"
         :sections="projectStore.sections"
         :projects="inlineComposerProjects"
         :default-project-id="createProjectIdPrefill"
@@ -479,6 +523,15 @@ async function onCreateSubmit(payload: {
       :initial-mode="detailModalMode"
       @saved="load"
       @deleted="load"
+      @open-task="openTaskFromNote"
+    />
+
+    <TaskDetailModal
+      v-model="taskDetailOpen"
+      :task-id="taskDetailId"
+      :initial-mode="taskDetailMode"
+      @saved="load"
+      @open-note="openNoteFromTask"
     />
   </div>
 </template>

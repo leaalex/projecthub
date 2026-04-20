@@ -29,7 +29,6 @@ const { t } = useI18n()
 const slots = useSlots()
 
 const panelRef = ref<HTMLElement | null>(null)
-const shaking = ref(false)
 
 function close() {
   if (props.dirty) {
@@ -40,12 +39,16 @@ function close() {
 }
 
 function triggerShake() {
-  shaking.value = true
+  const el = panelRef.value
+  if (!el) return
+  el.classList.remove('modal-shake-active')
+  void el.offsetWidth // force reflow so the browser sees a fresh animation start
+  el.classList.add('modal-shake-active')
 }
 
 function onShakeEnd(e: AnimationEvent) {
   if (e.animationName !== 'modal-shake') return
-  shaking.value = false
+  panelRef.value?.classList.remove('modal-shake-active')
 }
 
 function onDocKey(e: KeyboardEvent) {
@@ -127,26 +130,23 @@ const showFooter = () => Boolean(slots.footer?.())
         <div
           ref="panelRef"
           class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
-          :class="[
-            size === 'large' ? 'max-w-4xl' : 'max-w-lg',
-            { 'modal-shake-active': shaking },
-          ]"
+          :class="size === 'large' ? 'max-w-4xl' : 'max-w-lg'"
           @keydown="onPanelKeydown"
           @animationend="onShakeEnd"
         >
           <div
             v-if="showHeader()"
-            class="flex shrink-0 items-center gap-4 border-b border-border px-5 py-4 sm:px-6"
+            class="flex min-h-16 shrink-0 items-center gap-4 border-b border-border px-5 py-4 sm:px-6"
           >
             <h2
               v-if="title"
-              class="min-w-0 flex-1 text-lg font-semibold text-foreground"
+              class="flex min-h-8 min-w-0 flex-1 items-center text-base font-semibold leading-snug text-foreground"
             >
               {{ title }}
             </h2>
             <div
               v-if="slots['header-actions']?.()"
-              class="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2"
+              class="ml-auto flex min-h-8 shrink-0 flex-nowrap items-center justify-end gap-2"
             >
               <slot name="header-actions" />
             </div>

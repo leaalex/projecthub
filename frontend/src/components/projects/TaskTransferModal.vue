@@ -94,7 +94,7 @@ function onCancel() {
       </div>
 
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">{{
+        <label class="mb-1 block text-xs font-medium text-foreground">{{
           t('taskTransferModal.transferMode')
         }}</label>
         <UiSelect
@@ -104,7 +104,7 @@ function onCancel() {
       </div>
 
       <div v-if="selectedMode === 'single_user'" class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">{{
+        <label class="mb-1 block text-xs font-medium text-foreground">{{
           t('taskTransferModal.assignAllTo')
         }}</label>
         <UiSelect

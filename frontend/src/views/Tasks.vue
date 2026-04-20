@@ -89,9 +89,20 @@ const showModal = ref(false)
 const title = ref('')
 const description = ref('')
 const projectId = ref(0)
+const taskSectionId = ref<number | null>(null)
 const status = ref<TaskStatus>('todo')
 const priority = ref<TaskPriority>('medium')
 const saving = ref(false)
+
+const taskCreateModalDirty = computed(
+  () =>
+    showModal.value
+    && (title.value.trim() !== ''
+      || description.value.trim() !== ''
+      || status.value !== 'todo'
+      || priority.value !== 'medium'
+      || taskSectionId.value !== null),
+)
 
 const allowServerFilterWatch = ref(false)
 
@@ -235,6 +246,7 @@ function openTaskEdit(taskId: number) {
 }
 
 async function openLinkedNote(payload: { noteId: number; projectId: number }) {
+  detailOpen.value = false
   noteDetailProjectId.value = payload.projectId
   noteDetailId.value = payload.noteId
   noteDetailModalMode.value = 'view'
@@ -246,6 +258,13 @@ async function openLinkedNote(payload: { noteId: number; projectId: number }) {
   } catch {
     toast.error(t('tasks.openLinkedNoteFailed'))
   }
+}
+
+function openTaskFromNote(taskId: number) {
+  noteDetailOpen.value = false
+  detailTaskId.value = taskId
+  detailTaskModalMode.value = 'view'
+  detailOpen.value = true
 }
 
 watch(detailOpen, (open) => {
@@ -294,15 +313,33 @@ watch(
   { immediate: true },
 )
 
-watch(showModal, (open) => {
-  if (!open) return
+async function prefetchTaskCreateSections(pid: number) {
+  if (!Number.isFinite(pid) || pid <= 0) {
+    projectStore.sections = []
+    return
+  }
+  await projectStore.fetchSections(pid).catch(() => {
+    projectStore.sections = []
+  })
+}
+
+watch(showModal, async (open) => {
+  if (!open) {
+    title.value = ''
+    description.value = ''
+    taskSectionId.value = null
+    status.value = 'todo'
+    priority.value = 'medium'
+    return
+  }
   const filtered = Number(filterProject.value)
   if (filterProject.value !== '' && Number.isFinite(filtered) && filtered > 0) {
     projectId.value = filtered
-    return
+  } else {
+    const first = projectStore.projects[0]
+    if (first) projectId.value = first.id
   }
-  const first = projectStore.projects[0]
-  if (first) projectId.value = first.id
+  await prefetchTaskCreateSections(projectId.value)
 })
 
 async function load() {
@@ -342,13 +379,11 @@ async function createTask() {
       title: trimmedTitle,
       description: description.value.trim(),
       project_id: pid,
+      section_id: taskSectionId.value ?? undefined,
       status: status.value,
       priority: priority.value,
     })
     showModal.value = false
-    title.value = ''
-    description.value = ''
-    projectId.value = projectStore.projects[0]?.id ?? 0
     await load()
     toast.success(t('tasks.toasts.created'))
   } catch (e: unknown) {
@@ -540,18 +575,26 @@ async function onSectionMove(payload: {
       </div>
     </template>
 
-    <Modal v-if="canCreateTasks" v-model="showModal" :title="t('tasks.modalNewTitle')">
+    <Modal
+      v-if="canCreateTasks"
+      v-model="showModal"
+      :title="t('tasks.modalNewTitle')"
+      :dirty="taskCreateModalDirty"
+    >
       <TaskForm
         v-model:title="title"
         v-model:description="description"
         v-model:project-id="projectId"
+        v-model:section-id="taskSectionId"
         v-model:status="status"
         v-model:priority="priority"
         form-id="tasks-new-task"
         hide-footer
+        :sections="projectStore.sections"
         :projects="projectStore.projects.map((p) => ({ id: p.id, name: p.name }))"
         :loading="saving"
         :submit-label="t('tasks.submitCreate')"
+        @project-picked="prefetchTaskCreateSections"
         @submit="createTask"
       />
       <template #footer>
@@ -588,6 +631,7 @@ async function onSectionMove(payload: {
       :initial-mode="noteDetailModalMode"
       @saved="load"
       @deleted="load"
+      @open-task="openTaskFromNote"
     />
   </div>
 </template>

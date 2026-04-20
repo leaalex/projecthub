@@ -48,11 +48,20 @@ const description = ref('')
 const projectKind = ref<ProjectKind>('personal')
 const saving = ref(false)
 
+const createModalDirty = computed(
+  () =>
+    showModal.value
+    && (name.value.trim() !== '' || description.value.trim() !== ''),
+)
+
 watch(showModal, (open) => {
-  if (open) {
-    projectKind.value =
-      auth.user?.role === 'user' ? 'personal' : 'team'
+  if (!open) {
+    name.value = ''
+    description.value = ''
+    return
   }
+  projectKind.value =
+    auth.user?.role === 'user' ? 'personal' : 'team'
 })
 
 const editModalOpen = ref(false)
@@ -86,8 +95,6 @@ async function createProject() {
       kind,
     })
     showModal.value = false
-    name.value = ''
-    description.value = ''
   } finally {
     saving.value = false
   }
@@ -168,7 +175,11 @@ async function removeEditProject() {
       @edit="openEditProject"
     />
 
-    <Modal v-model="showModal" :title="t('projects.modalNewTitle')">
+    <Modal
+      v-model="showModal"
+      :title="t('projects.modalNewTitle')"
+      :dirty="createModalDirty"
+    >
       <ProjectForm
         v-model:name="name"
         v-model:description="description"

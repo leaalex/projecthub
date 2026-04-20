@@ -32,7 +32,8 @@
       "mb": "{n} MB"
     },
     "created": "Created",
-    "noData": "No data"
+    "noData": "No data",
+    "additional": "Additional"
   },
   "modal": {
     "unsavedChanges": "There are unsaved changes"
@@ -508,6 +509,27 @@
       "subtitleStaff": "Directory — view all users (editing is admin-only)",
       "subtitleReadonly": "Directory (read-only)",
       "newUser": "New user",
+      "viewUser": "View user",
+      "editUser": "Edit user",
+      "form": {
+        "email": "Email",
+        "globalRole": "Global role",
+        "rolePlaceholder": "Role",
+        "password": "Password",
+        "newPasswordOptional": "New password (optional)",
+        "lastName": "Last name",
+        "firstName": "First name",
+        "patronymic": "Patronymic",
+        "department": "Department",
+        "jobTitle": "Job title",
+        "phone": "Phone"
+      },
+      "roles": {
+        "user": "User",
+        "creator": "Creator",
+        "staff": "Staff",
+        "admin": "Admin"
+      },
       "empty": {
         "title": "No users",
         "description": "No user accounts are visible in this environment."
@@ -888,6 +910,8 @@
       "title": "Title",
       "description": "Description",
       "project": "Project",
+      "section": "Section",
+      "assignee": "Assignee",
       "status": "Status",
       "priority": "Priority"
     },

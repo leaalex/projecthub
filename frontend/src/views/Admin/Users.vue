@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import {
-  Cog6ToothIcon,
   EyeIcon,
   PencilSquareIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline'
+import {
+  PaintBrushIcon,
+  UserIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/vue/20/solid'
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
@@ -13,9 +17,9 @@ import Avatar from '../../components/ui/UiAvatar.vue'
 import Breadcrumb from '../../components/ui/UiBreadcrumb.vue'
 import Button from '../../components/ui/UiButton.vue'
 import EmptyState from '../../components/ui/UiEmptyState.vue'
-import UiMenuButton from '../../components/ui/UiMenuButton.vue'
+import UiIconSelect from '../../components/ui/UiIconSelect.vue'
+import type { UiIconSelectOption } from '../../components/ui/UiIconSelect.vue'
 import Skeleton from '../../components/ui/UiSkeleton.vue'
-import type { UiSelectOption } from '../../components/ui/UiSelect.vue'
 import { isAdminRole } from '@domain/user/role'
 import type { User, UserRole } from '@domain/user/types'
 import { useConfirm } from '@app/composables/useConfirm'
@@ -41,10 +45,10 @@ const bootstrapping = ref(true)
 const isAdmin = computed(() => isAdminRole(auth.user?.role))
 const isStaff = computed(() => auth.user?.role === 'staff')
 
-const roleMenuOptions = computed<UiSelectOption<string>[]>(() => [
-  { value: 'user', label: roleLabel('user') },
-  { value: 'creator', label: roleLabel('creator') },
-  { value: 'staff', label: roleLabel('staff') },
+const roleIconSelectOptions = computed((): UiIconSelectOption<UserRole>[] => [
+  { value: 'user', label: roleLabel('user'), icon: UserIcon },
+  { value: 'creator', label: roleLabel('creator'), icon: PaintBrushIcon },
+  { value: 'staff', label: roleLabel('staff'), icon: WrenchScrewdriverIcon },
 ])
 
 const modalOpen = ref(false)
@@ -237,11 +241,28 @@ function isSelf(u: User) {
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <span
-            class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
-            :class="roleBadgeClass(u.role)"
-            >{{ roleLabel(u.role) }}</span
-          >
+          <template v-if="!isAdmin || u.role === 'admin'">
+            <span
+              class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
+              :class="roleBadgeClass(u.role)"
+              >{{ roleLabel(u.role) }}</span
+            >
+          </template>
+          <UiIconSelect
+            v-else
+            :key="`${u.id}-${u.role}`"
+            :model-value="u.role"
+            :block="false"
+            class="min-w-0 max-w-[11rem] flex-1"
+            :aria-label="
+              t('admin.users.aria.changeRole', { email: u.email, role: roleLabel(u.role) })
+            "
+            :trigger-title="t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })"
+            :placeholder="t('admin.users.form.rolePlaceholder')"
+            :options="roleIconSelectOptions"
+            :disabled="savingId === u.id"
+            @update:model-value="applyRole(u, String($event))"
+          />
           <div class="flex flex-wrap items-center justify-end gap-1.5">
             <template v-if="isAdmin">
               <Button
@@ -282,28 +303,6 @@ function isSelf(u: User) {
               <EyeIcon class="h-4 w-4 shrink-0" aria-hidden="true" />
             </Button>
           </div>
-        </div>
-
-        <div v-if="isAdmin && u.role !== 'admin'" class="flex items-center gap-2">
-          <span class="text-xs font-medium text-muted">{{
-            t('admin.users.changeRole')
-          }}</span>
-          <UiMenuButton
-            :key="`${u.id}-${u.role}`"
-            :model-value="u.role"
-            :ariaLabel="
-              t('admin.users.aria.changeRole', { email: u.email, role: roleLabel(u.role) })
-            "
-            :title="
-              t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })
-            "
-            :options="roleMenuOptions"
-            :disabled="savingId === u.id"
-            :min-panel-width="180"
-            @select="(v) => applyRole(u, String(v))"
-          >
-            <Cog6ToothIcon class="h-5 w-5" aria-hidden="true" />
-          </UiMenuButton>
         </div>
       </div>
     </div>
@@ -351,30 +350,32 @@ function isSelf(u: User) {
               <span class="block truncate">{{ trimOrDash(u.phone) }}</span>
             </td>
             <td class="px-4 py-3 align-middle">
-              <div class="flex max-w-[14rem] flex-wrap items-center gap-2">
-                <span
-                  class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
-                  :class="roleBadgeClass(u.role)"
-                  >{{ roleLabel(u.role) }}</span
-                >
-                <UiMenuButton
-                  v-if="isAdmin && u.role !== 'admin'"
+              <div class="flex max-w-[16rem] flex-wrap items-center gap-2">
+                <template v-if="!isAdmin || u.role === 'admin'">
+                  <span
+                    class="inline-flex w-fit rounded px-2 py-0.5 text-xs font-medium"
+                    :class="roleBadgeClass(u.role)"
+                    >{{ roleLabel(u.role) }}</span
+                  >
+                </template>
+                <UiIconSelect
+                  v-else
                   :key="`${u.id}-${u.role}`"
                   :model-value="u.role"
-                  :ariaLabel="
+                  :block="false"
+                  class="min-w-[7.5rem]"
+                  :aria-label="
                     t('admin.users.aria.changeRole', {
                       email: u.email,
                       role: roleLabel(u.role),
                     })
                   "
-                  :title="t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })"
-                  :options="roleMenuOptions"
+                  :trigger-title="t('admin.users.aria.changeRoleTitle', { role: roleLabel(u.role) })"
+                  :placeholder="t('admin.users.form.rolePlaceholder')"
+                  :options="roleIconSelectOptions"
                   :disabled="savingId === u.id"
-                  :min-panel-width="180"
-                  @select="(v) => applyRole(u, String(v))"
-                >
-                  <Cog6ToothIcon class="h-5 w-5" aria-hidden="true" />
-                </UiMenuButton>
+                  @update:model-value="applyRole(u, String($event))"
+                />
               </div>
             </td>
             <td class="px-4 py-3 text-right align-middle">

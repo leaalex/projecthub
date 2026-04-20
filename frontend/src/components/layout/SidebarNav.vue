@@ -99,7 +99,7 @@ function openCommandPaletteFromSidebar() {
 <template>
   <div class="flex h-full min-h-0 flex-1 flex-col">
     <div
-      class="flex border-b border-border px-2 py-3 md:px-3"
+      class="flex border-b border-border px-2 py-3"
       :class="
         collapsed
           ? 'items-stretch'
@@ -109,7 +109,7 @@ function openCommandPaletteFromSidebar() {
       <RouterLink
         v-if="!collapsed"
         to="/dashboard"
-        class="flex min-w-0 flex-1 items-center font-semibold text-primary md:justify-start"
+        class="flex min-w-0 flex-1 items-center pl-4 font-semibold text-primary md:justify-start"
         @click="onNavigate"
       >
         <span class="truncate text-lg">{{ t('common.brand') }}</span>

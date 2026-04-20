@@ -119,7 +119,7 @@ async function remove() {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div>
-      <label class="mb-1 block text-xs font-medium text-muted" for="section-edit-name">{{
+      <label class="mb-1 block text-xs font-medium text-foreground" for="section-edit-name">{{
         t('project.section.nameLabel')
       }}</label>
       <UiInput

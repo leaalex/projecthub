@@ -41,11 +41,19 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           @click="store.answer(false)"
         />
         <div
-          class="modal-panel relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6"
+          class="modal-panel relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-surface"
         >
-          <h2 class="text-lg font-semibold text-foreground">{{ options.title }}</h2>
-          <p class="mt-2 text-sm text-muted">{{ options.message }}</p>
-          <div class="mt-6 flex justify-end gap-2">
+          <div class="flex min-h-16 shrink-0 items-center border-b border-border px-5 py-4 sm:px-6">
+            <h2
+              class="flex min-h-8 min-w-0 flex-1 items-center text-base font-semibold leading-snug text-foreground"
+            >
+              {{ options.title }}
+            </h2>
+          </div>
+          <div class="px-5 py-4 sm:px-6 sm:py-5">
+            <p class="text-sm text-muted">{{ options.message }}</p>
+          </div>
+          <div class="flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4 sm:px-6">
             <Button variant="secondary" @click="store.answer(false)">
               {{ t(options.cancelLabelKey ?? 'confirmDefaults.cancel') }}
             </Button>

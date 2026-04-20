@@ -53,7 +53,7 @@ const updatedLabel = computed(() =>
     @keydown.enter.prevent="emit('view', task.id)"
     @keydown.space.prevent="emit('view', task.id)"
   >
-    <div class="flex shrink-0 flex-col self-center">
+    <div v-if="canChangeStatusEff" class="flex shrink-0 flex-col self-center">
       <button
         v-if="task.status !== 'done'"
         type="button"

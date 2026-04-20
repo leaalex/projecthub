@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { PencilSquareIcon } from '@heroicons/vue/24/outline'
+import {
+  DocumentCheckIcon,
+  LinkIcon,
+  PencilSquareIcon,
+} from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { Task } from '@domain/task/types'
 import type { Note } from '@domain/note/types'
 import type { ProjectSection } from '@domain/project/types'
+import { useTaskStore } from '@app/task.store'
 import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
 import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useToast } from '@app/composables/useToast'
@@ -14,6 +20,7 @@ import Skeleton from '../ui/UiSkeleton.vue'
 import NoteMarkdownView from './NoteMarkdownView.vue'
 import NoteForm from './NoteForm.vue'
 import NoteLinkedTasksPicker from './NoteLinkedTasksPicker.vue'
+import TaskCard from '../tasks/TaskCard.vue'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -39,9 +46,11 @@ const emit = defineEmits<{
   'update:modelValue': [v: boolean]
   saved: []
   deleted: []
+  openTask: [taskId: number]
 }>()
 
 const noteStore = useNoteStore()
+const taskStore = useTaskStore()
 const trashNotesStore = useTrashNotesStore()
 
 const note = ref<Note | null>(null)
@@ -52,11 +61,45 @@ const removing = ref(false)
 const restoring = ref(false)
 const purging = ref(false)
 const linkBusy = ref(false)
+const linkManagerOpen = ref(false)
 
 const linkedIds = computed(() => note.value?.linked_task_ids ?? [])
 
-const linkedTasks = computed(() =>
-  props.projectTasks.filter(p => linkedIds.value.includes(p.id)),
+const linkedTaskObjects = ref<Task[]>([])
+
+async function refreshLinkedTasks() {
+  const n = note.value
+  if (!n) {
+    linkedTaskObjects.value = []
+    return
+  }
+  const ids = n.linked_task_ids ?? []
+  if (ids.length === 0) {
+    linkedTaskObjects.value = []
+    return
+  }
+  try {
+    const items = await Promise.all(ids.map(id => taskStore.fetchOne(id)))
+    linkedTaskObjects.value = items
+  } catch {
+    linkedTaskObjects.value = []
+  }
+}
+
+watch(
+  () => note.value?.linked_task_ids,
+  () => {
+    void refreshLinkedTasks()
+  },
+  { immediate: true },
+)
+
+function openTask(id: number) {
+  emit('openTask', id)
+}
+
+const availableTasks = computed(() =>
+  props.projectTasks.filter(t => !linkedIds.value.includes(t.id)),
 )
 
 /** Состояние формы редактирования (v-model в NoteForm) — для `dirty` у модалки. */
@@ -92,9 +135,32 @@ const showHeaderEditButton = computed(
     ),
 )
 
+const showHeaderLinkedTasksButton = computed(
+  () =>
+    Boolean(
+      note.value
+      && props.canManage
+      && editing.value
+      && !props.trashed
+      && !loading.value,
+    ),
+)
+
 function cancelEdit() {
   editing.value = false
 }
+
+/** Заполняем поля до монтирования NoteForm — иначе NoteMarkdownEditor стартует с пустым body. */
+watch(
+  () => [note.value, editing.value] as const,
+  ([n, ed]) => {
+    if (!n || !ed) return
+    formTitle.value = n.title
+    formBody.value = n.body ?? ''
+    formSectionId.value = n.section_id ?? null
+  },
+  { immediate: true },
+)
 
 watch(
   () =>
@@ -103,6 +169,7 @@ watch(
     if (!open || nid == null) {
       note.value = null
       editing.value = false
+      linkManagerOpen.value = false
       return
     }
     loading.value = true
@@ -269,15 +336,31 @@ async function purgeFromTrash() {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <template #header-actions>
-      <Button
-        v-if="showHeaderEditButton"
-        type="button"
-        variant="secondary"
-        @click="editing = true"
-      >
-        <PencilSquareIcon class="h-4 w-4" />
-        <span class="ml-1">{{ t('common.edit') }}</span>
-      </Button>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button
+          v-if="showHeaderLinkedTasksButton"
+          type="button"
+          variant="secondary"
+          :disabled="linkBusy"
+          @click="linkManagerOpen = true"
+        >
+          <LinkIcon class="h-4 w-4" />
+          <span class="ml-1">{{ t('notes.detail.linkedTasks') }}</span>
+          <span
+            v-if="linkedIds.length"
+            class="ml-1 inline-flex min-w-4 items-center justify-center rounded bg-surface-muted px-1 text-[10px] leading-none text-muted"
+          >{{ linkedIds.length }}</span>
+        </Button>
+        <Button
+          v-if="showHeaderEditButton"
+          type="button"
+          variant="secondary"
+          @click="editing = true"
+        >
+          <PencilSquareIcon class="h-4 w-4" />
+          <span class="ml-1">{{ t('common.edit') }}</span>
+        </Button>
+      </div>
     </template>
     <div v-if="loading" class="space-y-2">
       <Skeleton variant="line" />
@@ -301,7 +384,7 @@ async function purgeFromTrash() {
       <template v-else>
         <div class="space-y-3">
           <div class="space-y-1">
-            <div class="text-xs font-medium text-muted">
+            <div class="text-xs font-medium text-foreground">
               {{ t('notes.form.body') }}
             </div>
             <NoteMarkdownView :source="note.body ?? ''" />
@@ -309,39 +392,48 @@ async function purgeFromTrash() {
         </div>
 
         <div v-if="!trashed" class="mt-6 border-t border-border pt-4">
-          <h3 class="text-sm font-semibold text-foreground">
-            {{ t('notes.detail.linkedTasks') }}
-          </h3>
-          <ul class="mt-2 space-y-1">
-            <li
-              v-for="task in linkedTasks"
-              :key="task.id"
-              class="flex items-center justify-between gap-2 text-sm"
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+              <LinkIcon class="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+              <span class="truncate">{{ t('notes.detail.linkedTasks') }}</span>
+            </h3>
+            <Button
+              v-if="canManage"
+              type="button"
+              variant="secondary"
+              :disabled="linkBusy"
+              @click="linkManagerOpen = true"
             >
-              <span class="min-w-0 truncate">{{ task.title }}</span>
-              <Button
-                v-if="canManage"
-                type="button"
-                variant="ghost-danger"
-                :disabled="linkBusy"
-                @click="onUnlinkTask(task.id)"
+              {{ t('taskDetailModal.linkedNotes.addLink') }}
+            </Button>
+          </div>
+          <div
+            class="mt-3 overflow-hidden rounded-lg border border-border bg-surface"
+          >
+            <div v-if="linkedTaskObjects.length > 0" class="divide-y divide-border">
+              <div
+                v-for="tk in linkedTaskObjects"
+                :key="tk.id"
+                class="flex items-center gap-2.5 px-3"
               >
-                {{ t('notes.linkTask.unlink') }}
-              </Button>
-            </li>
-            <li
-              v-if="linkedTasks.length === 0"
-              class="text-xs text-muted"
+                <DocumentCheckIcon
+                  class="h-5 w-5 shrink-0 text-muted"
+                  aria-hidden="true"
+                />
+                <TaskCard
+                  class="min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none"
+                  :task="tk"
+                  :can-edit="false"
+                  @view="openTask"
+                />
+              </div>
+            </div>
+            <p
+              v-else
+              class="px-3 py-6 text-center text-xs text-muted"
             >
               {{ t('notes.detail.noLinkedTasks') }}
-            </li>
-          </ul>
-          <div v-if="canManage" class="mt-3">
-            <NoteLinkedTasksPicker
-              :tasks="projectTasks"
-              :disabled="linkBusy"
-              @link="onLinkTask"
-            />
+            </p>
           </div>
         </div>
       </template>
@@ -403,5 +495,56 @@ async function purgeFromTrash() {
         </div>
       </div>
     </template>
+  </Modal>
+
+  <Modal
+    v-if="note && !trashed"
+    v-model="linkManagerOpen"
+    :title="t('notes.detail.linkedTasks')"
+  >
+    <div class="space-y-4">
+      <section>
+        <div class="overflow-hidden rounded-lg border border-border bg-surface">
+          <ul v-if="linkedTaskObjects.length > 0" class="divide-y divide-border">
+            <li
+              v-for="task in linkedTaskObjects"
+              :key="task.id"
+              class="flex items-center gap-2.5 px-3 py-2 text-sm"
+            >
+              <DocumentCheckIcon
+                class="h-5 w-5 shrink-0 text-muted"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 flex-1 truncate font-medium text-foreground">{{
+                task.title
+              }}</span>
+              <Button
+                v-if="canManage"
+                type="button"
+                variant="ghost-danger"
+                class="shrink-0"
+                :disabled="linkBusy"
+                @click="onUnlinkTask(task.id)"
+              >
+                {{ t('notes.linkTask.unlink') }}
+              </Button>
+            </li>
+          </ul>
+          <p
+            v-else
+            class="px-3 py-6 text-center text-xs text-muted"
+          >
+            {{ t('notes.detail.noLinkedTasks') }}
+          </p>
+        </div>
+      </section>
+      <section v-if="canManage">
+        <NoteLinkedTasksPicker
+          :tasks="availableTasks"
+          :disabled="linkBusy"
+          @link="onLinkTask"
+        />
+      </section>
+    </div>
   </Modal>
 </template>

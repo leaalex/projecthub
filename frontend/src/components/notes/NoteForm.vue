@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 import type { Note } from '@domain/note/types'
 import type { ProjectSection } from '@domain/project/types'
 import Button from '../ui/UiButton.vue'
@@ -54,6 +55,7 @@ const emit = defineEmits<{
 }>()
 
 const projectChoice = ref<string>('')
+const extraOpen = ref(true)
 
 const sectionChoiceStr = computed({
   get: () => (sectionId.value == null ? '' : String(sectionId.value)),
@@ -88,10 +90,8 @@ watch(
   () => [props.initial, props.defaultSectionId, props.defaultProjectId] as const,
   ([n, defSid, defPid]) => {
     if (n) {
-      title.value = n.title
-      body.value = n.body ?? ''
-      sectionId.value = n.section_id ?? null
-      projectChoice.value = ''
+      // Редактирование: родитель (напр. NoteDetailModal) задаёт v-model до монтирования формы.
+      return
     } else {
       title.value = ''
       body.value = ''
@@ -137,17 +137,6 @@ function onSubmit() {
     class="space-y-4"
     @submit.prevent="onSubmit"
   >
-    <div v-if="projects.length">
-      <label class="mb-1 block text-xs font-medium text-muted" for="note-form-project">{{
-        t('notes.form.project')
-      }}</label>
-      <UiSelect
-        id="note-form-project"
-        v-model="projectChoice"
-        :options="projectOptions"
-        :disabled="loading"
-      />
-    </div>
     <div>
       <label class="mb-1 block text-xs font-medium text-muted" for="note-form-title">{{
         t('notes.form.title')
@@ -160,17 +149,6 @@ function onSubmit() {
       />
     </div>
     <div>
-      <label class="mb-1 block text-xs font-medium text-muted" for="note-form-section">{{
-        t('notes.form.section')
-      }}</label>
-      <UiSelect
-        id="note-form-section"
-        v-model="sectionChoiceStr"
-        :options="sectionOptions"
-        :disabled="loading"
-      />
-    </div>
-    <div>
       <div class="mb-1 text-xs font-medium text-muted">{{ t('notes.form.body') }}</div>
       <NoteMarkdownEditor
         v-model="body"
@@ -178,6 +156,48 @@ function onSubmit() {
         :placeholder="t('notes.form.bodyPlaceholder')"
       />
     </div>
+
+    <div class="mt-6">
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 text-xs font-medium text-muted transition-colors hover:text-foreground"
+        @click="extraOpen = !extraOpen"
+      >
+        <span class="flex shrink-0 items-center gap-1">
+          <ChevronDownIcon
+            class="h-3.5 w-3.5 shrink-0 transition-transform duration-150"
+            :class="extraOpen ? 'rotate-180' : ''"
+          />
+          {{ t('common.additional') }}
+        </span>
+        <span class="h-px flex-1 bg-border" />
+      </button>
+      <div v-show="extraOpen" class="mt-3 space-y-3">
+        <div v-if="projects.length">
+          <label class="mb-1 block text-xs font-medium text-muted" for="note-form-project">{{
+            t('notes.form.project')
+          }}</label>
+          <UiSelect
+            id="note-form-project"
+            v-model="projectChoice"
+            :options="projectOptions"
+            :disabled="loading"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-muted" for="note-form-section">{{
+            t('notes.form.section')
+          }}</label>
+          <UiSelect
+            id="note-form-section"
+            v-model="sectionChoiceStr"
+            :options="sectionOptions"
+            :disabled="loading"
+          />
+        </div>
+      </div>
+    </div>
+
     <div
       v-if="!hideFooter"
       class="flex flex-wrap items-center gap-2"

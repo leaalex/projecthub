@@ -42,7 +42,12 @@ const modalOpen = ref(false)
 const reportSettingsRef = useTemplateRef<{
   submit: () => void
   canSubmit: boolean
+  isDirty: boolean
 }>('reportSettings')
+
+const createReportDirty = computed(
+  () => modalOpen.value && Boolean(reportSettingsRef.value?.isDirty),
+)
 
 async function loadWeeklyPage() {
   msg.value = null
@@ -207,8 +212,13 @@ const tableHeaders = computed(() => [
       </Card>
     </div>
 
-    <Modal v-model="modalOpen" :title="t('reports.modal.newTitle')">
+    <Modal
+      v-model="modalOpen"
+      :title="t('reports.modal.newTitle')"
+      :dirty="createReportDirty"
+    >
       <ReportSettings
+        v-if="modalOpen"
         ref="reportSettings"
         :generating="generating"
         hide-submit-button

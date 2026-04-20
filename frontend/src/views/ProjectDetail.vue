@@ -122,6 +122,17 @@ const sectionEditId = ref<number | null>(null)
 const sectionEditName = ref('')
 const showNoteModal = ref(false)
 const savingNote = ref(false)
+const noteCreateTitle = ref('')
+const noteCreateBody = ref('')
+const noteCreateSectionId = ref<number | null>(null)
+
+const noteCreateModalDirty = computed(
+  () =>
+    showNoteModal.value
+    && (noteCreateTitle.value.trim() !== ''
+      || noteCreateBody.value.trim() !== ''
+      || noteCreateSectionId.value !== null),
+)
 const filtersOpen = ref(false)
 const filterProject = ref<number | ''>('')
 const filterStatus = ref<TaskStatus[]>([])
@@ -136,9 +147,20 @@ const showModal = ref(false)
 const modalTitle = ref('')
 const modalDescription = ref('')
 const modalProjectId = ref(0)
+const modalTaskSectionId = ref<number | null>(null)
 const modalStatus = ref<TaskStatus>('todo')
 const modalPriority = ref<TaskPriority>('medium')
 const modalSaving = ref(false)
+
+const taskCreateModalDirty = computed(
+  () =>
+    showModal.value
+    && (modalTitle.value.trim() !== ''
+      || modalDescription.value.trim() !== ''
+      || modalStatus.value !== 'todo'
+      || modalPriority.value !== 'medium'
+      || modalTaskSectionId.value !== null),
+)
 
 const editProjectModalOpen = ref(false)
 const editName = ref('')
@@ -292,8 +314,24 @@ watch(
 )
 
 watch(showModal, (open) => {
-  if (open && Number.isFinite(id.value) && id.value > 0) {
+  if (!open) {
+    modalTitle.value = ''
+    modalDescription.value = ''
+    modalTaskSectionId.value = null
+    modalStatus.value = 'todo'
+    modalPriority.value = 'medium'
+    return
+  }
+  if (Number.isFinite(id.value) && id.value > 0) {
     modalProjectId.value = id.value
+  }
+})
+
+watch(showNoteModal, open => {
+  if (!open) {
+    noteCreateTitle.value = ''
+    noteCreateBody.value = ''
+    noteCreateSectionId.value = null
   }
 })
 
@@ -359,9 +397,17 @@ function openTaskEdit(taskId: number) {
 
 function openLinkedNote(payload: { noteId: number; projectId: number }) {
   if (payload.projectId !== id.value) return
+  detailOpen.value = false
   noteDetailId.value = payload.noteId
   noteDetailModalMode.value = 'view'
   noteDetailOpen.value = true
+}
+
+function openTaskFromNote(taskId: number) {
+  noteDetailOpen.value = false
+  detailTaskId.value = taskId
+  detailTaskModalMode.value = 'view'
+  detailOpen.value = true
 }
 
 function openNoteView(noteId: number) {
@@ -550,14 +596,11 @@ async function createTaskFromModal() {
       title: trimmedTitle,
       description: modalDescription.value.trim(),
       project_id: pid,
+      section_id: modalTaskSectionId.value ?? undefined,
       status: modalStatus.value,
       priority: modalPriority.value,
     })
     showModal.value = false
-    modalTitle.value = ''
-    modalDescription.value = ''
-    modalStatus.value = 'todo'
-    modalPriority.value = 'medium'
     await refreshProjectTasks()
     toast.success(t('projectDetail.taskCreated'))
   } catch (e: unknown) {
@@ -776,6 +819,7 @@ async function onReopen(taskId: number) {
       :initial-mode="noteDetailModalMode"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
+      @open-task="openTaskFromNote"
     />
 
     <SectionEditModal
@@ -831,16 +875,23 @@ async function onReopen(taskId: number) {
       </template>
     </Modal>
 
-    <Modal v-if="canCreateTasks" v-model="showModal" :title="t('projectDetail.modalNewTaskTitle')">
+    <Modal
+      v-if="canCreateTasks"
+      v-model="showModal"
+      :title="t('projectDetail.modalNewTaskTitle')"
+      :dirty="taskCreateModalDirty"
+    >
       <TaskForm
         v-model:title="modalTitle"
         v-model:description="modalDescription"
         v-model:project-id="modalProjectId"
+        v-model:section-id="modalTaskSectionId"
         v-model:status="modalStatus"
         v-model:priority="modalPriority"
         form-id="project-new-task"
         hide-footer
         hide-project-select
+        :sections="projectStore.sections"
         :projects="projectOptions"
         :loading="modalSaving"
         :submit-label="t('projectDetail.submitCreate')"
@@ -866,8 +917,12 @@ async function onReopen(taskId: number) {
       v-if="canManageNoteOnProject"
       v-model="showNoteModal"
       :title="t('notes.create')"
+      :dirty="noteCreateModalDirty"
     >
       <NoteForm
+        v-model:title="noteCreateTitle"
+        v-model:body="noteCreateBody"
+        v-model:section-id="noteCreateSectionId"
         :sections="projectStore.sections"
         form-id="project-new-note"
         hide-footer

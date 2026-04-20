@@ -34,11 +34,16 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const userStore = useUserStore()
 
-const roleOptions: UiSelectOption<string>[] = [
-  { value: 'user', label: 'User' },
-  { value: 'creator', label: 'Creator' },
-  { value: 'staff', label: 'Staff' },
-]
+const roleOptions = computed<UiSelectOption<string>[]>(() => [
+  { value: 'user', label: t('admin.users.roles.user') },
+  { value: 'creator', label: t('admin.users.roles.creator') },
+  { value: 'staff', label: t('admin.users.roles.staff') },
+])
+
+function roleLabel(role: UserRole | undefined) {
+  if (!role) return ''
+  return t(`admin.users.roles.${role}`)
+}
 
 const email = ref('')
 const password = ref('')
@@ -70,9 +75,9 @@ type Snapshot = {
 const editSnapshot = ref<Snapshot | null>(null)
 
 const title = computed(() => {
-  if (props.mode === 'create') return 'New user'
-  if (props.mode === 'view' && !localEdit.value) return 'View user'
-  return 'Edit user'
+  if (props.mode === 'create') return t('admin.users.newUser')
+  if (props.mode === 'view' && !localEdit.value) return t('admin.users.viewUser')
+  return t('admin.users.editUser')
 })
 
 const isViewMode = computed(() => props.mode === 'view' && !localEdit.value)
@@ -310,25 +315,25 @@ async function submit() {
         <Input
           id="adm-email"
           v-model="email"
-          label="Email"
+          :label="t('admin.users.form.email')"
           type="email"
           autocomplete="off"
           :required="isEditingUi"
           :disabled="isViewMode"
         />
         <div>
-          <label class="mb-1 block text-xs font-medium text-foreground">Global role</label>
+          <label class="mb-1 block text-xs font-medium text-foreground">{{ t('admin.users.form.globalRole') }}</label>
           <template v-if="isViewMode">
             <p class="rounded-md border border-border bg-surface-muted px-2.5 py-2 text-xs text-foreground">
-              {{ user?.role }}
+              {{ roleLabel(user?.role) }}
             </p>
           </template>
           <template v-else-if="mode === 'create'">
             <UiMenuButton
               v-model="formRole"
               variant="field"
-              ariaLabel="Global role"
-              placeholder="Role"
+              :ariaLabel="t('admin.users.form.globalRole')"
+              :placeholder="t('admin.users.form.rolePlaceholder')"
               :options="roleOptions"
               class="w-full"
               :min-panel-width="180"
@@ -338,15 +343,15 @@ async function submit() {
             <UiMenuButton
               v-model="formRole"
               variant="field"
-              ariaLabel="Global role"
-              placeholder="Role"
+              :ariaLabel="t('admin.users.form.globalRole')"
+              :placeholder="t('admin.users.form.rolePlaceholder')"
               :options="roleOptions"
               class="w-full"
               :min-panel-width="180"
             />
           </template>
           <p v-else class="rounded-md border border-border bg-surface-muted px-2.5 py-2 text-xs text-foreground">
-            {{ user?.role }}
+            {{ roleLabel(user?.role) }}
           </p>
         </div>
       </div>
@@ -355,7 +360,7 @@ async function submit() {
         v-if="isEditingUi"
         id="adm-password"
         v-model="password"
-        :label="mode === 'create' ? 'Password' : 'New password (optional)'"
+        :label="mode === 'create' ? t('admin.users.form.password') : t('admin.users.form.newPasswordOptional')"
         type="password"
         autocomplete="new-password"
         :required="mode === 'create'"
@@ -365,14 +370,14 @@ async function submit() {
         <Input
           id="adm-last"
           v-model="lastName"
-          label="Last name"
+          :label="t('admin.users.form.lastName')"
           autocomplete="family-name"
           :disabled="isViewMode"
         />
         <Input
           id="adm-first"
           v-model="firstName"
-          label="First name"
+          :label="t('admin.users.form.firstName')"
           autocomplete="given-name"
           :disabled="isViewMode"
         />
@@ -380,28 +385,28 @@ async function submit() {
       <Input
         id="adm-pat"
         v-model="patronymic"
-        label="Patronymic"
+        :label="t('admin.users.form.patronymic')"
         autocomplete="additional-name"
         :disabled="isViewMode"
       />
       <Input
         id="adm-dept"
         v-model="department"
-        label="Department"
+        :label="t('admin.users.form.department')"
         autocomplete="organization"
         :disabled="isViewMode"
       />
       <Input
         id="adm-job"
         v-model="jobTitle"
-        label="Job title"
+        :label="t('admin.users.form.jobTitle')"
         autocomplete="organization-title"
         :disabled="isViewMode"
       />
       <Input
         id="adm-phone"
         v-model="phone"
-        label="Phone"
+        :label="t('admin.users.form.phone')"
         type="tel"
         autocomplete="tel"
         :disabled="isViewMode"
