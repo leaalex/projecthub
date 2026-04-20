@@ -17,8 +17,10 @@ withDefaults(
     loading?: boolean
     /** Show personal vs team when creating (creator / staff / admin). */
     showKindPicker?: boolean
+    formId?: string
+    hideFooter?: boolean
   }>(),
-  { showKindPicker: false },
+  { showKindPicker: false, hideFooter: false },
 )
 
 const { t } = useI18n()
@@ -35,7 +37,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <form class="space-y-4" @submit.prevent="emit('submit')">
+  <form
+    :id="formId"
+    class="space-y-4"
+    @submit.prevent="emit('submit')"
+  >
     <Input id="pf-name" v-model="name" :label="t('projectForm.nameLabel')" required autofocus />
     <UiTextarea
       id="pf-desc"
@@ -54,7 +60,10 @@ const emit = defineEmits<{
         {{ t('projectForm.typeHint') }}
       </p>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
+    <div
+      v-if="!hideFooter"
+      class="flex flex-wrap items-center gap-2"
+    >
       <slot name="actions-start" />
       <div class="ml-auto flex flex-wrap gap-2">
         <Button type="button" variant="ghost" @click="emit('cancel')">

@@ -92,6 +92,8 @@ async function doTransfer() {
         :options="transferOptions"
         :placeholder="t('transferOwnershipModal.placeholderSelectUser')"
       />
+    </div>
+    <template #footer>
       <div class="flex justify-end gap-2">
         <Button type="button" variant="secondary" @click="open = false">
           {{ t('transferOwnershipModal.cancel') }}
@@ -100,6 +102,6 @@ async function doTransfer() {
           {{ t('transferOwnershipModal.transfer') }}
         </Button>
       </div>
-    </div>
+    </template>
   </Modal>
 </template>

@@ -147,7 +147,7 @@ function onCancel() {
         <p>{{ t('manualTaskTransfer.banners.canRemove', { name: memberName }) }}</p>
       </div>
 
-      <div class="max-h-[60vh] overflow-auto">
+      <div class="max-h-[50vh] overflow-auto md:max-h-[60vh]">
         <table class="w-full text-sm">
           <thead class="bg-surface-muted text-left">
             <tr>
@@ -187,13 +187,14 @@ function onCancel() {
           </tbody>
         </table>
       </div>
-
-      <div class="flex items-center justify-between pt-2 border-t border-border">
+    </div>
+    <template #footer>
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="text-sm text-muted">
           {{ t('manualTaskTransfer.progress') }}
           <span class="font-medium" :class="allValid ? 'text-emerald-600' : 'text-amber-600'">{{ progressText }}</span>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <Button variant="secondary" @click="onCancel">{{
             t('manualTaskTransfer.cancel')
           }}</Button>
@@ -202,6 +203,6 @@ function onCancel() {
           </Button>
         </div>
       </div>
-    </div>
+    </template>
   </Modal>
 </template>

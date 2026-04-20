@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import Breadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -38,6 +38,11 @@ const { confirm } = useConfirm()
 const toast = useToast()
 
 const modalOpen = ref(false)
+
+const reportSettingsRef = useTemplateRef<{
+  submit: () => void
+  canSubmit: boolean
+}>('reportSettings')
 
 async function loadWeeklyPage() {
   msg.value = null
@@ -203,7 +208,36 @@ const tableHeaders = computed(() => [
     </div>
 
     <Modal v-model="modalOpen" :title="t('reports.modal.newTitle')">
-      <ReportSettings :generating="generating" @generate="onCreateReport" />
+      <ReportSettings
+        ref="reportSettings"
+        :generating="generating"
+        hide-submit-button
+        @generate="onCreateReport"
+      />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="generating"
+            @click="modalOpen = false"
+          >
+            {{ t('common.cancel') }}
+          </Button>
+          <Button
+            type="button"
+            :disabled="!reportSettingsRef?.canSubmit"
+            :loading="generating"
+            @click="reportSettingsRef?.submit()"
+          >
+            {{
+              generating
+                ? t('reportSettings.generating')
+                : t('reportSettings.generate')
+            }}
+          </Button>
+        </div>
+      </template>
     </Modal>
   </div>
 </template>

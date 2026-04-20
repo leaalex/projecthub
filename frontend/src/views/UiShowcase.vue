@@ -107,6 +107,8 @@ const selectCityOptions = [
 ]
 
 const modalOpen = ref(false)
+/** Демо: блокировка закрытия и shake при «грязной» форме. */
+const modalDemoDirty = ref(false)
 const buttonLoading = ref(false)
 
 const demoSegment = ref('list')
@@ -567,14 +569,52 @@ function onDemoMenuSelect(v: string | number) {
       </UiCard>
     </div>
 
-    <UiModal v-model="modalOpen" title="Demo modal">
+    <UiModal
+      v-model="modalOpen"
+      :title="t('uiKit.demo.modal.title')"
+      :dirty="modalDemoDirty"
+    >
+      <template #header-actions>
+        <UiButton
+          variant="secondary"
+          type="button"
+          @click="toast.info(t('uiKit.demo.modal.headerAction'))"
+        >
+          {{ t('common.edit') }}
+        </UiButton>
+      </template>
       <p class="text-sm text-foreground">
-        Content for <code class="text-foreground">UiModal</code>. Close with the
-        button, overlay click, or Escape.
+        {{ t('uiKit.demo.modal.body') }}
       </p>
-      <div class="mt-4 flex justify-end gap-2">
-        <UiButton variant="ghost" @click="modalOpen = false">Close</UiButton>
-      </div>
+      <label class="mt-4 flex cursor-pointer items-center gap-2 text-sm text-foreground">
+        <input
+          v-model="modalDemoDirty"
+          type="checkbox"
+          class="rounded border-border"
+        >
+        {{ t('uiKit.demo.modal.dirtyToggle') }}
+      </label>
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UiButton
+            variant="secondary"
+            type="button"
+            @click="modalOpen = false"
+          >
+            {{ t('common.cancel') }}
+          </UiButton>
+          <UiButton
+            type="button"
+            @click="
+              modalDemoDirty = false;
+              modalOpen = false;
+              toast.success(t('uiKit.demo.toasts.saved'));
+            "
+          >
+            {{ t('common.save') }}
+          </UiButton>
+        </div>
+      </template>
     </UiModal>
   </div>
 </template>

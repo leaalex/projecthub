@@ -28,10 +28,15 @@ const props = withDefaults(
     submitLabel?: string
     /** Hide project picker (e.g. creating a task from project page) */
     hideProjectSelect?: boolean
+    /** id атрибута `<form>` — для кнопок в футере модалки (`form="..."`) */
+    formId?: string
+    /** Скрыть ряд кнопок (когда действия в `#footer` модалки) */
+    hideFooter?: boolean
   }>(),
   {
     projects: () => [],
     hideProjectSelect: false,
+    hideFooter: false,
   },
 )
 
@@ -71,7 +76,11 @@ const priorityMenuLabel = computed(
 </script>
 
 <template>
-  <form class="space-y-4" @submit.prevent="emit('submit')">
+  <form
+    :id="formId"
+    class="space-y-4"
+    @submit.prevent="emit('submit')"
+  >
     <Input
       id="tf-title"
       v-model="title"
@@ -134,7 +143,10 @@ const priorityMenuLabel = computed(
         />
       </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
+    <div
+      v-if="!hideFooter"
+      class="flex flex-wrap items-center gap-2"
+    >
       <slot name="actions-start" />
       <div class="ml-auto flex flex-wrap gap-2">
         <Button type="button" variant="ghost" @click="emit('cancel')">

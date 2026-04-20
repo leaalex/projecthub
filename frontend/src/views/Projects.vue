@@ -61,6 +61,16 @@ const editName = ref('')
 const editDescription = ref('')
 const editSaving = ref(false)
 
+const editModalDirty = computed(() => {
+  if (!editModalOpen.value || editId.value <= 0) return false
+  const p = store.projects.find(x => x.id === editId.value)
+  if (!p) return false
+  return (
+    editName.value.trim() !== p.name
+    || editDescription.value.trim() !== (p.description ?? '').trim()
+  )
+})
+
 onMounted(() => {
   store.fetchList().catch(() => {})
 })
@@ -163,29 +173,59 @@ async function removeEditProject() {
         v-model:name="name"
         v-model:description="description"
         v-model:kind="projectKind"
+        form-id="projects-new-form"
+        hide-footer
         :show-kind-picker="showKindPicker"
         :submit-label="t('common.create')"
         :loading="saving"
         @submit="createProject"
-        @cancel="showModal = false"
       />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" :disabled="saving" @click="showModal = false">
+            {{ t('projectForm.cancel') }}
+          </Button>
+          <Button type="submit" form="projects-new-form" :loading="saving">
+            {{ t('common.create') }}
+          </Button>
+        </div>
+      </template>
     </Modal>
 
-    <Modal v-model="editModalOpen" :title="t('projects.modalEditTitle')">
+    <Modal
+      v-model="editModalOpen"
+      :title="t('projects.modalEditTitle')"
+      :dirty="editModalDirty"
+    >
       <ProjectForm
         v-model:name="editName"
         v-model:description="editDescription"
+        form-id="projects-edit-form"
+        hide-footer
         :submit-label="t('common.save')"
         :loading="editSaving"
         @submit="saveEditProject"
-        @cancel="editModalOpen = false"
-      >
-        <template #actions-start>
+      />
+      <template #footer>
+        <div class="flex flex-wrap items-center gap-2">
           <Button variant="ghost-danger" type="button" @click="removeEditProject">
             {{ t('projects.deleteButton') }}
           </Button>
-        </template>
-      </ProjectForm>
+          <div class="ml-auto flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              :disabled="editSaving"
+              @click="editModalOpen = false"
+            >
+              {{ t('projectForm.cancel') }}
+            </Button>
+            <Button type="submit" form="projects-edit-form" :loading="editSaving">
+              {{ t('common.save') }}
+            </Button>
+          </div>
+        </div>
+      </template>
     </Modal>
   </div>
 </template>

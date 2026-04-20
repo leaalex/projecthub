@@ -34,6 +34,9 @@
     "created": "Created",
     "noData": "No data"
   },
+  "modal": {
+    "unsavedChanges": "There are unsaved changes"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",
@@ -207,7 +210,9 @@
     "updatedAt": "Updated {time}",
     "open": "Open",
     "editAria": "Edit project {name}",
-    "editSr": "Edit project"
+    "editSr": "Edit project",
+    "settingsAria": "Project settings {name}",
+    "settingsSr": "Project settings"
   },
   "projectTrash": {
     "title": "Project trash",
@@ -568,6 +573,12 @@
       "gamma": "Gamma"
     },
     "demo": {
+      "modal": {
+        "title": "Demo modal",
+        "body": "Content for UiModal. Use the footer to close or save. Overlay and Escape respect the dirty flag.",
+        "dirtyToggle": "Simulate unsaved changes (blocks closing)",
+        "headerAction": "Header action"
+      },
       "confirm": {
         "title": "Confirm dialog",
         "message": "This is a demo of UiConfirmDialog (global).",

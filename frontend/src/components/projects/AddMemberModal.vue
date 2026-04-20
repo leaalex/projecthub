@@ -182,7 +182,8 @@ async function onAdd() {
         :label="t('addMemberModal.labels.projectRole')"
         :options="roleMenuOptions"
       />
-
+    </div>
+    <template #footer>
       <div class="flex justify-end gap-2">
         <Button type="button" variant="secondary" @click="open = false">
           {{ t('addMemberModal.cancel') }}
@@ -191,6 +192,6 @@ async function onAdd() {
           {{ t('addMemberModal.add') }}
         </Button>
       </div>
-    </div>
+    </template>
   </Modal>
 </template>

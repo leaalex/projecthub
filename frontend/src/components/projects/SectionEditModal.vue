@@ -33,6 +33,12 @@ const removing = ref(false)
 
 const isCreate = computed(() => props.sectionId == null)
 
+const sectionModalDirty = computed(
+  () =>
+    !isCreate.value
+    && nameDraft.value.trim() !== props.initialName.trim(),
+)
+
 watch(
   () => [props.modelValue, props.sectionId, props.initialName] as const,
   ([open]) => {
@@ -109,20 +115,21 @@ async function remove() {
   <Modal
     :model-value="modelValue"
     :title="isCreate ? t('project.section.createModalTitle') : t('project.section.editModalTitle')"
+    :dirty="sectionModalDirty"
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <div class="space-y-4">
-      <div>
-        <label class="mb-1 block text-xs font-medium text-muted" for="section-edit-name">{{
-          t('project.section.nameLabel')
-        }}</label>
-        <UiInput
-          id="section-edit-name"
-          v-model="nameDraft"
-          :placeholder="t('project.section.namePlaceholder')"
-          @keydown.enter.prevent="save"
-        />
-      </div>
+    <div>
+      <label class="mb-1 block text-xs font-medium text-muted" for="section-edit-name">{{
+        t('project.section.nameLabel')
+      }}</label>
+      <UiInput
+        id="section-edit-name"
+        v-model="nameDraft"
+        :placeholder="t('project.section.namePlaceholder')"
+        @keydown.enter.prevent="save"
+      />
+    </div>
+    <template #footer>
       <div class="flex flex-wrap items-center gap-2">
         <Button
           v-if="!isCreate"
@@ -143,6 +150,6 @@ async function remove() {
           </Button>
         </div>
       </div>
-    </div>
+    </template>
   </Modal>
 </template>

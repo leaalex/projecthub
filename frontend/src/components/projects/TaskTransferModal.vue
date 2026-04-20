@@ -113,8 +113,9 @@ function onCancel() {
           :placeholder="t('taskTransferModal.selectTeamMember')"
         />
       </div>
-
-      <div class="flex justify-end gap-2 pt-2">
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-2">
         <Button variant="secondary" @click="onCancel">{{
           t('taskTransferModal.cancel')
         }}</Button>
@@ -122,6 +123,6 @@ function onCancel() {
           {{ proceedLabel }}
         </Button>
       </div>
-    </div>
+    </template>
   </Modal>
 </template>

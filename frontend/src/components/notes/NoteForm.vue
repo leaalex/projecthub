@@ -22,9 +22,22 @@ const props = withDefaults(
     defaultSectionId?: number | null
     loading?: boolean
     submitLabel: string
+    formId?: string
+    hideFooter?: boolean
   }>(),
-  { initial: null, defaultSectionId: null, defaultProjectId: null, loading: false, projects: () => [] },
+  {
+    initial: null,
+    defaultSectionId: null,
+    defaultProjectId: null,
+    loading: false,
+    projects: () => [],
+    hideFooter: false,
+  },
 )
+
+const title = defineModel<string>('title', { default: '' })
+const body = defineModel<string>('body', { default: '' })
+const sectionId = defineModel<number | null>('sectionId', { default: null })
 
 const emit = defineEmits<{
   submit: [
@@ -40,10 +53,14 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const title = ref('')
-const body = ref('')
-const sectionChoice = ref<string>('')
 const projectChoice = ref<string>('')
+
+const sectionChoiceStr = computed({
+  get: () => (sectionId.value == null ? '' : String(sectionId.value)),
+  set: (v: string) => {
+    sectionId.value = v === '' ? null : Number(v)
+  },
+})
 
 const sectionOptions = computed(() => {
   const base = [{ value: '', label: t('notes.section.none') }]
@@ -73,13 +90,13 @@ watch(
     if (n) {
       title.value = n.title
       body.value = n.body ?? ''
-      sectionChoice.value = n.section_id != null ? String(n.section_id) : ''
+      sectionId.value = n.section_id ?? null
       projectChoice.value = ''
     } else {
       title.value = ''
       body.value = ''
-      sectionChoice.value =
-        defSid != null && Number.isFinite(defSid) ? String(defSid) : ''
+      sectionId.value =
+        defSid != null && Number.isFinite(defSid) ? defSid : null
       if (props.projects.length > 0) {
         if (defPid != null && Number.isFinite(defPid) && defPid > 0) {
           projectChoice.value = String(defPid)
@@ -97,11 +114,12 @@ watch(
 function onSubmit() {
   const trimmed = title.value.trim()
   if (!trimmed) return
-  const sid = sectionChoice.value === '' ? null : Number(sectionChoice.value)
+  const sid = sectionId.value
   const base = {
     title: trimmed,
     body: body.value.trim(),
-    section_id: sid != null && Number.isFinite(sid) ? sid : null,
+    section_id:
+      sid != null && Number.isFinite(sid) ? sid : null,
   }
   if (props.projects.length > 0) {
     const pid = Number(projectChoice.value)
@@ -114,7 +132,11 @@ function onSubmit() {
 </script>
 
 <template>
-  <form class="space-y-4" @submit.prevent="onSubmit">
+  <form
+    :id="formId"
+    class="space-y-4"
+    @submit.prevent="onSubmit"
+  >
     <div v-if="projects.length">
       <label class="mb-1 block text-xs font-medium text-muted" for="note-form-project">{{
         t('notes.form.project')
@@ -143,7 +165,7 @@ function onSubmit() {
       }}</label>
       <UiSelect
         id="note-form-section"
-        v-model="sectionChoice"
+        v-model="sectionChoiceStr"
         :options="sectionOptions"
         :disabled="loading"
       />
@@ -156,7 +178,10 @@ function onSubmit() {
         :placeholder="t('notes.form.bodyPlaceholder')"
       />
     </div>
-    <div class="flex flex-wrap items-center gap-2">
+    <div
+      v-if="!hideFooter"
+      class="flex flex-wrap items-center gap-2"
+    >
       <slot name="actions-start" />
       <div class="ml-auto flex flex-wrap justify-end gap-2">
         <Button type="button" variant="secondary" :disabled="loading" @click="emit('cancel')">

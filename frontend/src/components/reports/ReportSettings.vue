@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineExpose, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiButton from '../ui/UiButton.vue'
 import UiCheckboxRow from '../ui/UiCheckboxRow.vue'
@@ -25,9 +25,14 @@ import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t } = useI18n()
 
-const props = defineProps<{
-  generating?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    generating?: boolean
+    /** Кнопка «Сгенерировать» в футере модалки (см. Reports.vue). */
+    hideSubmitButton?: boolean
+  }>(),
+  { hideSubmitButton: false },
+)
 
 const emit = defineEmits<{
   generate: [ReportConfig]
@@ -156,6 +161,11 @@ function submit() {
 const canSubmit = computed(
   () => selectedFields.value.length > 0 && !props.generating,
 )
+
+defineExpose({
+  submit,
+  canSubmit,
+})
 </script>
 
 <template>
@@ -337,7 +347,7 @@ const canSubmit = computed(
       />
     </div>
 
-    <div class="mt-6">
+    <div v-if="!hideSubmitButton" class="mt-6">
       <UiButton
         type="button"
         :disabled="!canSubmit"

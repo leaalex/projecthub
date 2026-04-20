@@ -441,12 +441,32 @@ async function onCreateSubmit(payload: {
         :sections="projectStore.sections"
         :projects="inlineComposerProjects"
         :default-project-id="createProjectIdPrefill"
+        form-id="notes-inline-create"
+        hide-footer
         :loading="createSaving"
         :submit-label="t('notes.submitCreate')"
         @project-picked="onCreateFormProjectPicked"
         @submit="onCreateSubmit"
-        @cancel="showCreateModal = false"
       />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="createSaving"
+            @click="showCreateModal = false"
+          >
+            {{ t('common.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="notes-inline-create"
+            :loading="createSaving"
+          >
+            {{ t('notes.submitCreate') }}
+          </Button>
+        </div>
+      </template>
     </Modal>
 
     <NoteDetailModal

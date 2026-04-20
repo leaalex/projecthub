@@ -1,26 +1,51 @@
 <script setup lang="ts">
-import { XMarkIcon } from '@heroicons/vue/24/outline'
 import {
   nextTick,
   onMounted,
   onUnmounted,
   ref,
+  useSlots,
   watch,
 } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const props = defineProps<{
-  modelValue: boolean
-  title?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    title?: string
+    /** Если true — клик по фону и Escape не закрывают окно, панель слегка дёргается. */
+    dirty?: boolean
+    /** Ширина панели (например таблица ручного переноса задач). */
+    size?: 'default' | 'large'
+  }>(),
+  { dirty: false, size: 'default' },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+const { t } = useI18n()
+const slots = useSlots()
+
 const panelRef = ref<HTMLElement | null>(null)
+const shaking = ref(false)
 
 function close() {
+  if (props.dirty) {
+    triggerShake()
+    return
+  }
   emit('update:modelValue', false)
+}
+
+function triggerShake() {
+  shaking.value = true
+}
+
+function onShakeEnd(e: AnimationEvent) {
+  if (e.animationName !== 'modal-shake') return
+  shaking.value = false
 }
 
 function onDocKey(e: KeyboardEvent) {
@@ -58,13 +83,23 @@ watch(
     const root = panelRef.value
     if (!root) return
     const list = getFocusable(root)
-    const first = list.find((el) => el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') ?? list[0]
+    const first =
+      list.find(
+        (el) =>
+          el.tagName === 'INPUT'
+          || el.tagName === 'TEXTAREA'
+          || el.tagName === 'SELECT',
+      ) ?? list[0]
     first?.focus()
   },
 )
 
 onMounted(() => document.addEventListener('keydown', onDocKey))
 onUnmounted(() => document.removeEventListener('keydown', onDocKey))
+
+const showHeader = () =>
+  Boolean(props.title || slots['header-actions']?.())
+const showFooter = () => Boolean(slots.footer?.())
 </script>
 
 <template>
@@ -75,7 +110,15 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
         class="fixed inset-0 z-50 flex justify-end p-3 sm:p-4 md:p-5"
         role="dialog"
         aria-modal="true"
+        :aria-describedby="dirty ? 'modal-unsaved-hint' : undefined"
       >
+        <p
+          v-if="dirty"
+          id="modal-unsaved-hint"
+          class="sr-only"
+        >
+          {{ t('modal.unsavedChanges') }}
+        </p>
         <div
           class="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
           aria-hidden="true"
@@ -83,29 +126,67 @@ onUnmounted(() => document.removeEventListener('keydown', onDocKey))
         />
         <div
           ref="panelRef"
-          class="modal-panel relative z-10 flex h-full max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-surface"
+          class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
+          :class="[
+            size === 'large' ? 'max-w-4xl' : 'max-w-lg',
+            { 'modal-shake-active': shaking },
+          ]"
           @keydown="onPanelKeydown"
+          @animationend="onShakeEnd"
         >
           <div
-            class="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6"
+            v-if="showHeader()"
+            class="flex shrink-0 items-center gap-4 border-b border-border px-5 py-4 sm:px-6"
           >
-            <h2 v-if="title" class="text-lg font-semibold text-foreground">
+            <h2
+              v-if="title"
+              class="min-w-0 flex-1 text-lg font-semibold text-foreground"
+            >
               {{ title }}
             </h2>
-            <button
-              type="button"
-              class="ml-auto shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
-              aria-label="Close"
-              @click="close"
+            <div
+              v-if="slots['header-actions']?.()"
+              class="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2"
             >
-              <XMarkIcon class="h-5 w-5" aria-hidden="true" />
-            </button>
+              <slot name="header-actions" />
+            </div>
           </div>
           <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
             <slot />
+          </div>
+          <div
+            v-if="showFooter()"
+            class="shrink-0 border-t border-border px-5 py-4 sm:px-6"
+          >
+            <slot name="footer" />
           </div>
         </div>
       </div>
     </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+@keyframes modal-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-6px);
+  }
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.modal-shake-active {
+  animation: modal-shake 0.28s ease-out;
+}
+</style>

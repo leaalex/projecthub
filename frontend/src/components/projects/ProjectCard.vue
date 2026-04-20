@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PencilSquareIcon } from '@heroicons/vue/24/outline'
+import { Cog6ToothIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
 import type { Project } from '@domain/project/types'
 import { timeAgo } from '@infra/formatters/date'
+import { useRouter } from 'vue-router'
 import Button from '../ui/UiButton.vue'
 
 const props = defineProps<{
@@ -15,6 +16,7 @@ const emit = defineEmits<{
   edit: [id: number]
 }>()
 
+const router = useRouter()
 const { t, locale } = useI18n()
 
 const kindLabel = computed(() =>
@@ -26,6 +28,17 @@ const kindLabel = computed(() =>
 const editAria = computed(() =>
   t('projectCard.editAria', { name: props.project.name }),
 )
+
+const settingsAria = computed(() =>
+  t('projectCard.settingsAria', { name: props.project.name }),
+)
+
+function openProjectSettings() {
+  void router.push({
+    name: 'project-settings',
+    params: { id: String(props.project.id) },
+  })
+}
 </script>
 
 <template>
@@ -33,14 +46,27 @@ const editAria = computed(() =>
     class="flex flex-col justify-between rounded-lg border border-border bg-surface p-4"
   >
     <div>
-      <div class="flex flex-wrap items-center gap-2">
-        <h3 class="font-semibold text-foreground">{{ props.project.name }}</h3>
-        <span
-          v-if="props.project.kind === 'personal' || props.project.kind === 'team'"
-          class="inline-flex rounded-md border border-border bg-surface-muted/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted"
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <h3 class="font-semibold text-foreground">{{ props.project.name }}</h3>
+          <span
+            v-if="props.project.kind === 'personal' || props.project.kind === 'team'"
+            class="inline-flex rounded-md border border-border bg-surface-muted/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted"
+          >
+            {{ kindLabel }}
+          </span>
+        </div>
+        <Button
+          v-if="props.project.kind === 'team'"
+          type="button"
+          variant="secondary"
+          class="shrink-0 px-2.5"
+          :aria-label="settingsAria"
+          @click="openProjectSettings"
         >
-          {{ kindLabel }}
-        </span>
+          <Cog6ToothIcon class="h-4 w-4" aria-hidden="true" />
+          <span class="sr-only">{{ t('projectCard.settingsSr') }}</span>
+        </Button>
       </div>
       <p class="mt-1 line-clamp-2 text-sm text-muted">
         {{ props.project.description || t('common.noDescription') }}

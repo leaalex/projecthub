@@ -145,6 +145,16 @@ const editName = ref('')
 const editDescription = ref('')
 const editSaving = ref(false)
 
+const editProjectModalDirty = computed(() => {
+  if (!editProjectModalOpen.value) return false
+  const p = projectStore.current
+  if (!p) return false
+  return (
+    editName.value.trim() !== p.name
+    || editDescription.value.trim() !== (p.description ?? '').trim()
+  )
+})
+
 const showAssigneeFilter = computed(() => assignableUsers.value.length > 0)
 
 const itemGroups = computed(() =>
@@ -777,16 +787,22 @@ async function onReopen(taskId: number) {
       @deleted="onNotesChanged"
     />
 
-    <Modal v-model="editProjectModalOpen" :title="t('projectDetail.modalEditTitle')">
+    <Modal
+      v-model="editProjectModalOpen"
+      :title="t('projectDetail.modalEditTitle')"
+      :dirty="editProjectModalDirty"
+    >
       <ProjectForm
         v-model:name="editName"
         v-model:description="editDescription"
+        form-id="project-edit-form"
+        hide-footer
         :submit-label="t('common.save')"
         :loading="editSaving"
         @submit="saveEditProject"
-        @cancel="editProjectModalOpen = false"
-      >
-        <template #actions-start>
+      />
+      <template #footer>
+        <div class="flex flex-wrap items-center gap-2">
           <Button
             variant="ghost-danger"
             type="button"
@@ -794,8 +810,25 @@ async function onReopen(taskId: number) {
           >
             {{ t('projects.deleteButton') }}
           </Button>
-        </template>
-      </ProjectForm>
+          <div class="ml-auto flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              :disabled="editSaving"
+              @click="editProjectModalOpen = false"
+            >
+              {{ t('projectForm.cancel') }}
+            </Button>
+            <Button
+              type="submit"
+              form="project-edit-form"
+              :loading="editSaving"
+            >
+              {{ t('common.save') }}
+            </Button>
+          </div>
+        </div>
+      </template>
     </Modal>
 
     <Modal v-if="canCreateTasks" v-model="showModal" :title="t('projectDetail.modalNewTaskTitle')">
@@ -805,13 +838,28 @@ async function onReopen(taskId: number) {
         v-model:project-id="modalProjectId"
         v-model:status="modalStatus"
         v-model:priority="modalPriority"
+        form-id="project-new-task"
+        hide-footer
         hide-project-select
         :projects="projectOptions"
         :loading="modalSaving"
         :submit-label="t('projectDetail.submitCreate')"
         @submit="createTaskFromModal"
-        @cancel="showModal = false"
       />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" :disabled="modalSaving" @click="showModal = false">
+            {{ t('taskForm.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="project-new-task"
+            :loading="modalSaving"
+          >
+            {{ t('projectDetail.submitCreate') }}
+          </Button>
+        </div>
+      </template>
     </Modal>
 
     <Modal
@@ -821,11 +869,31 @@ async function onReopen(taskId: number) {
     >
       <NoteForm
         :sections="projectStore.sections"
+        form-id="project-new-note"
+        hide-footer
         :loading="savingNote"
         :submit-label="t('notes.create')"
         @submit="createNoteFromModal"
-        @cancel="showNoteModal = false"
       />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="savingNote"
+            @click="showNoteModal = false"
+          >
+            {{ t('common.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="project-new-note"
+            :loading="savingNote"
+          >
+            {{ t('notes.create') }}
+          </Button>
+        </div>
+      </template>
     </Modal>
   </div>
   <div v-else-if="loadError" class="space-y-4">

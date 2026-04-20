@@ -318,6 +318,48 @@ async function restoreFromTrash() {
   }
 }
 
+function cancelEdit() {
+  const cur = task.value
+  if (cur && canEdit.value) {
+    formTitle.value = cur.title
+    formDescription.value = cur.description ?? ''
+    formProjectId.value = cur.project_id
+    formStatus.value = cur.status
+    formPriority.value = cur.priority
+  }
+  editing.value = false
+}
+
+const taskModalDirty = computed(() => {
+  const cur = task.value
+  if (!cur || !editing.value || props.trashed) return false
+  return (
+    formTitle.value.trim() !== cur.title
+    || formDescription.value.trim() !== (cur.description ?? '').trim()
+    || formStatus.value !== cur.status
+    || formPriority.value !== cur.priority
+  )
+})
+
+const taskFooterVisible = computed(() => {
+  if (!task.value || loading.value || loadError.value) return false
+  if (props.trashed && props.canManageTrash) return true
+  if (canEdit.value && editing.value && !props.trashed) return true
+  return false
+})
+
+const showHeaderEditButton = computed(
+  () =>
+    Boolean(
+      task.value
+      && canEdit.value
+      && !editing.value
+      && !props.trashed
+      && !loading.value
+      && !loadError.value,
+    ),
+)
+
 async function purgeFromTrash() {
   const cur = task.value
   if (!cur) return
@@ -346,8 +388,20 @@ async function purgeFromTrash() {
   <Modal
     :model-value="modelValue"
     :title="t('taskDetailModal.title')"
+    :dirty="taskModalDirty"
     @update:model-value="emit('update:modelValue', $event)"
   >
+    <template #header-actions>
+      <Button
+        v-if="showHeaderEditButton"
+        type="button"
+        variant="secondary"
+        @click="editing = true"
+      >
+        <PencilSquareIcon class="h-4 w-4" />
+        <span class="ml-1">{{ t('common.edit') }}</span>
+      </Button>
+    </template>
     <div v-if="loading" class="space-y-3">
       <Skeleton variant="line" />
       <Skeleton variant="line" :lines="3" />
@@ -439,44 +493,6 @@ async function purgeFromTrash() {
         </div>
       </dl>
 
-      <div
-        v-if="trashed && canManageTrash"
-        class="mt-4 flex flex-wrap gap-2"
-      >
-        <Button
-          type="button"
-          variant="secondary"
-          :loading="restoring"
-          :disabled="purging"
-          @click="restoreFromTrash"
-        >
-          {{ t('notes.restore') }}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost-danger"
-          :loading="purging"
-          :disabled="restoring"
-          @click="purgeFromTrash"
-        >
-          {{ t('notes.trash.deleteForever') }}
-        </Button>
-      </div>
-
-      <div
-        v-if="canEdit && !editing && !trashed"
-        class="mt-4 flex justify-end"
-      >
-        <Button
-          type="button"
-          variant="secondary"
-          @click="editing = true"
-        >
-          <PencilSquareIcon class="h-4 w-4" />
-          <span class="ml-1">{{ t('common.edit') }}</span>
-        </Button>
-      </div>
-
       <div v-else-if="canEdit && editing && !trashed" class="space-y-4">
         <div class="rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-sm">
           <div class="text-muted">{{ t('taskDetailModal.labels.project') }}</div>
@@ -519,24 +535,13 @@ async function purgeFromTrash() {
           v-model:project-id="formProjectId"
           v-model:status="formStatus"
           v-model:priority="formPriority"
+          form-id="task-detail-edit"
+          hide-footer
           hide-project-select
           :submit-label="t('common.save')"
           :loading="saving"
           @submit="save"
-          @cancel="editing = false"
-        >
-          <template #actions-start>
-            <Button
-              variant="ghost-danger"
-              type="button"
-              :loading="removing"
-              :disabled="saving"
-              @click="removeTask"
-            >
-              {{ t('taskDetailModal.buttons.deleteTask') }}
-            </Button>
-          </template>
-        </TaskForm>
+        />
         <TaskSubtasksPanel :task="task" @updated="refreshTask" />
       </div>
 
@@ -619,6 +624,63 @@ async function purgeFromTrash() {
             </li>
           </ul>
         </Modal>
+      </div>
+    </template>
+    <template v-if="taskFooterVisible" #footer>
+      <div
+        v-if="trashed && canManageTrash"
+        class="flex flex-wrap justify-end gap-2"
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          :loading="restoring"
+          :disabled="purging"
+          @click="restoreFromTrash"
+        >
+          {{ t('notes.restore') }}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost-danger"
+          :loading="purging"
+          :disabled="restoring"
+          @click="purgeFromTrash"
+        >
+          {{ t('notes.trash.deleteForever') }}
+        </Button>
+      </div>
+      <div
+        v-else-if="canEdit && editing && !trashed"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <Button
+          variant="ghost-danger"
+          type="button"
+          :loading="removing"
+          :disabled="saving"
+          @click="removeTask"
+        >
+          {{ t('taskDetailModal.buttons.deleteTask') }}
+        </Button>
+        <div class="ml-auto flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="saving || removing"
+            @click="cancelEdit"
+          >
+            {{ t('taskForm.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="task-detail-edit"
+            :loading="saving"
+            :disabled="removing"
+          >
+            {{ t('common.save') }}
+          </Button>
+        </div>
       </div>
     </template>
   </Modal>

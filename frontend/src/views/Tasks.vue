@@ -547,12 +547,27 @@ async function onSectionMove(payload: {
         v-model:project-id="projectId"
         v-model:status="status"
         v-model:priority="priority"
+        form-id="tasks-new-task"
+        hide-footer
         :projects="projectStore.projects.map((p) => ({ id: p.id, name: p.name }))"
         :loading="saving"
         :submit-label="t('tasks.submitCreate')"
         @submit="createTask"
-        @cancel="showModal = false"
       />
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" :disabled="saving" @click="showModal = false">
+            {{ t('taskForm.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="tasks-new-task"
+            :loading="saving"
+          >
+            {{ t('tasks.submitCreate') }}
+          </Button>
+        </div>
+      </template>
     </Modal>
 
     <TaskDetailModal

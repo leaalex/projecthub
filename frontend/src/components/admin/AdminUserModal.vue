@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
@@ -9,6 +11,8 @@ import type { User, UserRole } from '@domain/user/types'
 import { useConfirm } from '@app/composables/useConfirm'
 import { useToast } from '@app/composables/useToast'
 import { extractUserAxiosError, useUserStore } from '@app/user.store'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -49,16 +53,42 @@ const initialRole = ref<UserRole>('user')
 const saving = ref(false)
 const deleting = ref(false)
 
+/** Локальный переход view → edit внутри модалки. */
+const localEdit = ref(false)
+
+type Snapshot = {
+  email: string
+  lastName: string
+  firstName: string
+  patronymic: string
+  department: string
+  jobTitle: string
+  phone: string
+  role: UserRole
+}
+
+const editSnapshot = ref<Snapshot | null>(null)
+
 const title = computed(() => {
   if (props.mode === 'create') return 'New user'
-  if (props.mode === 'view') return 'View user'
+  if (props.mode === 'view' && !localEdit.value) return 'View user'
   return 'Edit user'
 })
 
-const isView = computed(() => props.mode === 'view')
+const isViewMode = computed(() => props.mode === 'view' && !localEdit.value)
+
+/** Режим ввода (не read-only карточка). */
+const isEditingUi = computed(
+  () =>
+    props.mode === 'create'
+    || props.mode === 'edit'
+    || (props.mode === 'view' && localEdit.value),
+)
 
 const canChangeRole = computed(
-  () => props.mode === 'edit' && props.user?.role !== 'admin',
+  () =>
+    (props.mode === 'edit' || (props.mode === 'view' && localEdit.value))
+    && props.user?.role !== 'admin',
 )
 
 function resetCreate() {
@@ -71,6 +101,7 @@ function resetCreate() {
   jobTitle.value = ''
   phone.value = ''
   formRole.value = 'user'
+  editSnapshot.value = null
 }
 
 function fillFromUser(u: User) {
@@ -86,26 +117,79 @@ function fillFromUser(u: User) {
   initialRole.value = u.role
 }
 
+function captureSnapshot() {
+  editSnapshot.value = {
+    email: email.value,
+    lastName: lastName.value,
+    firstName: firstName.value,
+    patronymic: patronymic.value,
+    department: department.value,
+    jobTitle: jobTitle.value,
+    phone: phone.value,
+    role: formRole.value,
+  }
+}
+
 watch(
   () => props.modelValue,
   (open) => {
     if (!open) return
+    localEdit.value = false
     if (props.mode === 'create') {
       resetCreate()
     } else if (props.user && (props.mode === 'edit' || props.mode === 'view')) {
       fillFromUser(props.user)
+      captureSnapshot()
     }
   },
 )
+
+watch(localEdit, (on) => {
+  if (on && props.mode === 'view' && props.user) {
+    fillFromUser(props.user)
+    captureSnapshot()
+  }
+})
+
+const adminModalDirty = computed(() => {
+  if (props.mode === 'create' || isViewMode.value) return false
+  const s = editSnapshot.value
+  if (!s) return false
+  if (password.value.trim() !== '') return true
+  return (
+    email.value.trim() !== s.email
+    || lastName.value.trim() !== s.lastName
+    || firstName.value.trim() !== s.firstName
+    || patronymic.value.trim() !== s.patronymic
+    || department.value.trim() !== s.department
+    || jobTitle.value.trim() !== s.jobTitle
+    || phone.value.trim() !== s.phone
+    || formRole.value !== s.role
+  )
+})
 
 function close() {
   emit('update:modelValue', false)
 }
 
+function onFooterCancel() {
+  if (props.mode === 'view' && localEdit.value) {
+    localEdit.value = false
+    if (props.user) fillFromUser(props.user)
+    return
+  }
+  close()
+}
+
 const busy = computed(() => saving.value || deleting.value)
 
 async function confirmDelete() {
-  if (props.mode !== 'edit' || !props.user) return
+  if (
+    (props.mode !== 'edit' && !(props.mode === 'view' && localEdit.value))
+    || !props.user
+  ) {
+    return
+  }
   const u = props.user
   const ok = await confirm({
     title: 'Delete user',
@@ -130,7 +214,7 @@ async function confirmDelete() {
 }
 
 async function submit() {
-  if (props.mode === 'view') return
+  if (isViewMode.value) return
   const e = email.value.trim()
   if (!e) {
     toast.error('Email is required')
@@ -203,9 +287,25 @@ async function submit() {
   <Modal
     :model-value="modelValue"
     :title="title"
+    :dirty="adminModalDirty"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
   >
-    <form class="space-y-4" @submit.prevent="submit">
+    <template #header-actions>
+      <Button
+        v-if="mode === 'view' && !localEdit"
+        type="button"
+        variant="secondary"
+        @click="localEdit = true"
+      >
+        <PencilSquareIcon class="h-4 w-4" />
+        <span class="ml-1">{{ t('common.edit') }}</span>
+      </Button>
+    </template>
+    <form
+      id="admin-user-form"
+      class="space-y-4"
+      @submit.prevent="submit"
+    >
       <div class="grid gap-4 sm:grid-cols-2">
         <Input
           id="adm-email"
@@ -213,12 +313,12 @@ async function submit() {
           label="Email"
           type="email"
           autocomplete="off"
-          :required="!isView"
-          :disabled="isView"
+          :required="isEditingUi"
+          :disabled="isViewMode"
         />
         <div>
           <label class="mb-1 block text-xs font-medium text-foreground">Global role</label>
-          <template v-if="isView">
+          <template v-if="isViewMode">
             <p class="rounded-md border border-border bg-surface-muted px-2.5 py-2 text-xs text-foreground">
               {{ user?.role }}
             </p>
@@ -252,7 +352,7 @@ async function submit() {
       </div>
 
       <Input
-        v-if="!isView"
+        v-if="isEditingUi"
         id="adm-password"
         v-model="password"
         :label="mode === 'create' ? 'Password' : 'New password (optional)'"
@@ -267,14 +367,14 @@ async function submit() {
           v-model="lastName"
           label="Last name"
           autocomplete="family-name"
-          :disabled="isView"
+          :disabled="isViewMode"
         />
         <Input
           id="adm-first"
           v-model="firstName"
           label="First name"
           autocomplete="given-name"
-          :disabled="isView"
+          :disabled="isViewMode"
         />
       </div>
       <Input
@@ -282,21 +382,21 @@ async function submit() {
         v-model="patronymic"
         label="Patronymic"
         autocomplete="additional-name"
-        :disabled="isView"
+        :disabled="isViewMode"
       />
       <Input
         id="adm-dept"
         v-model="department"
         label="Department"
         autocomplete="organization"
-        :disabled="isView"
+        :disabled="isViewMode"
       />
       <Input
         id="adm-job"
         v-model="jobTitle"
         label="Job title"
         autocomplete="organization-title"
-        :disabled="isView"
+        :disabled="isViewMode"
       />
       <Input
         id="adm-phone"
@@ -304,40 +404,51 @@ async function submit() {
         label="Phone"
         type="tel"
         autocomplete="tel"
-        :disabled="isView"
+        :disabled="isViewMode"
       />
-
+    </form>
+    <template #footer>
       <div
-        v-if="isView"
-        class="flex flex-wrap justify-end gap-2 pt-2"
+        v-if="isViewMode"
+        class="flex flex-wrap justify-end gap-2"
       >
         <Button type="button" variant="secondary" @click="close">
-          Close
+          {{ t('common.cancel') }}
+        </Button>
+      </div>
+      <div
+        v-else-if="mode === 'create'"
+        class="flex flex-wrap justify-end gap-2"
+      >
+        <Button type="button" variant="secondary" :disabled="busy" @click="close">
+          {{ t('common.cancel') }}
+        </Button>
+        <Button type="submit" form="admin-user-form" :disabled="busy">
+          {{ t('common.create') }}
         </Button>
       </div>
       <div
         v-else
-        class="flex flex-wrap items-center gap-2 pt-2"
-        :class="mode === 'edit' ? 'justify-between' : 'justify-end'"
+        class="flex flex-wrap items-center justify-between gap-2"
       >
         <Button
-          v-if="mode === 'edit'"
+          v-if="mode === 'edit' || localEdit"
           type="button"
           variant="ghost-danger"
           :disabled="busy || deleteDisabled"
           @click="confirmDelete"
         >
-          Delete
+          {{ t('common.delete') }}
         </Button>
-        <div class="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="secondary" :disabled="busy" @click="close">
-            Cancel
+        <div class="ml-auto flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" :disabled="busy" @click="onFooterCancel">
+            {{ t('common.cancel') }}
           </Button>
-          <Button type="submit" :disabled="busy">
-            {{ mode === 'create' ? 'Create' : 'Save' }}
+          <Button type="submit" form="admin-user-form" :disabled="busy">
+            {{ t('common.save') }}
           </Button>
         </div>
       </div>
-    </form>
+    </template>
   </Modal>
 </template>

@@ -56,8 +56,45 @@ const linkBusy = ref(false)
 const linkedIds = computed(() => note.value?.linked_task_ids ?? [])
 
 const linkedTasks = computed(() =>
-  props.projectTasks.filter(t => linkedIds.value.includes(t.id)),
+  props.projectTasks.filter(p => linkedIds.value.includes(p.id)),
 )
+
+/** Состояние формы редактирования (v-model в NoteForm) — для `dirty` у модалки. */
+const formTitle = ref('')
+const formBody = ref('')
+const formSectionId = ref<number | null>(null)
+
+const noteModalDirty = computed(() => {
+  const n = note.value
+  if (!n || !editing.value || props.trashed) return false
+  return (
+    formTitle.value.trim() !== n.title
+    || formBody.value.trim() !== (n.body ?? '').trim()
+    || formSectionId.value !== (n.section_id ?? null)
+  )
+})
+
+const noteFooterVisible = computed(() => {
+  if (!note.value || loading.value) return false
+  if (props.trashed && props.canManage) return true
+  if (props.canManage && editing.value && !props.trashed) return true
+  return false
+})
+
+const showHeaderEditButton = computed(
+  () =>
+    Boolean(
+      note.value
+      && props.canManage
+      && !props.trashed
+      && !editing.value
+      && !loading.value,
+    ),
+)
+
+function cancelEdit() {
+  editing.value = false
+}
 
 watch(
   () =>
@@ -228,8 +265,20 @@ async function purgeFromTrash() {
   <Modal
     :model-value="modelValue"
     :title="note?.title ?? t('notes.detail.title')"
+    :dirty="noteModalDirty"
     @update:model-value="emit('update:modelValue', $event)"
   >
+    <template #header-actions>
+      <Button
+        v-if="showHeaderEditButton"
+        type="button"
+        variant="secondary"
+        @click="editing = true"
+      >
+        <PencilSquareIcon class="h-4 w-4" />
+        <span class="ml-1">{{ t('common.edit') }}</span>
+      </Button>
+    </template>
     <div v-if="loading" class="space-y-2">
       <Skeleton variant="line" />
       <Skeleton variant="line" :lines="4" />
@@ -237,66 +286,20 @@ async function purgeFromTrash() {
     <template v-else-if="note">
       <div v-if="editing && !trashed" class="space-y-3">
         <NoteForm
+          v-model:title="formTitle"
+          v-model:body="formBody"
+          v-model:section-id="formSectionId"
           :initial="note"
           :sections="sections"
+          form-id="note-detail-edit"
+          hide-footer
           :loading="saving"
           :submit-label="t('common.save')"
-          @cancel="editing = false"
           @submit="saveFromForm"
-        >
-          <template #actions-start>
-            <Button
-              variant="ghost-danger"
-              type="button"
-              :loading="removing"
-              :disabled="saving"
-              @click="removeNote"
-            >
-              {{ t('common.delete') }}
-            </Button>
-          </template>
-        </NoteForm>
+        />
       </div>
       <template v-else>
         <div class="space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-lg font-semibold text-foreground">
-              {{ note.title }}
-            </h2>
-            <div v-if="canManage && !trashed" class="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                @click="editing = true"
-              >
-                <PencilSquareIcon class="h-4 w-4" />
-                <span class="ml-1">{{ t('common.edit') }}</span>
-              </Button>
-            </div>
-            <div
-              v-if="trashed && canManage"
-              class="flex flex-wrap gap-2"
-            >
-              <Button
-                type="button"
-                variant="secondary"
-                :loading="restoring"
-                :disabled="purging"
-                @click="restoreFromTrash"
-              >
-                {{ t('notes.restore') }}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost-danger"
-                :loading="purging"
-                :disabled="restoring"
-                @click="purgeFromTrash"
-              >
-                {{ t('notes.trash.deleteForever') }}
-              </Button>
-            </div>
-          </div>
           <div class="space-y-1">
             <div class="text-xs font-medium text-muted">
               {{ t('notes.form.body') }}
@@ -342,6 +345,63 @@ async function purgeFromTrash() {
           </div>
         </div>
       </template>
+    </template>
+    <template v-if="noteFooterVisible" #footer>
+      <div
+        v-if="trashed && canManage"
+        class="flex flex-wrap justify-end gap-2"
+      >
+        <Button
+          type="button"
+          variant="secondary"
+          :loading="restoring"
+          :disabled="purging"
+          @click="restoreFromTrash"
+        >
+          {{ t('notes.restore') }}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost-danger"
+          :loading="purging"
+          :disabled="restoring"
+          @click="purgeFromTrash"
+        >
+          {{ t('notes.trash.deleteForever') }}
+        </Button>
+      </div>
+      <div
+        v-else-if="canManage && editing && !trashed"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <Button
+          variant="ghost-danger"
+          type="button"
+          :loading="removing"
+          :disabled="saving"
+          @click="removeNote"
+        >
+          {{ t('common.delete') }}
+        </Button>
+        <div class="ml-auto flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            :disabled="saving || removing"
+            @click="cancelEdit"
+          >
+            {{ t('common.cancel') }}
+          </Button>
+          <Button
+            type="submit"
+            form="note-detail-edit"
+            :loading="saving"
+            :disabled="removing || !formTitle.trim()"
+          >
+            {{ t('common.save') }}
+          </Button>
+        </div>
+      </div>
     </template>
   </Modal>
 </template>
