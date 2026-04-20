@@ -224,7 +224,7 @@ async function saveFromForm(payload: {
     toast.success(t('notes.detail.saved'))
     emit('saved')
   } catch (e) {
-    toast.error(extractNoteAxiosError(e, t('notes.detail.saveFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.detail.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -247,7 +247,7 @@ async function removeNote() {
     close()
     emit('deleted')
   } catch (e) {
-    toast.error(extractNoteAxiosError(e, t('notes.detail.deleteFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.detail.deleteFailed'))
   } finally {
     removing.value = false
   }
@@ -264,7 +264,7 @@ async function onLinkTask(taskId: number) {
     toast.success(t('notes.linkTask.linked'))
     emit('saved')
   } catch (e) {
-    toast.error(extractNoteAxiosError(e, t('notes.linkTask.linkFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.linkTask.linkFailed'))
   } finally {
     linkBusy.value = false
   }
@@ -282,7 +282,7 @@ async function onUnlinkTask(taskId: number) {
     toast.success(t('notes.linkTask.unlinked'))
     emit('saved')
   } catch (e) {
-    toast.error(extractNoteAxiosError(e, t('notes.linkTask.unlinkFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.linkTask.unlinkFailed'))
   } finally {
     linkBusy.value = false
   }

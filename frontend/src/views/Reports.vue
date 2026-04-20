@@ -18,6 +18,7 @@ import {
   useReportStore,
 } from '@app/report.store'
 import { formatDateShort } from '@infra/formatters/date'
+import { mapApiError } from '@infra/api/errorMap'
 import type { ReportConfig, SavedReport } from '@domain/report/types'
 
 const { t, locale } = useI18n()
@@ -76,7 +77,7 @@ async function onCreateReport(cfg: ReportConfig) {
     await reportStore.generate(cfg)
     modalOpen.value = false
   } catch (e: unknown) {
-    msg.value = extractReportAxiosError(e, t('reports.toasts.createFailed'))
+    msg.value = extractReportAxiosError(e, 'reports.toasts.createFailed')
   }
 }
 
@@ -85,7 +86,10 @@ async function downloadSaved(r: SavedReport) {
   const fallback = r.display_name || `report.${r.format}`
   const result = await reportStore.downloadFile(r.id, fallback)
   if (!result.ok) {
-    msg.value = result.apiMessage ?? t('reports.toasts.downloadFailed')
+    msg.value = mapApiError(
+      { response: { data: { error: result.apiMessage } } },
+      'reports.toasts.downloadFailed',
+    )
     return
   }
   const url = URL.createObjectURL(result.blob)
@@ -112,7 +116,7 @@ async function deleteSaved(r: SavedReport) {
     await reportStore.remove(r.id)
     toast.success(t('reports.toasts.deleted'))
   } catch (e: unknown) {
-    msg.value = extractReportAxiosError(e, t('reports.toasts.deleteFailed'))
+    msg.value = extractReportAxiosError(e, 'reports.toasts.deleteFailed')
   }
 }
 

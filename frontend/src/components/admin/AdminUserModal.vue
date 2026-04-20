@@ -210,9 +210,7 @@ async function confirmDelete() {
     emit('saved')
     close()
   } catch (err: unknown) {
-    toast.error(
-      extractUserAxiosError(err, 'Could not delete user'),
-    )
+    toast.error(extractUserAxiosError(err, 'admin.users.errors.deleteFailed'))
   } finally {
     deleting.value = false
   }
@@ -281,7 +279,7 @@ async function submit() {
     emit('saved')
     close()
   } catch (err: unknown) {
-    toast.error(extractUserAxiosError(err, 'Request failed'))
+    toast.error(extractUserAxiosError(err, 'admin.users.errors.requestFailed'))
   } finally {
     saving.value = false
   }

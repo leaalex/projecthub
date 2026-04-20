@@ -287,7 +287,7 @@ async function load() {
   try {
     await noteStore.fetchAll(params)
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('notes.toasts.loadFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.toasts.loadFailed'))
   }
 }
 
@@ -323,7 +323,7 @@ async function onCreateSubmit(payload: {
     await load()
     toast.success(t('notes.toasts.created'))
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('notes.toasts.createFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.toasts.createFailed'))
   } finally {
     createSaving.value = false
   }

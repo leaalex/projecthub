@@ -35,6 +35,63 @@
     "noData": "No data",
     "additional": "Additional"
   },
+  "errors": {
+    "userNotFound": "User not found",
+    "taskNotFound": "Task not found",
+    "projectNotFound": "Project not found",
+    "subtaskNotFound": "Subtask not found",
+    "reportNotFound": "Saved report not found",
+    "noteNotFound": "Note not found",
+    "notMember": "You are not a member of this project",
+    "sectionNotFound": "Section not found",
+    "taskSectionNotFound": "Task section not found",
+    "sessionNotFound": "Session not found",
+    "sessionExpired": "Session expired",
+    "sessionRevoked": "Session revoked",
+    "forbidden": "You do not have permission to perform this action",
+    "personalNoMembers": "Personal projects do not support members",
+    "teamProjectNotAllowed": "Team projects require creator role or above",
+    "invalidInput": "Invalid input",
+    "invalidReportFormat": "Invalid report format",
+    "invalidPdfLayout": "Invalid PDF layout",
+    "invalidGroupBy": "Invalid group by",
+    "invalidReportFields": "Invalid task status or priority in report filters",
+    "reportsDirUnset": "Reports directory is not configured on the server",
+    "assigneeNotProjectMember": "Assignee must be a project owner or member",
+    "invalidTitle": "Invalid task title",
+    "invalidStatus": "Invalid task status",
+    "invalidPriority": "Invalid task priority",
+    "titleRequired": "Note title is required",
+    "taskOtherProject": "Task belongs to a different project",
+    "cannotRemoveOwner": "Cannot remove project owner",
+    "cannotChangeOwnRole": "Cannot change your own global role",
+    "invalidGlobalRole": "Invalid global role",
+    "invalidEmail": "Invalid email",
+    "invalidLocale": "Invalid locale",
+    "invalidPassword": "Invalid password",
+    "cannotTransferToSelf": "Cannot transfer tasks to the member being removed",
+    "targetNotProjectMember": "Transfer target must be a project member or owner",
+    "invalidTaskTransfer": "Task does not belong to the member being removed",
+    "duplicateTaskTransfer": "Duplicate task in transfer list",
+    "cannotTransferToSameMember": "Cannot assign task to the member being removed",
+    "invalidAssignee": "Assignee must be a project member or owner",
+    "incompleteTaskTransfer": "All tasks must be reassigned before removing member",
+    "invalidReorder": "Invalid section reorder",
+    "ownershipUnchanged": "Invalid ownership transfer",
+    "invalidProjectName": "Invalid project name",
+    "invalidMemberRole": "Invalid project role",
+    "invalidSectionName": "Invalid section name",
+    "cannotDeleteSelf": "Cannot delete your own account",
+    "alreadyMember": "User is already a project member",
+    "linkAlreadyExists": "Link already exists",
+    "emailTaken": "Email is already registered",
+    "invalidCredentials": "Invalid email or password",
+    "invalidRefreshToken": "Invalid or expired refresh token",
+    "internalError": "Internal server error",
+    "foreignKeyViolation": "Data references a missing record. Refresh the page and try again.",
+    "uniqueViolation": "This value already exists or violates a uniqueness rule.",
+    "notNullViolation": "Required data is missing. Refresh the page and try again."
+  },
   "modal": {
     "unsavedChanges": "There are unsaved changes"
   },
@@ -537,6 +594,7 @@
       "errors": {
         "loadFailed": "Failed to load users (staff or admin only).",
         "deleteFailed": "Could not delete user.",
+        "requestFailed": "Request failed.",
         "roleFailed": "Could not update role"
       },
       "toasts": {
@@ -949,7 +1007,6 @@
     "toasts": {
       "added": "Subtask added",
       "addFailed": "Could not add subtask",
-      "conflictAddFailed": "Could not save subtask: the task may reference missing data (e.g. section or assignee). Refresh the page and try again.",
       "updateFailed": "Could not update subtask",
       "removed": "Subtask removed",
       "removeFailed": "Could not remove subtask",
@@ -1076,8 +1133,5 @@
     "themeSystem": "System",
     "language": "Language",
     "languageHint": "Interface language is saved to your account and this device."
-  },
-  "serverErrors": {
-    "alreadyMember": "User is already a project member"
   }
 }

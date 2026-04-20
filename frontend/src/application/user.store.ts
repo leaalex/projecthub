@@ -2,12 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { User, UserRole } from '@domain/user/types'
 import { usersApi } from '@infra/api/users'
+import { mapApiError } from '@infra/api/errorMap'
 
-/** Parse axios-style error body for `error` string (used by views for toasts/messages). */
-export function extractUserAxiosError(e: unknown, fallback: string): string {
-  const err = e as { response?: { data?: { error?: string } } }
-  const msg = err.response?.data?.error
-  return typeof msg === 'string' ? msg : fallback
+/** `fallbackKey` — ключ i18n. */
+export function extractUserAxiosError(e: unknown, fallbackKey: string): string {
+  return mapApiError(e, fallbackKey)
 }
 
 export const useUserStore = defineStore('user', () => {

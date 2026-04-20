@@ -13,6 +13,7 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import { isPrivilegedRole } from '@domain/user/role'
 import { useAuthStore } from '@app/auth.store'
 import { useProjectStore } from '@app/project.store'
+import { mapApiError } from '@infra/api/errorMap'
 
 const route = useRoute()
 const router = useRouter()
@@ -86,10 +87,7 @@ async function load() {
       response?: { status?: number; data?: { error?: string } }
     }
     const status = ax.response?.status
-    const apiMsg = ax.response?.data?.error
-    let msg = t('projectSettings.loadProjectFailed')
-    if (typeof apiMsg === 'string') msg = apiMsg
-    else if (e instanceof Error && e.message) msg = e.message
+    const msg = mapApiError(e, 'projectSettings.loadProjectFailed')
 
     if (status === 404 || status === 403) {
       void router.replace('/projects')

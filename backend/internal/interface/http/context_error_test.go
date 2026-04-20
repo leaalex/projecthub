@@ -38,4 +38,11 @@ func TestHandleServiceError_DefaultLogsWithError(t *testing.T) {
 	if len(c.Errors) != 1 {
 		t.Fatalf("expected 1 gin error for logging, got %d", len(c.Errors))
 	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["error"] != "internal_error" {
+		t.Fatalf("unexpected error code: %v", body["error"])
+	}
 }

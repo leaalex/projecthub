@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import RegisterForm from '../components/auth/RegisterForm.vue'
 import { useAuthStore } from '@app/auth.store'
+import { mapApiError } from '@infra/api/errorMap'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -22,12 +23,7 @@ async function onSubmit() {
     await auth.register(email.value, password.value, name.value)
     await router.replace('/dashboard')
   } catch (e: unknown) {
-    if (typeof e === 'object' && e !== null && 'response' in e) {
-      const res = (e as { response?: { data?: { error?: string } } }).response
-      error.value = res?.data?.error ?? t('auth.errors.registrationFailed')
-    } else {
-      error.value = t('auth.errors.registrationFailed')
-    }
+    error.value = mapApiError(e, 'auth.errors.registrationFailed')
   } finally {
     loading.value = false
   }

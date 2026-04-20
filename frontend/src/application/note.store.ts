@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Note, CreateNotePayload, UpdateNotePayload } from '@domain/note/types'
 import { notesApi } from '@infra/api/notes'
+import { mapApiError } from '@infra/api/errorMap'
 
 /** Ключ группы: `unsectioned` | `ns-{sectionId}` */
 export function parseNoteSectionGroupKey(key: string): number | null {
@@ -18,10 +19,9 @@ export function noteSectionGroupKey(sectionId: number | null | undefined): strin
   return `ns-${sectionId}`
 }
 
-export function extractNoteAxiosError(e: unknown, fallback: string): string {
-  const err = e as { response?: { data?: { error?: string } } }
-  const msg = err.response?.data?.error
-  return typeof msg === 'string' ? msg : fallback
+/** `fallbackKey` — ключ i18n (например `notes.toasts.loadFailed`). */
+export function extractNoteAxiosError(e: unknown, fallbackKey: string): string {
+  return mapApiError(e, fallbackKey)
 }
 
 export const useNoteStore = defineStore('note', () => {

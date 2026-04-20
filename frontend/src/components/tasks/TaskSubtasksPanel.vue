@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { Subtask, Task } from '@domain/task/types'
 import { useTaskStore } from '@app/task.store'
 import { useToast } from '@app/composables/useToast'
+import { mapApiError } from '@infra/api/errorMap'
 import UiInput from '../ui/UiInput.vue'
 
 const { t } = useI18n()
@@ -44,23 +45,8 @@ const busyId = ref<number | null>(null)
 const editingId = ref<number | null>(null)
 const editDraft = ref('')
 
-const SQLITE_CONSTRAINT_CODES = new Set([
-  'foreign_key_violation',
-  'unique_violation',
-  'not_null_violation',
-])
-
 function toastSubtaskError(e: unknown, fallbackI18nKey: string) {
-  const err = e as {
-    response?: { data?: { error?: string } }
-  }
-  const code = err.response?.data?.error
-  if (typeof code === 'string' && SQLITE_CONSTRAINT_CODES.has(code)) {
-    toast.error(t('taskSubtasks.toasts.conflictAddFailed'))
-    return
-  }
-  const msg = err.response?.data?.error
-  toast.error(typeof msg === 'string' ? msg : t(fallbackI18nKey))
+  toast.error(mapApiError(e, fallbackI18nKey))
 }
 
 const sorted = computed(() =>

@@ -12,7 +12,7 @@ import { useProjectStore } from '@app/project.store'
 import { useUserStore } from '@app/user.store'
 import type { ProjectMemberRole } from '@domain/project/types'
 import { isPrivilegedRole } from '@domain/user/role'
-import { translateServerError } from '@infra/i18n/serverErrors'
+import { mapApiError } from '@infra/api/errorMap'
 import { storeToRefs } from 'pinia'
 import Button from '../ui/UiButton.vue'
 import UiInput from '../ui/UiInput.vue'
@@ -112,13 +112,7 @@ async function onAdd() {
     open.value = false
     emit('added')
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const serverMessage = err.response?.data?.error
-    toast.error(
-      typeof serverMessage === 'string'
-        ? translateServerError(serverMessage, t)
-        : t('addMemberModal.toasts.addFailed'),
-    )
+    toast.error(mapApiError(e, 'addMemberModal.toasts.addFailed'))
   } finally {
     adding.value = false
   }

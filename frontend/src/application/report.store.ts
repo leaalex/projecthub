@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ReportConfig, SavedReport, WeeklyReport } from '@domain/report/types'
 import { healthApi, reportsApi } from '@infra/api/reports'
+import { mapApiError } from '@infra/api/errorMap'
 
 function parseFilename(cd: string | undefined, fallback: string): string {
   if (!cd) return fallback
@@ -12,11 +13,9 @@ function parseFilename(cd: string | undefined, fallback: string): string {
   return fallback
 }
 
-/** Parse axios-style error body for `error` string (used by views for toasts/messages). */
-export function extractReportAxiosError(e: unknown, fallback: string): string {
-  const err = e as { response?: { data?: { error?: string } } }
-  const msg = err.response?.data?.error
-  return typeof msg === 'string' ? msg : fallback
+/** `fallbackKey` — ключ i18n. */
+export function extractReportAxiosError(e: unknown, fallbackKey: string): string {
+  return mapApiError(e, fallbackKey)
 }
 
 export type ReportDownloadResult =

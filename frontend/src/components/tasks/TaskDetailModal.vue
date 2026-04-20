@@ -26,6 +26,7 @@ import type { Note } from '@domain/note/types'
 import type { Task, TaskPriority, TaskStatus } from '@domain/task/types'
 import { canManageNote } from '@domain/note/permissions'
 import { formatDate } from '@infra/formatters/date'
+import { mapApiError } from '@infra/api/errorMap'
 import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t, locale } = useI18n()
@@ -127,7 +128,7 @@ async function refreshLinkedNotes() {
     linkedNotes.value = await noteStore.fetchLinkedByTask(cur.id)
   } catch (e: unknown) {
     linkedNotes.value = []
-    toast.error(extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.loadFailed')))
+    toast.error(extractNoteAxiosError(e, 'taskDetailModal.linkedNotes.loadFailed'))
   }
 }
 
@@ -187,7 +188,7 @@ watch(linkManagerOpen, async open => {
   try {
     await noteStore.fetchList(task.value.project_id, { quiet: true })
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.loadFailed')))
+    toast.error(extractNoteAxiosError(e, 'taskDetailModal.linkedNotes.loadFailed'))
   }
 })
 
@@ -257,11 +258,7 @@ async function save() {
     toast.success(t('taskDetailModal.toasts.updated'))
     emit('saved')
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(
-      typeof msg === 'string' ? msg : t('taskDetailModal.toasts.updateFailed'),
-    )
+    toast.error(mapApiError(e, 'taskDetailModal.toasts.updateFailed'))
     try {
       task.value = await taskStore.fetchOne(cur.id)
     } catch {
@@ -298,7 +295,7 @@ async function linkNoteFromPicker(noteId: number) {
     emit('saved')
   } catch (e: unknown) {
     toast.error(
-      extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.linkFailed')),
+      extractNoteAxiosError(e, 'taskDetailModal.linkedNotes.linkFailed'),
     )
   } finally {
     linkBusy.value = false
@@ -317,7 +314,7 @@ async function unlinkNote(noteId: number) {
     emit('saved')
   } catch (e: unknown) {
     toast.error(
-      extractNoteAxiosError(e, t('taskDetailModal.linkedNotes.unlinkFailed')),
+      extractNoteAxiosError(e, 'taskDetailModal.linkedNotes.unlinkFailed'),
     )
   } finally {
     linkBusy.value = false

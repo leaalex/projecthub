@@ -22,6 +22,7 @@ import UiIconSelect from '../ui/UiIconSelect.vue'
 import type { UiIconSelectOption } from '../ui/UiIconSelect.vue'
 import ManualTaskTransfer from './ManualTaskTransfer.vue'
 import TaskTransferModal from './TaskTransferModal.vue'
+import { mapApiError } from '@infra/api/errorMap'
 
 const props = defineProps<{
   projectId: number
@@ -102,12 +103,7 @@ async function onRemove(userId: number) {
     memberTasks.value = checkResult.tasks || []
     taskTransferOpen.value = true
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    toast.error(
-      typeof err.response?.data?.error === 'string'
-        ? err.response.data.error
-        : t('members.toasts.removeFailed'),
-    )
+    toast.error(mapApiError(e, 'members.toasts.removeFailed'))
     removingMemberId.value = null
   }
 }
@@ -132,12 +128,7 @@ async function onTransferSelect(mode: TaskTransferMode, targetUserId?: number) {
           }),
     )
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    toast.error(
-      typeof err.response?.data?.error === 'string'
-        ? err.response.data.error
-        : t('members.toasts.removeFailed'),
-    )
+    toast.error(mapApiError(e, 'members.toasts.removeFailed'))
   } finally {
     removingMemberId.value = null
     memberTasks.value = []
@@ -159,12 +150,7 @@ async function onManualApply(transfers: TaskTransfer[]) {
       }),
     )
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    toast.error(
-      typeof err.response?.data?.error === 'string'
-        ? err.response.data.error
-        : t('members.toasts.transferRemoveFailed'),
-    )
+    toast.error(mapApiError(e, 'members.toasts.transferRemoveFailed'))
   } finally {
     removingMemberId.value = null
     memberTasks.value = []

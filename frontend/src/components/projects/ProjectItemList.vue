@@ -213,7 +213,7 @@ async function onSectionDropAt(targetSectionId: number, placeAfter: boolean) {
     await projectStore.reorderSections(pid, next)
     emit('sectionsUpdated')
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.reorderFailed')))
+    toast.error(extractNoteAxiosError(e, 'project.section.reorderFailed'))
   } finally {
     onSectionDragEnd()
   }

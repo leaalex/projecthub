@@ -9,6 +9,7 @@ import (
 	"task-manager/backend/internal/domain/note"
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/report"
+	"task-manager/backend/internal/domain/session"
 	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
 	"task-manager/backend/internal/middleware"
@@ -27,66 +28,135 @@ func handleServiceError(c *gin.Context, err error) {
 		return
 	}
 
+	code, status := mapServiceError(err)
+	body := gin.H{"error": code}
+	if gin.Mode() != gin.ReleaseMode {
+		body["detail"] = err.Error()
+	}
+	if status >= http.StatusInternalServerError {
+		_ = c.Error(err)
+	}
+	c.JSON(status, body)
+}
+
+// mapServiceError maps domain/application errors to stable API codes and HTTP status.
+func mapServiceError(err error) (code string, status int) {
+	if err == nil {
+		return "internal_error", http.StatusInternalServerError
+	}
+
 	switch {
 	case errors.Is(err, user.ErrUserNotFound),
-		errors.Is(err, task.ErrTaskNotFound),
-		errors.Is(err, project.ErrProjectNotFound),
-		errors.Is(err, task.ErrSubtaskNotFound),
-		errors.Is(err, report.ErrNotFound),
-		errors.Is(err, note.ErrNoteNotFound),
-		errors.Is(err, application.ErrTargetUserNotFound),
-		errors.Is(err, project.ErrNotMember),
-		errors.Is(err, project.ErrSectionNotFound),
-		errors.Is(err, task.ErrTaskSectionNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		errors.Is(err, application.ErrTargetUserNotFound):
+		return "user_not_found", http.StatusNotFound
+	case errors.Is(err, task.ErrTaskNotFound):
+		return "task_not_found", http.StatusNotFound
+	case errors.Is(err, project.ErrProjectNotFound):
+		return "project_not_found", http.StatusNotFound
+	case errors.Is(err, task.ErrSubtaskNotFound):
+		return "subtask_not_found", http.StatusNotFound
+	case errors.Is(err, report.ErrNotFound):
+		return "report_not_found", http.StatusNotFound
+	case errors.Is(err, note.ErrNoteNotFound):
+		return "note_not_found", http.StatusNotFound
+	case errors.Is(err, project.ErrNotMember):
+		return "not_member", http.StatusNotFound
+	case errors.Is(err, project.ErrSectionNotFound):
+		return "section_not_found", http.StatusNotFound
+	case errors.Is(err, task.ErrTaskSectionNotFound):
+		return "task_section_not_found", http.StatusNotFound
+	case errors.Is(err, session.ErrSessionNotFound):
+		return "session_not_found", http.StatusUnauthorized
+	case errors.Is(err, session.ErrSessionExpired):
+		return "session_expired", http.StatusUnauthorized
+	case errors.Is(err, session.ErrSessionRevoked):
+		return "session_revoked", http.StatusUnauthorized
 
 	case errors.Is(err, application.ErrForbidden),
-		errors.Is(err, project.ErrForbidden),
-		errors.Is(err, project.ErrPersonalNoMembers),
-		errors.Is(err, project.ErrTeamProjectNotAllowed):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		errors.Is(err, project.ErrForbidden):
+		return "forbidden", http.StatusForbidden
+	case errors.Is(err, project.ErrPersonalNoMembers):
+		return "personal_no_members", http.StatusForbidden
+	case errors.Is(err, project.ErrTeamProjectNotAllowed):
+		return "team_project_not_allowed", http.StatusForbidden
 
-	case errors.Is(err, application.ErrInvalidInput),
-		errors.Is(err, report.ErrInvalidFormat),
-		errors.Is(err, report.ErrInvalidLayout),
-		errors.Is(err, report.ErrInvalidGroupBy),
-		errors.Is(err, report.ErrInvalidFields),
-		errors.Is(err, application.ErrAssigneeNotProjectMember),
-		errors.Is(err, task.ErrInvalidTitle),
-		errors.Is(err, task.ErrInvalidStatus),
-		errors.Is(err, task.ErrInvalidPriority),
-		errors.Is(err, note.ErrTitleRequired),
-		errors.Is(err, note.ErrTaskOtherProject),
-		errors.Is(err, project.ErrCannotRemoveOwner),
-		errors.Is(err, user.ErrCannotChangeOwnRole),
-		errors.Is(err, user.ErrInvalidGlobalRole),
-		errors.Is(err, application.ErrCannotTransferToSelf),
-		errors.Is(err, application.ErrTargetNotProjectMember),
-		errors.Is(err, application.ErrInvalidTaskTransfer),
-		errors.Is(err, application.ErrDuplicateTaskTransfer),
-		errors.Is(err, application.ErrCannotTransferToSameMember),
-		errors.Is(err, application.ErrInvalidAssignee),
-		errors.Is(err, application.ErrIncompleteTaskTransfer),
-		errors.Is(err, project.ErrInvalidReorder),
-		errors.Is(err, project.ErrOwnershipUnchanged),
-		errors.Is(err, project.ErrInvalidProjectName),
-		errors.Is(err, project.ErrInvalidMemberRole),
-		errors.Is(err, project.ErrInvalidSectionName):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, application.ErrInvalidInput):
+		return "invalid_input", http.StatusBadRequest
+	case errors.Is(err, report.ErrInvalidFormat):
+		return "invalid_report_format", http.StatusBadRequest
+	case errors.Is(err, report.ErrInvalidLayout):
+		return "invalid_pdf_layout", http.StatusBadRequest
+	case errors.Is(err, report.ErrInvalidGroupBy):
+		return "invalid_group_by", http.StatusBadRequest
+	case errors.Is(err, report.ErrInvalidFields):
+		return "invalid_report_fields", http.StatusBadRequest
+	case errors.Is(err, report.ErrReportsDirUnset):
+		return "reports_dir_unset", http.StatusInternalServerError
+	case errors.Is(err, application.ErrAssigneeNotProjectMember):
+		return "assignee_not_project_member", http.StatusBadRequest
+	case errors.Is(err, task.ErrInvalidTitle):
+		return "invalid_title", http.StatusBadRequest
+	case errors.Is(err, task.ErrInvalidStatus):
+		return "invalid_status", http.StatusBadRequest
+	case errors.Is(err, task.ErrInvalidPriority):
+		return "invalid_priority", http.StatusBadRequest
+	case errors.Is(err, note.ErrTitleRequired):
+		return "title_required", http.StatusBadRequest
+	case errors.Is(err, note.ErrTaskOtherProject):
+		return "task_other_project", http.StatusBadRequest
+	case errors.Is(err, project.ErrCannotRemoveOwner):
+		return "cannot_remove_owner", http.StatusBadRequest
+	case errors.Is(err, user.ErrCannotChangeOwnRole):
+		return "cannot_change_own_role", http.StatusBadRequest
+	case errors.Is(err, user.ErrInvalidGlobalRole):
+		return "invalid_global_role", http.StatusBadRequest
+	case errors.Is(err, user.ErrInvalidEmail):
+		return "invalid_email", http.StatusBadRequest
+	case errors.Is(err, user.ErrInvalidLocale):
+		return "invalid_locale", http.StatusBadRequest
+	case errors.Is(err, user.ErrInvalidPassword):
+		return "invalid_password", http.StatusBadRequest
+	case errors.Is(err, application.ErrCannotTransferToSelf):
+		return "cannot_transfer_to_self", http.StatusBadRequest
+	case errors.Is(err, application.ErrTargetNotProjectMember):
+		return "target_not_project_member", http.StatusBadRequest
+	case errors.Is(err, application.ErrInvalidTaskTransfer):
+		return "invalid_task_transfer", http.StatusBadRequest
+	case errors.Is(err, application.ErrDuplicateTaskTransfer):
+		return "duplicate_task_transfer", http.StatusBadRequest
+	case errors.Is(err, application.ErrCannotTransferToSameMember):
+		return "cannot_transfer_to_same_member", http.StatusBadRequest
+	case errors.Is(err, application.ErrInvalidAssignee):
+		return "invalid_assignee", http.StatusBadRequest
+	case errors.Is(err, application.ErrIncompleteTaskTransfer):
+		return "incomplete_task_transfer", http.StatusBadRequest
+	case errors.Is(err, project.ErrInvalidReorder):
+		return "invalid_reorder", http.StatusBadRequest
+	case errors.Is(err, project.ErrOwnershipUnchanged):
+		return "ownership_unchanged", http.StatusBadRequest
+	case errors.Is(err, project.ErrInvalidProjectName):
+		return "invalid_project_name", http.StatusBadRequest
+	case errors.Is(err, project.ErrInvalidMemberRole):
+		return "invalid_member_role", http.StatusBadRequest
+	case errors.Is(err, project.ErrInvalidSectionName):
+		return "invalid_section_name", http.StatusBadRequest
 
-	case errors.Is(err, user.ErrCannotDeleteSelf),
-		errors.Is(err, project.ErrAlreadyMember),
-		errors.Is(err, note.ErrLinkAlreadyExists),
-		errors.Is(err, user.ErrEmailTaken):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, user.ErrCannotDeleteSelf):
+		return "cannot_delete_self", http.StatusConflict
+	case errors.Is(err, project.ErrAlreadyMember):
+		return "already_member", http.StatusConflict
+	case errors.Is(err, note.ErrLinkAlreadyExists):
+		return "link_already_exists", http.StatusConflict
+	case errors.Is(err, user.ErrEmailTaken):
+		return "email_taken", http.StatusConflict
 
-	case errors.Is(err, application.ErrInvalidCreds),
-		errors.Is(err, application.ErrInvalidRefreshToken):
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+	case errors.Is(err, application.ErrInvalidCreds):
+		return "invalid_credentials", http.StatusUnauthorized
+	case errors.Is(err, application.ErrInvalidRefreshToken):
+		return "invalid_refresh_token", http.StatusUnauthorized
 
 	default:
-		_ = c.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return "internal_error", http.StatusInternalServerError
 	}
 }
 

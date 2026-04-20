@@ -33,6 +33,7 @@ import { isPrivilegedRole } from '@domain/user/role'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
+import { mapApiError } from '@infra/api/errorMap'
 
 const route = useRoute()
 const router = useRouter()
@@ -387,9 +388,7 @@ async function createTask() {
     await load()
     toast.success(t('tasks.toasts.created'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.createFailed'))
+    toast.error(mapApiError(e, 'tasks.toasts.createFailed'))
   } finally {
     saving.value = false
   }
@@ -406,9 +405,7 @@ async function onReopen(id: number) {
     await load()
     toast.success(t('tasks.toasts.reopened'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.updateFailed'))
+    toast.error(mapApiError(e, 'tasks.toasts.updateFailed'))
   }
 }
 
@@ -428,9 +425,7 @@ async function onSectionMove(payload: {
       position: payload.position,
     })
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('tasks.toasts.moveFailed'))
+    toast.error(mapApiError(e, 'tasks.toasts.moveFailed'))
   }
 }
 </script>

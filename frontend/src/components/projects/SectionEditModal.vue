@@ -65,7 +65,7 @@ async function save() {
       close()
       emit('saved')
     } catch (e: unknown) {
-      toast.error(extractNoteAxiosError(e, t('project.section.createFailed')))
+      toast.error(extractNoteAxiosError(e, 'project.section.createFailed'))
     } finally {
       saving.value = false
     }
@@ -80,7 +80,7 @@ async function save() {
     close()
     emit('saved')
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.renameFailed')))
+    toast.error(extractNoteAxiosError(e, 'project.section.renameFailed'))
   } finally {
     saving.value = false
   }
@@ -104,7 +104,7 @@ async function remove() {
     close()
     emit('deleted')
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('project.section.removeFailed')))
+    toast.error(extractNoteAxiosError(e, 'project.section.removeFailed'))
   } finally {
     removing.value = false
   }

@@ -40,6 +40,7 @@ import { isPrivilegedRole } from '@domain/user/role'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
+import { mapApiError } from '@infra/api/errorMap'
 
 const toast = useToast()
 const { t } = useI18n()
@@ -286,10 +287,7 @@ async function load() {
       response?: { status?: number; data?: { error?: string } }
     }
     const status = ax.response?.status
-    const apiMsg = ax.response?.data?.error
-    let msg = t('projectDetail.loadProjectFailed')
-    if (typeof apiMsg === 'string') msg = apiMsg
-    else if (e instanceof Error && e.message) msg = e.message
+    const msg = mapApiError(e, 'projectDetail.loadProjectFailed')
 
     if (status === 404 || status === 403) {
       void router.replace('/projects')
@@ -354,9 +352,7 @@ async function saveEditProject() {
     editProjectModalOpen.value = false
     toast.success(t('projectDetail.projectUpdated'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.updateProjectFailed'))
+    toast.error(mapApiError(e, 'projectDetail.updateProjectFailed'))
   } finally {
     editSaving.value = false
   }
@@ -377,9 +373,7 @@ async function removeProjectFromEdit() {
     toast.success(t('projectDetail.projectDeleted'))
     await router.push('/projects')
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.deleteProjectFailed'))
+    toast.error(mapApiError(e, 'projectDetail.deleteProjectFailed'))
   }
 }
 
@@ -525,7 +519,7 @@ async function onItemMove(payload: {
     }
     await projectStore.reorderSectionItems(pid, targetSec, ordered)
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('tasks.toasts.moveFailed')))
+    toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
     await Promise.all([
       projectStore.fetchTasks(pid),
       noteStore.fetchList(pid, { quiet: true }),
@@ -573,7 +567,7 @@ async function createNoteFromModal(payload: {
     await onNotesChanged()
     toast.success(t('notes.toasts.created'))
   } catch (e: unknown) {
-    toast.error(extractNoteAxiosError(e, t('notes.toasts.createFailed')))
+    toast.error(extractNoteAxiosError(e, 'notes.toasts.createFailed'))
   } finally {
     savingNote.value = false
   }
@@ -604,9 +598,7 @@ async function createTaskFromModal() {
     await refreshProjectTasks()
     toast.success(t('projectDetail.taskCreated'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.createTaskFailed'))
+    toast.error(mapApiError(e, 'projectDetail.createTaskFailed'))
   } finally {
     modalSaving.value = false
   }
@@ -623,9 +615,7 @@ async function onReopen(taskId: number) {
     await projectStore.fetchTasks(id.value)
     toast.success(t('projectDetail.taskReopened'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(typeof msg === 'string' ? msg : t('projectDetail.updateTaskFailed'))
+    toast.error(mapApiError(e, 'projectDetail.updateTaskFailed'))
   }
 }
 
