@@ -44,6 +44,25 @@ const busyId = ref<number | null>(null)
 const editingId = ref<number | null>(null)
 const editDraft = ref('')
 
+const SQLITE_CONSTRAINT_CODES = new Set([
+  'foreign_key_violation',
+  'unique_violation',
+  'not_null_violation',
+])
+
+function toastSubtaskError(e: unknown, fallbackI18nKey: string) {
+  const err = e as {
+    response?: { data?: { error?: string } }
+  }
+  const code = err.response?.data?.error
+  if (typeof code === 'string' && SQLITE_CONSTRAINT_CODES.has(code)) {
+    toast.error(t('taskSubtasks.toasts.conflictAddFailed'))
+    return
+  }
+  const msg = err.response?.data?.error
+  toast.error(typeof msg === 'string' ? msg : t(fallbackI18nKey))
+}
+
 const sorted = computed(() =>
   sortSubtasks(props.task.subtasks ?? []),
 )
@@ -75,11 +94,7 @@ async function addSubtask() {
     emit('updated')
     toast.success(t('taskSubtasks.toasts.added'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(
-      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.addFailed'),
-    )
+    toastSubtaskError(e, 'taskSubtasks.toasts.addFailed')
   } finally {
     busyAdd.value = false
   }
@@ -92,11 +107,7 @@ async function toggle(st: Subtask) {
     await taskStore.toggleSubtask(props.task.id, st.id)
     emit('updated')
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(
-      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.updateFailed'),
-    )
+    toastSubtaskError(e, 'taskSubtasks.toasts.updateFailed')
   } finally {
     busyId.value = null
   }
@@ -110,11 +121,7 @@ async function remove(st: Subtask) {
     emit('updated')
     toast.success(t('taskSubtasks.toasts.removed'))
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(
-      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.removeFailed'),
-    )
+    toastSubtaskError(e, 'taskSubtasks.toasts.removeFailed')
   } finally {
     busyId.value = null
   }
@@ -156,11 +163,7 @@ async function commitEdit(s: Subtask) {
     emit('updated')
     cancelEdit()
   } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error
-    toast.error(
-      typeof msg === 'string' ? msg : t('taskSubtasks.toasts.updateFailed'),
-    )
+    toastSubtaskError(e, 'taskSubtasks.toasts.updateFailed')
   } finally {
     busyId.value = null
   }

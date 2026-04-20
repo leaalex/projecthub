@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"task-manager/backend/internal/application"
 	"task-manager/backend/internal/domain/note"
@@ -16,6 +17,16 @@ import (
 )
 
 func handleServiceError(c *gin.Context, err error) {
+	if k := sqliteConstraintKind(err); k != "" {
+		_ = c.Error(err)
+		body := gin.H{"error": k}
+		if gin.Mode() != gin.ReleaseMode {
+			body["detail"] = err.Error()
+		}
+		c.JSON(http.StatusConflict, body)
+		return
+	}
+
 	switch {
 	case errors.Is(err, user.ErrUserNotFound),
 		errors.Is(err, task.ErrTaskNotFound),
@@ -74,7 +85,27 @@ func handleServiceError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 
 	default:
+		_ = c.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+}
+
+// sqliteConstraintKind maps SQLite driver errors to stable API codes.
+// SQLite does not include table/column names in the message.
+func sqliteConstraintKind(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "FOREIGN KEY constraint failed"):
+		return "foreign_key_violation"
+	case strings.Contains(msg, "UNIQUE constraint failed"):
+		return "unique_violation"
+	case strings.Contains(msg, "NOT NULL constraint failed"):
+		return "not_null_violation"
+	default:
+		return ""
 	}
 }
 

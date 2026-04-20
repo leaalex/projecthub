@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -419,7 +420,7 @@ func (s *TaskService) CreateSubtask(ctx context.Context, taskID, callerID uint, 
 		return nil, err
 	}
 	if err := s.Tasks.Save(ctx, t); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("save task %d after add subtask: %w", t.ID().Uint(), err)
 	}
 	return st, nil
 }
@@ -462,7 +463,7 @@ func (s *TaskService) UpdateSubtask(ctx context.Context, taskID, subtaskID, call
 	}
 	t.Touch(s.Clock())
 	if err := s.Tasks.Save(ctx, t); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("save task %d after update subtask: %w", t.ID().Uint(), err)
 	}
 	return t.SubtaskByID(sid), nil
 }
@@ -486,7 +487,7 @@ func (s *TaskService) ToggleSubtask(ctx context.Context, taskID, subtaskID, call
 		return nil, err
 	}
 	if err := s.Tasks.Save(ctx, t); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("save task %d after toggle subtask: %w", t.ID().Uint(), err)
 	}
 	return t.SubtaskByID(sid), nil
 }
@@ -507,5 +508,8 @@ func (s *TaskService) DeleteSubtask(ctx context.Context, taskID, subtaskID, call
 	if err := t.RemoveSubtask(task.SubtaskID(subtaskID), s.Clock()); err != nil {
 		return err
 	}
-	return s.Tasks.Save(ctx, t)
+	if err := s.Tasks.Save(ctx, t); err != nil {
+		return fmt.Errorf("save task %d after delete subtask: %w", t.ID().Uint(), err)
+	}
+	return nil
 }

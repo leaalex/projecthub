@@ -949,6 +949,7 @@
     "toasts": {
       "added": "Subtask added",
       "addFailed": "Could not add subtask",
+      "conflictAddFailed": "Could not save subtask: the task may reference missing data (e.g. section or assignee). Refresh the page and try again.",
       "updateFailed": "Could not update subtask",
       "removed": "Subtask removed",
       "removeFailed": "Could not remove subtask",
