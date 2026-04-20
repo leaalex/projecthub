@@ -62,6 +62,9 @@ const dragSectionId = ref<number | null>(null)
 
 const isSectionDragging = computed(() => dragSectionId.value !== null)
 
+/** Отложенный показ пустой unsectioned drop-зоны (после dragstart), чтобы не рвать native DnD. */
+const showUnsectionedDropZone = ref(false)
+
 const manageSectionsActive = computed(
   () =>
     props.canManageSections
@@ -104,6 +107,9 @@ function onTaskDragStart(e: DragEvent, task: Task) {
   dragSectionId.value = null
   e.dataTransfer?.setData('text/plain', `task:${task.id}`)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  requestAnimationFrame(() => {
+    if (dragItem.value !== null) showUnsectionedDropZone.value = true
+  })
 }
 
 function onNoteDragStart(e: DragEvent, note: Note) {
@@ -115,11 +121,15 @@ function onNoteDragStart(e: DragEvent, note: Note) {
   dragSectionId.value = null
   e.dataTransfer?.setData('text/plain', `note:${note.id}`)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  requestAnimationFrame(() => {
+    if (dragItem.value !== null) showUnsectionedDropZone.value = true
+  })
 }
 
 function onDragEnd() {
   dragItem.value = null
   dragOver.value = null
+  showUnsectionedDropZone.value = false
 }
 
 function onDropAt(sectionKey: string, position: number) {
@@ -376,15 +386,21 @@ function onRowDragLeave(e: DragEvent) {
         </div>
       </template>
       <h2
-        v-else
+        v-else-if="g.key !== 'unsectioned'"
         class="text-sm font-semibold text-foreground"
       >
         {{ g.label }}
       </h2>
 
       <div
-        class="overflow-hidden rounded-lg border border-border bg-surface"
-        :class="dragOver === `section:${g.key}` ? 'ring-1 ring-primary/40 border-primary' : ''"
+        v-show="g.key !== 'unsectioned' || g.items.length > 0 || showUnsectionedDropZone"
+        class="overflow-hidden rounded-lg bg-surface"
+        :class="[
+          g.key === 'unsectioned' && g.items.length === 0
+            ? 'border border-dashed border-border min-h-16'
+            : 'border border-border',
+          dragOver === `section:${g.key}` ? 'ring-1 ring-primary/40 border-primary' : '',
+        ]"
         @dragover="onBodyDragOver($event, g)"
         @dragleave="onBodyDragLeave"
         @drop="onBodyDrop($event, g)"
@@ -427,7 +443,7 @@ function onRowDragLeave(e: DragEvent) {
             />
           </div>
           <p
-            v-if="g.items.length === 0"
+            v-if="g.items.length === 0 && g.key !== 'unsectioned'"
             class="px-3 py-8 text-center text-sm text-muted"
           >
             {{ emptyMessage || t('tasks.emptySection') }}

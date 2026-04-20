@@ -108,7 +108,7 @@ export function presentNotes(
   const map = new Map<string, NoteGroup>()
   map.set('unsectioned', {
     key: 'unsectioned',
-    label: opts.t('notes.section.none'),
+    label: '',
     order: -1,
     notes: [],
   })
