@@ -1040,5 +1040,8 @@
     "themeSystem": "System",
     "language": "Language",
     "languageHint": "Interface language is saved to your account and this device."
+  },
+  "serverErrors": {
+    "alreadyMember": "User is already a project member"
   }
 }

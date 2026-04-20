@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  BriefcaseIcon,
+  EyeIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/vue/20/solid'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@app/composables/useToast'
@@ -7,11 +12,13 @@ import { useProjectStore } from '@app/project.store'
 import { useUserStore } from '@app/user.store'
 import type { ProjectMemberRole } from '@domain/project/types'
 import { isPrivilegedRole } from '@domain/user/role'
+import { translateServerError } from '@infra/i18n/serverErrors'
 import { storeToRefs } from 'pinia'
 import Button from '../ui/UiButton.vue'
 import UiInput from '../ui/UiInput.vue'
 import Modal from '../ui/UiModal.vue'
-import type { UiSelectOption } from '../ui/UiSelect.vue'
+import type { UiIconSelectOption } from '../ui/UiIconSelect.vue'
+import UiIconSelect from '../ui/UiIconSelect.vue'
 import UiSelect from '../ui/UiSelect.vue'
 
 const { t } = useI18n()
@@ -38,10 +45,14 @@ const addUserId = ref<string>('')
 const addRole = ref<ProjectMemberRole>('viewer')
 const adding = ref(false)
 
-const roleMenuOptions = computed<UiSelectOption<ProjectMemberRole>[]>(() => [
-  { value: 'manager', label: t('enums.projectRole.manager') },
-  { value: 'executor', label: t('enums.projectRole.executor') },
-  { value: 'viewer', label: t('enums.projectRole.viewer') },
+const roleMenuOptions = computed((): UiIconSelectOption<ProjectMemberRole>[] => [
+  { value: 'manager', label: t('enums.projectRole.manager'), icon: BriefcaseIcon },
+  {
+    value: 'executor',
+    label: t('enums.projectRole.executor'),
+    icon: WrenchScrewdriverIcon,
+  },
+  { value: 'viewer', label: t('enums.projectRole.viewer'), icon: EyeIcon },
 ])
 
 async function loadStaffUsers() {
@@ -102,9 +113,10 @@ async function onAdd() {
     emit('added')
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
+    const serverMessage = err.response?.data?.error
     toast.error(
-      typeof err.response?.data?.error === 'string'
-        ? err.response.data.error
+      typeof serverMessage === 'string'
+        ? translateServerError(serverMessage, t)
         : t('addMemberModal.toasts.addFailed'),
     )
   } finally {
@@ -165,7 +177,7 @@ async function onAdd() {
         :placeholder="t('addMemberModal.placeholders.emailExample')"
       />
 
-      <UiSelect
+      <UiIconSelect
         v-model="addRole"
         :label="t('addMemberModal.labels.projectRole')"
         :options="roleMenuOptions"

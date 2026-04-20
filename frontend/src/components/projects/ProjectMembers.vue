@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  BriefcaseIcon,
+  EyeIcon,
+  WrenchScrewdriverIcon,
+} from '@heroicons/vue/20/solid'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isPrivilegedRole } from '@domain/user/role'
@@ -13,8 +18,8 @@ import type {
 import type { Task } from '@domain/task/types'
 import Avatar from '../ui/UiAvatar.vue'
 import Button from '../ui/UiButton.vue'
-import UiMenuButton from '../ui/UiMenuButton.vue'
-import type { UiSelectOption } from '../ui/UiSelect.vue'
+import UiIconSelect from '../ui/UiIconSelect.vue'
+import type { UiIconSelectOption } from '../ui/UiIconSelect.vue'
 import ManualTaskTransfer from './ManualTaskTransfer.vue'
 import TaskTransferModal from './TaskTransferModal.vue'
 
@@ -46,10 +51,14 @@ const canManage = computed(() => {
   return r === 'owner' || r === 'manager'
 })
 
-const roleMenuOptions = computed((): UiSelectOption<ProjectMemberRole>[] => [
-  { value: 'manager', label: t('members.role.manager') },
-  { value: 'executor', label: t('members.role.executor') },
-  { value: 'viewer', label: t('members.role.viewer') },
+const roleMenuOptions = computed((): UiIconSelectOption<ProjectMemberRole>[] => [
+  { value: 'manager', label: t('members.role.manager'), icon: BriefcaseIcon },
+  {
+    value: 'executor',
+    label: t('members.role.executor'),
+    icon: WrenchScrewdriverIcon,
+  },
+  { value: 'viewer', label: t('members.role.viewer'), icon: EyeIcon },
 ])
 
 function displayMemberRole(role: string) {
@@ -251,22 +260,23 @@ function displayName(u: { name?: string; email: string }) {
             </div>
           </div>
           <span
+            v-if="!canManage"
             class="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium capitalize"
             :class="roleBadgeClass(m.role)"
           >
             {{ displayMemberRole(m.role) }}
           </span>
           <div v-if="canManage" class="flex shrink-0 items-center gap-1">
-            <UiMenuButton
-              variant="field"
-              :ariaLabel="t('members.changeRole')"
-              :title="t('members.changeRole')"
-              placement="bottom-end"
+            <UiIconSelect
+              :model-value="m.role"
+              :block="false"
+              class="min-w-[7.5rem]"
+              :aria-label="t('members.changeRole')"
+              :trigger-title="t('members.changeRole')"
               :placeholder="t('members.rolePlaceholder')"
-              class="min-w-[6.5rem]"
               :options="roleMenuOptions"
-              @select="
-                onRoleChange(m.user_id, String($event) as ProjectMemberRole)
+              @update:model-value="
+                onRoleChange(m.user_id, $event as ProjectMemberRole)
               "
             />
             <Button

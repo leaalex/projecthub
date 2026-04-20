@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { BoltIcon, FolderIcon, TagIcon } from '@heroicons/vue/24/outline'
+import { FolderIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
 import Input from '../ui/UiInput.vue'
+import UiIconSelect from '../ui/UiIconSelect.vue'
 import UiMenuButton from '../ui/UiMenuButton.vue'
 import UiTextarea from '../ui/UiTextarea.vue'
-import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
+import {
+  taskPriorityIconSelectOptions,
+  taskStatusIconSelectOptions,
+} from './taskIconSelectOptions'
 
 const { t } = useI18n()
 
@@ -36,19 +40,9 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const statusOptions = computed(() =>
-  (['todo', 'in_progress', 'review', 'done'] as const).map((value) => ({
-    value,
-    label: taskStatusLabel(t, value),
-  })),
-)
+const statusOptions = computed(() => taskStatusIconSelectOptions(t))
 
-const priorityOptions = computed(() =>
-  (['low', 'medium', 'high', 'critical'] as const).map((value) => ({
-    value,
-    label: taskPriorityLabel(t, value),
-  })),
-)
+const priorityOptions = computed(() => taskPriorityIconSelectOptions(t))
 
 const projectOptions = computed(() => [
   {
@@ -115,39 +109,29 @@ const priorityMenuLabel = computed(
         <label class="mb-1 block text-xs font-medium text-foreground">{{
           t('taskForm.labels.status')
         }}</label>
-        <div class="flex min-w-0 items-center gap-2">
-          <UiMenuButton
-            v-model="status"
-            :ariaLabel="t('taskForm.aria.status', { name: statusMenuLabel })"
-            :title="t('taskForm.aria.status', { name: statusMenuLabel })"
-            :options="statusOptions"
-          >
-            <TagIcon class="h-5 w-5" aria-hidden="true" />
-          </UiMenuButton>
-          <span class="min-w-0 flex-1 truncate text-sm text-foreground">{{
-            statusMenuLabel
-          }}</span>
-        </div>
+        <UiIconSelect
+          v-model="status"
+          :aria-label="t('taskForm.aria.status', { name: statusMenuLabel })"
+          :trigger-title="t('taskForm.aria.status', { name: statusMenuLabel })"
+          :placeholder="t('taskForm.fallbacks.status')"
+          :options="statusOptions"
+        />
       </div>
       <div>
         <label class="mb-1 block text-xs font-medium text-foreground">{{
           t('taskForm.labels.priority')
         }}</label>
-        <div class="flex min-w-0 items-center gap-2">
-          <UiMenuButton
-            v-model="priority"
-            :ariaLabel="
-              t('taskForm.aria.priority', { name: priorityMenuLabel })
-            "
-            :title="t('taskForm.aria.priority', { name: priorityMenuLabel })"
-            :options="priorityOptions"
-          >
-            <BoltIcon class="h-5 w-5" aria-hidden="true" />
-          </UiMenuButton>
-          <span class="min-w-0 flex-1 truncate text-sm text-foreground">{{
-            priorityMenuLabel
-          }}</span>
-        </div>
+        <UiIconSelect
+          v-model="priority"
+          :aria-label="
+            t('taskForm.aria.priority', { name: priorityMenuLabel })
+          "
+          :trigger-title="
+            t('taskForm.aria.priority', { name: priorityMenuLabel })
+          "
+          :placeholder="t('taskForm.fallbacks.priority')"
+          :options="priorityOptions"
+        />
       </div>
     </div>
     <div class="flex flex-wrap items-center gap-2">

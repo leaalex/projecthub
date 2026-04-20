@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { HomeIcon, UserIcon, Cog6ToothIcon } from '@heroicons/vue/20/solid'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiAvatar from '../components/ui/UiAvatar.vue'
@@ -10,6 +11,7 @@ import UiCheckboxRow from '../components/ui/UiCheckboxRow.vue'
 import UiEmptyState from '../components/ui/UiEmptyState.vue'
 import UiFilterChip from '../components/ui/UiFilterChip.vue'
 import UiFormSection from '../components/ui/UiFormSection.vue'
+import UiIconSelect from '../components/ui/UiIconSelect.vue'
 import UiInput from '../components/ui/UiInput.vue'
 import UiMenuButton from '../components/ui/UiMenuButton.vue'
 import UiModal from '../components/ui/UiModal.vue'
@@ -42,6 +44,20 @@ const demoSelectEmpty = ref('')
 const demoSelectFilterable = ref('')
 const demoSelectMulti = ref<(string | number)[]>(['latte'])
 const demoSelectFilterableMulti = ref<(string | number)[]>(['ams', 'vie'])
+
+const demoIconSelectSingle = ref('mocha')
+const demoIconSelectMulti = ref<(string | number)[]>(['latte'])
+const demoIconSelectSlot = ref('y')
+const iconSelectFlavorOptions = [
+  { value: 'latte', label: 'Latte', icon: HomeIcon },
+  { value: 'mocha', label: 'Mocha', icon: UserIcon },
+  { value: 'tea', label: 'Tea', icon: Cog6ToothIcon },
+]
+const demoIconSelectSlotOptions = [
+  { value: 'r', label: 'Red' },
+  { value: 'y', label: 'Yellow' },
+  { value: 'g', label: 'Green' },
+]
 
 const demoMenuValue = ref<string | number>('latte')
 const demoMenuActionLog = ref('—')
@@ -346,6 +362,55 @@ function onDemoMenuSelect(v: string | number) {
                 demoSelectFilterableMulti.join(', ') || '—'
               }}</code>
             </p>
+          </div>
+
+          <div class="col-span-full border-t border-border pt-6">
+            <h3 class="mb-4 text-sm font-semibold text-foreground">
+              UiIconSelect
+            </h3>
+            <div class="grid max-w-md gap-6">
+              <UiIconSelect
+                id="ui-icon-sel-1"
+                v-model="demoIconSelectSingle"
+                label="Single (icons in options + trigger)"
+                placeholder="Choose a drink…"
+                :options="iconSelectFlavorOptions"
+              />
+              <div class="space-y-2">
+                <UiIconSelect
+                  id="ui-icon-sel-2"
+                  v-model="demoIconSelectMulti"
+                  label="Multiple (trigger icon via prop)"
+                  placeholder="Pick drinks…"
+                  multiple
+                  :trigger-icon="UserIcon"
+                  :options="iconSelectFlavorOptions"
+                />
+                <p class="text-xs text-muted">
+                  Selected:
+                  <code class="text-foreground">{{
+                    demoIconSelectMulti.join(', ') || '—'
+                  }}</code>
+                </p>
+              </div>
+              <UiIconSelect
+                id="ui-icon-sel-3"
+                v-model="demoIconSelectSlot"
+                label="Custom option icons (#option-icon slot)"
+                :options="demoIconSelectSlotOptions"
+              >
+                <template #option-icon="{ option }">
+                  <span
+                    class="block h-3 w-3 rounded-full"
+                    :class="{
+                      'bg-red-500': option.value === 'r',
+                      'bg-amber-500': option.value === 'y',
+                      'bg-emerald-500': option.value === 'g',
+                    }"
+                  />
+                </template>
+              </UiIconSelect>
+            </div>
           </div>
         </div>
       </UiCard>

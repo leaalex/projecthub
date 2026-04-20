@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import {
+  BoltIcon,
+  ClipboardDocumentListIcon,
+} from '@heroicons/vue/20/solid'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiCard from '../ui/UiCard.vue'
+import UiIconSelect from '../ui/UiIconSelect.vue'
 import UiSegmentedControl from '../ui/UiSegmentedControl.vue'
 import UiSelect from '../ui/UiSelect.vue'
 import UiTextAction from '../ui/UiTextAction.vue'
@@ -15,7 +20,10 @@ import type {
 } from '@app/composables/useTaskListPresentation'
 import type { ProjectItemKindFilter } from '@app/composables/useProjectItemsPresentation'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
-import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
+import {
+  taskPriorityIconSelectOptions,
+  taskStatusIconSelectOptions,
+} from './taskIconSelectOptions'
 
 const { t } = useI18n()
 
@@ -82,19 +90,9 @@ watch(
   { immediate: true },
 )
 
-const statusOptionsMulti = computed(() =>
-  (['todo', 'in_progress', 'review', 'done'] as const).map((value) => ({
-    value,
-    label: taskStatusLabel(t, value),
-  })),
-)
+const statusOptionsMulti = computed(() => taskStatusIconSelectOptions(t))
 
-const priorityOptionsMulti = computed(() =>
-  (['low', 'medium', 'high', 'critical'] as const).map((value) => ({
-    value,
-    label: taskPriorityLabel(t, value),
-  })),
-)
+const priorityOptionsMulti = computed(() => taskPriorityIconSelectOptions(t))
 
 const sortKeySegmented = computed<{ value: TaskSortKey; label: string }[]>(() =>
   (
@@ -232,10 +230,11 @@ const clearBtnClass =
           }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
-              <UiSelect
+              <UiIconSelect
                 v-model="filterStatus"
                 filterable
                 multiple
+                :trigger-icon="ClipboardDocumentListIcon"
                 :placeholder="t('taskFiltersPanel.placeholders.allStatuses')"
                 :aria-label="t('taskFiltersPanel.aria.filterByStatus')"
                 :options="statusOptionsMulti"
@@ -258,10 +257,11 @@ const clearBtnClass =
           }}</label>
           <div class="flex min-w-0 items-start gap-1.5">
             <div class="min-w-0 flex-1">
-              <UiSelect
+              <UiIconSelect
                 v-model="clientPriority"
                 filterable
                 multiple
+                :trigger-icon="BoltIcon"
                 :placeholder="t('taskFiltersPanel.placeholders.allPriorities')"
                 :aria-label="t('taskFiltersPanel.aria.filterByPriority')"
                 :options="priorityOptionsMulti"
