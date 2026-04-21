@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ClipboardDocumentListIcon,
+  DocumentCheckIcon,
   DocumentTextIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
@@ -331,7 +331,7 @@ async function onModalSaved() {
           class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
         >
           <div class="flex min-w-0 flex-1 items-center gap-2">
-            <ClipboardDocumentListIcon
+            <DocumentCheckIcon
               v-if="row.kind === 'task'"
               class="h-5 w-5 shrink-0 text-muted"
               aria-hidden="true"
@@ -343,7 +343,7 @@ async function onModalSaved() {
             />
             <button
               type="button"
-              class="min-w-0 truncate text-left font-medium text-foreground underline decoration-primary/80 hover:text-primary"
+              class="min-w-0 truncate text-left font-medium text-foreground transition-colors hover:text-primary"
               @click="openRow(row)"
             >
               {{ row.title }}
