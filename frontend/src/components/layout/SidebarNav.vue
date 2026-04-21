@@ -99,29 +99,24 @@ function openCommandPaletteFromSidebar() {
 <template>
   <div class="flex h-full min-h-0 flex-1 flex-col">
     <div
-      class="flex border-b border-border px-2 py-3"
+      class="flex h-12 shrink-0 border-b border-border px-2 sm:px-3"
       :class="
         collapsed
-          ? 'items-stretch'
+          ? 'items-center justify-center'
           : 'items-center gap-1 md:gap-2'
       "
     >
       <RouterLink
         v-if="!collapsed"
         to="/dashboard"
-        class="flex min-w-0 flex-1 items-center pl-4 font-semibold text-primary md:justify-start"
+        class="flex min-h-0 min-w-0 flex-1 items-center pl-1.5 font-semibold text-primary md:justify-start md:pl-2"
         @click="onNavigate"
       >
-        <span class="truncate text-lg">{{ t('common.brand') }}</span>
+        <span class="truncate text-sm leading-snug">{{ t('common.brand') }}</span>
       </RouterLink>
       <button
         type="button"
-        class="hidden rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground md:inline-flex md:items-center md:justify-center"
-        :class="
-          collapsed
-            ? 'w-full py-2'
-            : 'shrink-0 p-1.5'
-        "
+        class="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground md:inline-flex"
         :title="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
         :aria-expanded="!collapsed"
         :aria-label="t('nav.toggleSidebar')"
@@ -129,12 +124,12 @@ function openCommandPaletteFromSidebar() {
       >
         <ChevronLeftIcon
           v-if="!collapsed"
-          class="h-5 w-5"
+          class="h-4 w-4"
           aria-hidden="true"
         />
         <ChevronRightIcon
           v-else
-          class="h-5 w-5"
+          class="h-4 w-4"
           aria-hidden="true"
         />
       </button>

@@ -127,7 +127,7 @@ function onEdit() {
   >
     <template #title>
       <h2
-        class="flex min-h-8 min-w-0 flex-1 items-center text-base font-semibold leading-snug text-foreground"
+        class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-foreground"
       >
         {{ note?.title ?? t('notes.detail.title') }}
       </h2>

@@ -28,35 +28,35 @@ const showFooter = () => Boolean(slots.footer?.())
     class="flex h-full min-h-0 w-full max-w-xl shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface"
   >
     <div
-      class="flex min-h-16 shrink-0 items-center gap-2 border-b border-border px-3 py-4 sm:px-5 sm:pl-4"
+      class="flex h-12 shrink-0 items-center gap-1 border-b border-border px-2 sm:gap-2 sm:px-3"
       :class="!showTitleRow() ? 'justify-end' : ''"
     >
       <button
         type="button"
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
         :class="showTitleRow() ? '' : 'order-last'"
         :aria-label="collapseAriaLabel"
         @click="$emit('toggle-collapsed')"
       >
         <!-- Панель справа: уезжает за правый край экрана -->
-        <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+        <ChevronRightIcon class="h-4 w-4" aria-hidden="true" />
       </button>
       <template v-if="showTitleRow()">
         <h2
           v-if="title && !slots.title"
-          class="flex min-h-8 min-w-0 flex-1 items-center text-base font-semibold leading-snug text-foreground"
+          class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-foreground"
         >
           {{ title }}
         </h2>
         <div
           v-else-if="slots.title"
-          class="min-w-0 flex-1"
+          class="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden"
         >
           <slot name="title" />
         </div>
         <div
           v-if="slots['header-actions']?.()"
-          class="ml-auto flex min-h-8 shrink-0 flex-nowrap items-center justify-end gap-2"
+          class="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2"
         >
           <slot name="header-actions" />
         </div>
