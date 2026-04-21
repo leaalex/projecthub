@@ -4,61 +4,31 @@ import {
   LinkIcon,
   PencilSquareIcon,
 } from '@heroicons/vue/24/outline'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import UiDetailPanelShell from '../ui/UiDetailPanelShell.vue'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import UiInput from '../ui/UiInput.vue'
 import NoteCard from '../notes/NoteCard.vue'
-import TaskForm from './TaskForm.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
-import { useProjectStore } from '@app/project.store'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useTaskDetail } from '@app/composables/useTaskDetail'
 import { formatDate } from '@infra/formatters/date'
 import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
-const { t, locale } = useI18n()
-const projectStore = useProjectStore()
-
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean
-    taskId: number | null
-    /** When user opened modal via Edit on the card. */
-    initialMode?: 'view' | 'edit'
-    /** Загрузка из корзины проекта (GET .../trash/tasks/:id). */
-    trashed?: boolean
-    /** project_id для корзины; обязателен при `trashed`. */
-    trashProjectId?: number | null
-    /** Restore / удалить навсегда в корзине (как права на заметки в проекте). */
-    canManageTrash?: boolean
-  }>(),
-  { initialMode: 'view', trashed: false, trashProjectId: null, canManageTrash: true },
-)
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  saved: []
-  openNote: [payload: { noteId: number; projectId: number }]
+const props = defineProps<{
+  taskId: number
 }>()
+
+const { t, locale } = useI18n()
+const detailPanel = useDetailPanelStore()
 
 const {
   task,
   loading,
   loadError,
-  saving,
-  removing,
-  restoring,
-  purging,
-  editing,
-  formTitle,
-  formDescription,
-  formProjectId,
-  formSectionId,
-  formAssigneeId,
-  formStatus,
-  formPriority,
-  assignableUsers,
   canEdit,
   linkedNotes,
   linkManagerOpen,
@@ -66,62 +36,46 @@ const {
   linkBusy,
   canManageNotes,
   pickerCandidates,
-  taskModalDirty,
-  taskFooterVisible,
-  showHeaderEditButton,
-  showHeaderLinkedNotesButton,
-  save,
-  refreshTask,
   linkNoteFromPicker,
   unlinkNote,
   openLinkedNote,
-  removeTask,
-  restoreFromTrash,
-  cancelEdit,
-  purgeFromTrash,
 } = useTaskDetail({
   taskId: () => props.taskId,
-  active: () => props.modelValue,
-  trashed: () => props.trashed,
-  trashProjectId: () => props.trashProjectId,
-  canManageTrash: () => props.canManageTrash,
-  initialMode: () => props.initialMode,
-  allowInlineEdit: () => true,
-  onSaved: () => emit('saved'),
-  onOpenNote: p => emit('openNote', p),
-  onClose: () => emit('update:modelValue', false),
+  active: () => true,
+  trashed: () => false,
+  trashProjectId: () => null,
+  canManageTrash: () => false,
+  initialMode: () => 'view',
+  allowInlineEdit: () => false,
+  onSaved: () => detailPanel.requestWorkspaceRefresh(),
+  onOpenNote: p => detailPanel.openNote(p.projectId, p.noteId),
+  onClose: () => {},
 })
+
+const showEditButton = computed(
+  () => Boolean(task.value && canEdit.value && !loading.value && !loadError.value),
+)
+
+function onEdit() {
+  detailPanel.requestTaskEdit(props.taskId)
+}
 </script>
 
 <template>
-  <Modal
-    :model-value="modelValue"
+  <div class="flex min-h-0 flex-1 flex-col">
+  <UiDetailPanelShell
+    class="min-h-0 flex-1"
     :title="t('taskDetailModal.title')"
-    :dirty="taskModalDirty"
-    @update:model-value="emit('update:modelValue', $event)"
+    :collapse-aria-label="t('detailPanel.collapse')"
+    @toggle-collapsed="detailPanel.toggleCollapsed()"
   >
     <template #header-actions>
       <div class="flex flex-wrap items-center gap-2">
         <Button
-          v-if="showHeaderLinkedNotesButton"
+          v-if="showEditButton"
           type="button"
           variant="secondary"
-          :disabled="linkBusy"
-          :title="t('taskDetailModal.linkedNotes.heading')"
-          @click="linkManagerOpen = true"
-        >
-          <LinkIcon class="h-4 w-4" />
-          <span class="ml-1">{{ t('taskDetailModal.linkedNotes.heading') }}</span>
-          <span
-            v-if="linkedNotes.length"
-            class="ml-1 inline-flex min-w-4 items-center justify-center rounded bg-surface-muted px-1 text-[10px] leading-none text-muted"
-          >{{ linkedNotes.length }}</span>
-        </Button>
-        <Button
-          v-if="showHeaderEditButton"
-          type="button"
-          variant="secondary"
-          @click="editing = true"
+          @click="onEdit"
         >
           <PencilSquareIcon class="h-4 w-4" />
           <span class="ml-1">{{ t('common.edit') }}</span>
@@ -134,10 +88,7 @@ const {
     </div>
     <p v-else-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
     <template v-else-if="task">
-      <dl
-        v-if="!canEdit || !editing || trashed"
-        class="space-y-4"
-      >
+      <dl class="space-y-4">
         <div>
           <dt class="text-xs font-medium text-muted">{{ t('taskDetailModal.labels.title') }}</dt>
           <dd class="mt-1 text-sm text-foreground">{{ task.title }}</dd>
@@ -219,34 +170,7 @@ const {
         </div>
       </dl>
 
-      <div v-else-if="canEdit && editing && !trashed" class="space-y-4">
-        <TaskForm
-          v-model:title="formTitle"
-          v-model:description="formDescription"
-          v-model:project-id="formProjectId"
-          v-model:section-id="formSectionId"
-          v-model:assignee-id="formAssigneeId"
-          v-model:status="formStatus"
-          v-model:priority="formPriority"
-          form-id="task-detail-edit"
-          hide-footer
-          :projects="projectStore.projects.map(p => ({ id: p.id, name: p.name }))"
-          :sections="projectStore.sections"
-          :assignable-users="assignableUsers"
-          :submit-label="t('common.save')"
-          :loading="saving"
-          @submit="save"
-        >
-          <template #before-extra>
-            <TaskSubtasksPanel :task="task" @updated="refreshTask" />
-          </template>
-        </TaskForm>
-      </div>
-
-      <div
-        v-if="!trashed && (!editing || !canManageNotes)"
-        class="mt-6 border-t border-border pt-4"
-      >
+      <div class="mt-6 border-t border-border pt-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h3 class="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
             <LinkIcon class="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
@@ -284,67 +208,10 @@ const {
         </div>
       </div>
     </template>
-    <template v-if="taskFooterVisible" #footer>
-      <div
-        v-if="trashed && canManageTrash"
-        class="flex flex-wrap justify-end gap-2"
-      >
-        <Button
-          type="button"
-          variant="secondary"
-          :loading="restoring"
-          :disabled="purging"
-          @click="restoreFromTrash"
-        >
-          {{ t('notes.restore') }}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost-danger"
-          :loading="purging"
-          :disabled="restoring"
-          @click="purgeFromTrash"
-        >
-          {{ t('notes.trash.deleteForever') }}
-        </Button>
-      </div>
-      <div
-        v-else-if="canEdit && editing && !trashed"
-        class="flex flex-wrap items-center gap-2"
-      >
-        <Button
-          variant="ghost-danger"
-          type="button"
-          :loading="removing"
-          :disabled="saving"
-          @click="removeTask"
-        >
-          {{ t('taskDetailModal.buttons.deleteTask') }}
-        </Button>
-        <div class="ml-auto flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            :disabled="saving || removing"
-            @click="cancelEdit"
-          >
-            {{ t('taskForm.cancel') }}
-          </Button>
-          <Button
-            type="submit"
-            form="task-detail-edit"
-            :loading="saving"
-            :disabled="removing"
-          >
-            {{ t('common.save') }}
-          </Button>
-        </div>
-      </div>
-    </template>
-  </Modal>
+  </UiDetailPanelShell>
 
   <Modal
-    v-if="task && !trashed"
+    v-if="task"
     v-model="linkManagerOpen"
     :title="t('taskDetailModal.linkedNotes.pickTitle')"
   >
@@ -426,4 +293,5 @@ const {
       </section>
     </div>
   </Modal>
+  </div>
 </template>

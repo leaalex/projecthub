@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineExpose, onMounted, ref, type ComputedRef } from 'vue'
+import { computed, onMounted, ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiButton from '../ui/UiButton.vue'
 import UiCheckboxRow from '../ui/UiCheckboxRow.vue'

@@ -624,11 +624,16 @@
       }
     }
   },
+  "detailPanel": {
+    "collapse": "Collapse detail panel",
+    "expand": "Expand detail panel",
+    "closeOverlay": "Close panel"
+  },
   "uiKit": {
     "intro": {
       "title": "UI kit",
       "subtitle": "Project UI primitives from the components/ui folder.",
-      "onThisPage": "On this page: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Globally in the app shell: UiToast, UiConfirmDialog, UiCommandPalette."
+      "onThisPage": "On this page: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiDetailPanelShell, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Globally in the app shell: UiToast, UiConfirmDialog, UiCommandPalette."
     },
     "sections": {
       "buttons": "Buttons",
@@ -641,6 +646,7 @@
       "cards": "Cards & table",
       "breadcrumb": "Breadcrumb (sample)",
       "empty": "Empty state & skeletons",
+      "detailPanelShell": "Detail panel shell (UiDetailPanelShell)",
       "modal": "Modal & global overlays"
     },
     "segmentedTwo": {
@@ -653,6 +659,11 @@
       "gamma": "Gamma"
     },
     "demo": {
+      "detailPanel": {
+        "title": "Panel title",
+        "body": "Right-hand detail column: same rounding and surface as UiModal, slightly wider (max-w-xl). In the app, collapse slides the panel off the right edge; expand uses the handle on the screen edge.",
+        "collapseHint": "In the app shell the panel slides off-screen; this is a static demo."
+      },
       "modal": {
         "title": "Demo modal",
         "body": "Content for UiModal. Use the footer to close or save. Overlay and Escape respect the dirty flag.",

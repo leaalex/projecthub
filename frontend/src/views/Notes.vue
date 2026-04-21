@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -21,6 +22,7 @@ import {
   type SortDir,
 } from '@app/composables/useNoteListPresentation'
 import { useAuthStore } from '@app/auth.store'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
 import { useNoteStore } from '@app/note.store'
 import { useTaskStore } from '@app/task.store'
@@ -38,6 +40,9 @@ const projectStore = useProjectStore()
 const noteStore = useNoteStore()
 const taskStore = useTaskStore()
 const toast = useToast()
+const detailPanel = useDetailPanelStore()
+const { pendingTaskEditId, pendingNoteEdit, workspaceRefreshTick } =
+  storeToRefs(detailPanel)
 
 const filterProject = ref<number | ''>('')
 const searchQuery = ref('')
@@ -138,24 +143,22 @@ const createModalDirty = computed(
       || createSectionId.value !== null),
 )
 
-const detailOpen = ref(false)
-const detailNoteId = ref<number | null>(null)
-const detailProjectId = ref(0)
-const detailModalMode = ref<'view' | 'edit'>('view')
+const noteEditModalOpen = ref(false)
+const noteEditModalId = ref<number | null>(null)
+const noteEditProjectId = ref(0)
 
-const taskDetailOpen = ref(false)
-const taskDetailId = ref<number | null>(null)
-const taskDetailMode = ref<'view' | 'edit'>('view')
+const taskEditModalOpen = ref(false)
+const taskEditModalId = ref<number | null>(null)
 
 const projectTasksForNoteModal = computed(() => {
-  const pid = detailProjectId.value
+  const pid = noteEditProjectId.value
   return taskStore.tasks
     .filter(tk => tk.project_id === pid)
     .map(tk => ({ id: tk.id, title: tk.title }))
 })
 
 const canManageDetailNote = computed(() =>
-  canManageNoteForProject(detailProjectId.value),
+  canManageNoteForProject(noteEditProjectId.value),
 )
 
 function syncFiltersFromRoute() {
@@ -168,33 +171,25 @@ function syncFiltersFromRoute() {
   }
 }
 
-function openNoteView(noteId: number, projectId: number) {
-  detailProjectId.value = projectId
-  detailNoteId.value = noteId
-  detailModalMode.value = 'view'
-  detailOpen.value = true
+async function openNoteView(noteId: number, projectId: number) {
+  await prepareNoteModalContext(projectId)
+  detailPanel.openNote(projectId, noteId)
 }
 
-function openNoteEdit(noteId: number, projectId: number) {
-  detailProjectId.value = projectId
-  detailNoteId.value = noteId
-  detailModalMode.value = 'edit'
-  detailOpen.value = true
+async function openNoteEdit(noteId: number, projectId: number) {
+  noteEditProjectId.value = projectId
+  noteEditModalId.value = noteId
+  await prepareNoteModalContext(projectId)
+  noteEditModalOpen.value = true
 }
 
 function openTaskFromNote(taskId: number) {
-  detailOpen.value = false
-  taskDetailId.value = taskId
-  taskDetailMode.value = 'view'
-  taskDetailOpen.value = true
+  detailPanel.openTask(taskId)
 }
 
-function openNoteFromTask(payload: { noteId: number; projectId: number }) {
-  taskDetailOpen.value = false
-  detailProjectId.value = payload.projectId
-  detailNoteId.value = payload.noteId
-  detailModalMode.value = 'view'
-  detailOpen.value = true
+async function openNoteFromTask(payload: { noteId: number; projectId: number }) {
+  await prepareNoteModalContext(payload.projectId)
+  detailPanel.openNote(payload.projectId, payload.noteId)
 }
 
 async function prepareNoteModalContext(projectId: number) {
@@ -204,17 +199,35 @@ async function prepareNoteModalContext(projectId: number) {
   await taskStore.fetchList({ project_id: projectId }).catch(() => {})
 }
 
-watch(detailOpen, async open => {
+watch(noteEditModalOpen, open => {
   if (!open) {
-    detailNoteId.value = null
-    return
+    noteEditModalId.value = null
+    noteEditProjectId.value = 0
   }
-  const pid = detailProjectId.value
-  if (pid > 0) await prepareNoteModalContext(pid)
 })
 
-watch(taskDetailOpen, open => {
-  if (!open) taskDetailId.value = null
+watch(taskEditModalOpen, open => {
+  if (!open) taskEditModalId.value = null
+})
+
+watch(pendingTaskEditId, tid => {
+  if (tid == null) return
+  taskEditModalId.value = tid
+  taskEditModalOpen.value = true
+  detailPanel.clearPendingTaskEdit()
+})
+
+watch(pendingNoteEdit, async payload => {
+  if (!payload) return
+  noteEditProjectId.value = payload.projectId
+  noteEditModalId.value = payload.noteId
+  await prepareNoteModalContext(payload.projectId)
+  noteEditModalOpen.value = true
+  detailPanel.clearPendingNoteEdit()
+})
+
+watch(workspaceRefreshTick, () => {
+  void load()
 })
 
 onMounted(async () => {
@@ -514,22 +527,22 @@ async function onCreateSubmit(payload: {
     </Modal>
 
     <NoteDetailModal
-      v-model="detailOpen"
-      :project-id="detailProjectId"
-      :note-id="detailNoteId"
+      v-model="noteEditModalOpen"
+      :project-id="noteEditProjectId"
+      :note-id="noteEditModalId"
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageDetailNote"
-      :initial-mode="detailModalMode"
+      initial-mode="edit"
       @saved="load"
       @deleted="load"
       @open-task="openTaskFromNote"
     />
 
     <TaskDetailModal
-      v-model="taskDetailOpen"
-      :task-id="taskDetailId"
-      :initial-mode="taskDetailMode"
+      v-model="taskEditModalOpen"
+      :task-id="taskEditModalId"
+      initial-mode="edit"
       @saved="load"
       @open-note="openNoteFromTask"
     />

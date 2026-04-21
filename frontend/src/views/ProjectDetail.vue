@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArchiveBoxIcon, FunnelIcon, PencilSquareIcon, UsersIcon } from '@heroicons/vue/24/outline'
+import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -29,6 +30,7 @@ import {
   type TaskSortKey,
 } from '@app/composables/useTaskListPresentation'
 import { useAuthStore } from '@app/auth.store'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
 import { extractNoteAxiosError, useNoteStore } from '@app/note.store'
@@ -51,6 +53,10 @@ const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const noteStore = useNoteStore()
+const detailPanel = useDetailPanelStore()
+const { pendingTaskEditId, pendingNoteEdit, workspaceRefreshTick } =
+  storeToRefs(detailPanel)
+
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
@@ -74,8 +80,10 @@ const canEditProject = computed(() => {
 })
 const { canManageTask, canChangeTaskStatus } = useTaskEditPermission()
 
-const noteDetailOpen = ref(false)
-const noteDetailId = ref<number | null>(null)
+const taskEditModalOpen = ref(false)
+const taskEditModalId = ref<number | null>(null)
+const noteEditModalOpen = ref(false)
+const noteEditModalId = ref<number | null>(null)
 const itemKind = ref<ProjectItemKindFilter>('all')
 const manualOrder = ref(true)
 
@@ -112,11 +120,6 @@ const { assignableUsers } = useProjectScopedAssignableUsers(() => id.value)
 const projectOptions = computed(() =>
   projectStore.projects.map((p) => ({ id: p.id, name: p.name })),
 )
-
-const detailOpen = ref(false)
-const detailTaskId = ref<number | null>(null)
-const detailTaskModalMode = ref<'view' | 'edit'>('view')
-const noteDetailModalMode = ref<'view' | 'edit'>('view')
 
 const sectionEditOpen = ref(false)
 const sectionEditId = ref<number | null>(null)
@@ -378,42 +381,31 @@ async function removeProjectFromEdit() {
 }
 
 function openTaskView(taskId: number) {
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'view'
-  detailOpen.value = true
+  detailPanel.openTask(taskId)
 }
 
 function openTaskEdit(taskId: number) {
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'edit'
-  detailOpen.value = true
+  taskEditModalId.value = taskId
+  taskEditModalOpen.value = true
 }
 
 function openLinkedNote(payload: { noteId: number; projectId: number }) {
   if (payload.projectId !== id.value) return
-  detailOpen.value = false
-  noteDetailId.value = payload.noteId
-  noteDetailModalMode.value = 'view'
-  noteDetailOpen.value = true
+  detailPanel.openNote(payload.projectId, payload.noteId)
 }
 
 function openTaskFromNote(taskId: number) {
-  noteDetailOpen.value = false
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'view'
-  detailOpen.value = true
+  detailPanel.openTask(taskId)
 }
 
 function openNoteView(noteId: number) {
-  noteDetailId.value = noteId
-  noteDetailModalMode.value = 'view'
-  noteDetailOpen.value = true
+  if (!Number.isFinite(id.value) || id.value <= 0) return
+  detailPanel.openNote(id.value, noteId)
 }
 
 function openNoteEdit(noteId: number) {
-  noteDetailId.value = noteId
-  noteDetailModalMode.value = 'edit'
-  noteDetailOpen.value = true
+  noteEditModalId.value = noteId
+  noteEditModalOpen.value = true
 }
 
 function onEditSection(payload: { sectionId: number; name: string }) {
@@ -527,12 +519,32 @@ async function onItemMove(payload: {
   }
 }
 
-watch(detailOpen, (open) => {
-  if (!open) detailTaskId.value = null
+watch(taskEditModalOpen, open => {
+  if (!open) taskEditModalId.value = null
 })
 
-watch(noteDetailOpen, open => {
-  if (!open) noteDetailId.value = null
+watch(noteEditModalOpen, open => {
+  if (!open) noteEditModalId.value = null
+})
+
+watch(pendingTaskEditId, tid => {
+  if (tid == null) return
+  openTaskEdit(tid)
+  detailPanel.clearPendingTaskEdit()
+})
+
+watch(pendingNoteEdit, payload => {
+  if (!payload) return
+  if (payload.projectId !== id.value) {
+    detailPanel.clearPendingNoteEdit()
+    return
+  }
+  openNoteEdit(payload.noteId)
+  detailPanel.clearPendingNoteEdit()
+})
+
+watch(workspaceRefreshTick, () => {
+  void onWorkspaceRefreshed()
 })
 
 async function onWorkspaceRefreshed() {
@@ -792,21 +804,21 @@ async function onReopen(taskId: number) {
     />
 
     <TaskDetailModal
-      v-model="detailOpen"
-      :task-id="detailTaskId"
-      :initial-mode="detailTaskModalMode"
+      v-model="taskEditModalOpen"
+      :task-id="taskEditModalId"
+      initial-mode="edit"
       @saved="refreshProjectTasks"
       @open-note="openLinkedNote"
     />
 
     <NoteDetailModal
-      v-model="noteDetailOpen"
+      v-model="noteEditModalOpen"
       :project-id="id"
-      :note-id="noteDetailId"
+      :note-id="noteEditModalId"
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNotes"
       :can-manage="canManageNoteOnProject"
-      :initial-mode="noteDetailModalMode"
+      initial-mode="edit"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
       @open-task="openTaskFromNote"

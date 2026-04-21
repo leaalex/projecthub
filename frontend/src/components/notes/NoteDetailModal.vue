@@ -4,16 +4,9 @@ import {
   LinkIcon,
   PencilSquareIcon,
 } from '@heroicons/vue/24/outline'
-import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Task } from '@domain/task/types'
-import type { Note } from '@domain/note/types'
 import type { ProjectSection } from '@domain/project/types'
-import { useTaskStore } from '@app/task.store'
-import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
-import { useTrashNotesStore } from '@app/trashNotes.store'
-import { useToast } from '@app/composables/useToast'
-import { useConfirm } from '@app/composables/useConfirm'
+import { useNoteDetail } from '@app/composables/useNoteDetail'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
@@ -23,8 +16,6 @@ import NoteLinkedTasksPicker from './NoteLinkedTasksPicker.vue'
 import TaskCard from '../tasks/TaskCard.vue'
 
 const { t } = useI18n()
-const toast = useToast()
-const { confirm } = useConfirm()
 
 const props = withDefaults(
   defineProps<{
@@ -49,283 +40,48 @@ const emit = defineEmits<{
   openTask: [taskId: number]
 }>()
 
-const noteStore = useNoteStore()
-const taskStore = useTaskStore()
-const trashNotesStore = useTrashNotesStore()
-
-const note = ref<Note | null>(null)
-const loading = ref(false)
-const editing = ref(false)
-const saving = ref(false)
-const removing = ref(false)
-const restoring = ref(false)
-const purging = ref(false)
-const linkBusy = ref(false)
-const linkManagerOpen = ref(false)
-
-const linkedIds = computed(() => note.value?.linked_task_ids ?? [])
-
-const linkedTaskObjects = ref<Task[]>([])
-
-async function refreshLinkedTasks() {
-  const n = note.value
-  if (!n) {
-    linkedTaskObjects.value = []
-    return
-  }
-  const ids = n.linked_task_ids ?? []
-  if (ids.length === 0) {
-    linkedTaskObjects.value = []
-    return
-  }
-  try {
-    const items = await Promise.all(ids.map(id => taskStore.fetchOne(id)))
-    linkedTaskObjects.value = items
-  } catch {
-    linkedTaskObjects.value = []
-  }
-}
-
-watch(
-  () => note.value?.linked_task_ids,
-  () => {
-    void refreshLinkedTasks()
-  },
-  { immediate: true },
-)
-
-function openTask(id: number) {
-  emit('openTask', id)
-}
-
-const availableTasks = computed(() =>
-  props.projectTasks.filter(t => !linkedIds.value.includes(t.id)),
-)
-
-/** Состояние формы редактирования (v-model в NoteForm) — для `dirty` у модалки. */
-const formTitle = ref('')
-const formBody = ref('')
-const formSectionId = ref<number | null>(null)
-
-const noteModalDirty = computed(() => {
-  const n = note.value
-  if (!n || !editing.value || props.trashed) return false
-  return (
-    formTitle.value.trim() !== n.title
-    || formBody.value.trim() !== (n.body ?? '').trim()
-    || formSectionId.value !== (n.section_id ?? null)
-  )
+const {
+  note,
+  loading,
+  editing,
+  saving,
+  removing,
+  restoring,
+  purging,
+  linkBusy,
+  linkManagerOpen,
+  linkedIds,
+  linkedTaskObjects,
+  availableTasks,
+  formTitle,
+  formBody,
+  formSectionId,
+  noteModalDirty,
+  noteFooterVisible,
+  showHeaderEditButton,
+  showHeaderLinkedTasksButton,
+  cancelEdit,
+  saveFromForm,
+  removeNote,
+  onLinkTask,
+  onUnlinkTask,
+  restoreFromTrash,
+  purgeFromTrash,
+  openTask,
+} = useNoteDetail({
+  projectId: () => props.projectId,
+  noteId: () => props.noteId,
+  active: () => props.modelValue,
+  projectTasks: () => props.projectTasks,
+  canManage: () => props.canManage,
+  trashed: () => props.trashed,
+  initialMode: () => props.initialMode,
+  allowInlineEdit: () => true,
+  onSaved: () => emit('saved'),
+  onDeleted: () => emit('deleted'),
+  onClose: () => emit('update:modelValue', false),
+  onOpenTask: id => emit('openTask', id),
 })
-
-const noteFooterVisible = computed(() => {
-  if (!note.value || loading.value) return false
-  if (props.trashed && props.canManage) return true
-  if (props.canManage && editing.value && !props.trashed) return true
-  return false
-})
-
-const showHeaderEditButton = computed(
-  () =>
-    Boolean(
-      note.value
-      && props.canManage
-      && !props.trashed
-      && !editing.value
-      && !loading.value,
-    ),
-)
-
-const showHeaderLinkedTasksButton = computed(
-  () =>
-    Boolean(
-      note.value
-      && props.canManage
-      && editing.value
-      && !props.trashed
-      && !loading.value,
-    ),
-)
-
-function cancelEdit() {
-  editing.value = false
-}
-
-/** Заполняем поля до монтирования NoteForm — иначе NoteMarkdownEditor стартует с пустым body. */
-watch(
-  () => [note.value, editing.value] as const,
-  ([n, ed]) => {
-    if (!n || !ed) return
-    formTitle.value = n.title
-    formBody.value = n.body ?? ''
-    formSectionId.value = n.section_id ?? null
-  },
-  { immediate: true },
-)
-
-watch(
-  () =>
-    [props.modelValue, props.noteId, props.projectId, props.trashed] as const,
-  async ([open, nid, , trashed]) => {
-    if (!open || nid == null) {
-      note.value = null
-      editing.value = false
-      linkManagerOpen.value = false
-      return
-    }
-    loading.value = true
-    try {
-      if (trashed) {
-        const n = await trashNotesStore.fetchOne(props.projectId, nid)
-        note.value = n
-        editing.value = false
-      } else {
-        const n = await noteStore.fetchOne(props.projectId, nid)
-        note.value = n
-        noteStore.patchNoteInList(n.id, { linked_task_ids: n.linked_task_ids })
-        editing.value = props.canManage && props.initialMode === 'edit'
-      }
-    } catch {
-      toast.error(t('notes.detail.loadError'))
-      note.value = null
-    } finally {
-      loading.value = false
-    }
-  },
-)
-
-function close() {
-  emit('update:modelValue', false)
-}
-
-async function saveFromForm(payload: {
-  title: string
-  body: string
-  section_id: number | null
-}) {
-  const n = note.value
-  if (!n || !props.canManage) return
-  saving.value = true
-  try {
-    const prevSid = n.section_id ?? null
-    const updated = await noteStore.update(props.projectId, n.id, {
-      title: payload.title,
-      body: payload.body,
-    })
-    note.value = updated
-    const sid = payload.section_id
-    if (sid !== prevSid) {
-      const moved = await noteStore.move(props.projectId, n.id, {
-        section_id: sid,
-        position: updated.position,
-      })
-      note.value = moved
-    }
-    editing.value = false
-    toast.success(t('notes.detail.saved'))
-    emit('saved')
-  } catch (e) {
-    toast.error(extractNoteAxiosError(e, 'notes.detail.saveFailed'))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function removeNote() {
-  const n = note.value
-  if (!n || removing.value) return
-  const ok = await confirm({
-    title: t('notes.confirm.deleteTitle'),
-    message: t('notes.confirm.deleteMessage', { title: n.title }),
-    confirmLabelKey: 'notes.confirm.deleteConfirm',
-    danger: true,
-  })
-  if (!ok) return
-  removing.value = true
-  try {
-    await noteStore.remove(props.projectId, n.id)
-    toast.success(t('notes.detail.deleted'))
-    close()
-    emit('deleted')
-  } catch (e) {
-    toast.error(extractNoteAxiosError(e, 'notes.detail.deleteFailed'))
-  } finally {
-    removing.value = false
-  }
-}
-
-async function onLinkTask(taskId: number) {
-  const n = note.value
-  if (!n || !props.canManage) return
-  linkBusy.value = true
-  try {
-    await noteStore.linkTask(props.projectId, n.id, taskId)
-    const ids = [...linkedIds.value, taskId]
-    note.value = { ...n, linked_task_ids: ids }
-    toast.success(t('notes.linkTask.linked'))
-    emit('saved')
-  } catch (e) {
-    toast.error(extractNoteAxiosError(e, 'notes.linkTask.linkFailed'))
-  } finally {
-    linkBusy.value = false
-  }
-}
-
-async function onUnlinkTask(taskId: number) {
-  const n = note.value
-  if (!n || !props.canManage) return
-  linkBusy.value = true
-  try {
-    await noteStore.unlinkTask(props.projectId, n.id, taskId)
-    const ids = linkedIds.value.filter(x => x !== taskId)
-    note.value = { ...n, linked_task_ids: ids }
-    noteStore.invalidateTaskLinks(taskId)
-    toast.success(t('notes.linkTask.unlinked'))
-    emit('saved')
-  } catch (e) {
-    toast.error(extractNoteAxiosError(e, 'notes.linkTask.unlinkFailed'))
-  } finally {
-    linkBusy.value = false
-  }
-}
-
-async function restoreFromTrash() {
-  const n = note.value
-  if (!n || !props.canManage) return
-  restoring.value = true
-  try {
-    await trashNotesStore.restoreNote(props.projectId, n.id)
-    toast.success(t('notes.trash.noteRestored'))
-    close()
-    emit('saved')
-  } catch {
-    toast.error(t('notes.trash.restoreFailed'))
-  } finally {
-    restoring.value = false
-  }
-}
-
-async function purgeFromTrash() {
-  const n = note.value
-  if (!n || !props.canManage) return
-  const ok = await confirm({
-    title: t('notes.trash.confirmPermanentTitle'),
-    message: t('notes.trash.confirmPermanentNote'),
-    confirmLabelKey: 'notes.trash.confirmPermanent',
-    danger: true,
-  })
-  if (!ok) return
-  purging.value = true
-  try {
-    await trashNotesStore.permanentDeleteNote(props.projectId, n.id)
-    toast.success(t('notes.trash.notePurged'))
-    close()
-    emit('saved')
-  } catch {
-    toast.error(t('notes.trash.purgeFailed'))
-  } finally {
-    purging.value = false
-  }
-}
 </script>
 
 <template>

@@ -624,11 +624,16 @@
       }
     }
   },
+  "detailPanel": {
+    "collapse": "Свернуть панель",
+    "expand": "Развернуть панель",
+    "closeOverlay": "Закрыть панель"
+  },
   "uiKit": {
     "intro": {
       "title": "UI kit",
       "subtitle": "Примитивы интерфейса из папки components/ui.",
-      "onThisPage": "На этой странице: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Глобально в оболочке: UiToast, UiConfirmDialog, UiCommandPalette."
+      "onThisPage": "На этой странице: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiDetailPanelShell, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Глобально в оболочке: UiToast, UiConfirmDialog, UiCommandPalette."
     },
     "sections": {
       "buttons": "Кнопки",
@@ -641,6 +646,7 @@
       "cards": "Карточки и таблица",
       "breadcrumb": "Хлебные крошки (пример)",
       "empty": "Пустое состояние и скелетоны",
+      "detailPanelShell": "Оболочка боковой панели (UiDetailPanelShell)",
       "modal": "Модальное окно и глобальные оверлеи"
     },
     "segmentedTwo": {
@@ -653,6 +659,11 @@
       "gamma": "Гамма"
     },
     "demo": {
+      "detailPanel": {
+        "title": "Заголовок панели",
+        "body": "Правая колонка деталей: те же скругление и фон, что у UiModal, чуть шире (max-w-xl). В приложении сворачивание уводит панель за правый край; разворот — ручка у края экрана.",
+        "collapseHint": "В приложении панель уезжает за край; здесь статичное демо."
+      },
       "modal": {
         "title": "Демо модалки",
         "body": "Содержимое UiModal. Закрытие — через футер. Клик по фону и Escape учитывают флаг «есть несохранённые изменения».",

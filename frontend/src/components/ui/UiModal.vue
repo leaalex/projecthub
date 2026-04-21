@@ -107,10 +107,19 @@ const showFooter = () => Boolean(slots.footer?.())
 
 <template>
   <Teleport to="body">
+    <!-- z-40: ниже правой колонки деталей (z-[45]), чтобы сайдбар оставался виден -->
+    <Transition name="modal-backdrop">
+      <div
+        v-if="modelValue"
+        class="fixed inset-0 z-40 bg-foreground/25 backdrop-blur-[2px]"
+        aria-hidden="true"
+        @click="close"
+      />
+    </Transition>
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex justify-end p-3 sm:p-4 md:p-5"
+        class="pointer-events-none fixed inset-0 z-50 flex justify-end p-3 sm:p-4 md:p-5"
         role="dialog"
         aria-modal="true"
         :aria-describedby="dirty ? 'modal-unsaved-hint' : undefined"
@@ -123,13 +132,8 @@ const showFooter = () => Boolean(slots.footer?.())
           {{ t('modal.unsavedChanges') }}
         </p>
         <div
-          class="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
-          aria-hidden="true"
-          @click="close"
-        />
-        <div
           ref="panelRef"
-          class="modal-panel relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
+          class="modal-panel pointer-events-auto relative z-10 flex h-full max-h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface"
           :class="size === 'large' ? 'max-w-4xl' : 'max-w-lg'"
           @keydown="onPanelKeydown"
           @animationend="onShakeEnd"

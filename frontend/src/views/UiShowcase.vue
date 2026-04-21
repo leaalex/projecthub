@@ -14,6 +14,7 @@ import UiFormSection from '../components/ui/UiFormSection.vue'
 import UiIconSelect from '../components/ui/UiIconSelect.vue'
 import UiInput from '../components/ui/UiInput.vue'
 import UiMenuButton from '../components/ui/UiMenuButton.vue'
+import UiDetailPanelShell from '../components/ui/UiDetailPanelShell.vue'
 import UiModal from '../components/ui/UiModal.vue'
 import UiScrollPanel from '../components/ui/UiScrollPanel.vue'
 import UiSegmentedControl from '../components/ui/UiSegmentedControl.vue'
@@ -537,6 +538,31 @@ function onDemoMenuSelect(v: string | number) {
             <p class="mb-2 text-xs font-medium text-muted">Skeleton avatar</p>
             <UiSkeleton variant="avatar" />
           </div>
+        </div>
+      </UiCard>
+
+      <UiCard :title="t('uiKit.sections.detailPanelShell')">
+        <div
+          class="flex h-72 min-h-0 overflow-hidden rounded-xl border border-dashed border-border bg-background p-2 md:h-96"
+        >
+          <div class="min-w-0 flex-1 overflow-y-auto p-3 text-sm text-muted">
+            Main column (scrollable). The panel sits at the end of the row in the app shell.
+          </div>
+          <UiDetailPanelShell
+            class="min-h-0 w-full max-w-xl shrink-0"
+            :title="t('uiKit.demo.detailPanel.title')"
+            :collapse-aria-label="t('detailPanel.collapse')"
+            @toggle-collapsed="toast.info(t('uiKit.demo.detailPanel.collapseHint'))"
+          >
+            <template #header-actions>
+              <UiButton variant="secondary" type="button">
+                {{ t('common.edit') }}
+              </UiButton>
+            </template>
+            <p class="text-sm text-foreground">
+              {{ t('uiKit.demo.detailPanel.body') }}
+            </p>
+          </UiDetailPanelShell>
         </div>
       </UiCard>
 

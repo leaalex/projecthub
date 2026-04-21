@@ -85,7 +85,18 @@ body {
   }
 }
 
-/* Shared Vue <Transition name="modal"> (UiModal, UiConfirmDialog) */
+/* UiModal backdrop (separate layer, z-40 below detail column) */
+.modal-backdrop-enter-active,
+.modal-backdrop-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-backdrop-enter-from,
+.modal-backdrop-leave-to {
+  opacity: 0;
+}
+
+/* Shared Vue <Transition name="modal"> (UiModal shell, UiConfirmDialog) */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -23,6 +24,7 @@ import {
   type TaskSortKey,
 } from '@app/composables/useTaskListPresentation'
 import { useAuthStore } from '@app/auth.store'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
 import { useNoteStore } from '@app/note.store'
@@ -42,6 +44,10 @@ const auth = useAuthStore()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const noteStore = useNoteStore()
+const detailPanel = useDetailPanelStore()
+const { pendingTaskEditId, pendingNoteEdit, workspaceRefreshTick } =
+  storeToRefs(detailPanel)
+
 const canCreateTasks = computed(() => {
   const u = auth.user
   if (!u) return false
@@ -107,13 +113,11 @@ const taskCreateModalDirty = computed(
 
 const allowServerFilterWatch = ref(false)
 
-const detailOpen = ref(false)
-const detailTaskId = ref<number | null>(null)
-const detailTaskModalMode = ref<'view' | 'edit'>('view')
-const noteDetailModalMode = ref<'view' | 'edit'>('view')
-const noteDetailOpen = ref(false)
-const noteDetailId = ref<number | null>(null)
-const noteDetailProjectId = ref(0)
+const taskEditModalOpen = ref(false)
+const taskEditModalId = ref<number | null>(null)
+const noteEditModalOpen = ref(false)
+const noteEditModalId = ref<number | null>(null)
+const noteEditProjectId = ref(0)
 
 const notePermissionCtx = computed(
   (): NotePermissionContext => ({
@@ -133,12 +137,12 @@ const canManageNotesForNoteModal = computed(() =>
     auth.user?.id,
     auth.user?.role,
     notePermissionCtx.value,
-    noteDetailProjectId.value,
+    noteEditProjectId.value,
   ),
 )
 
 const projectTasksForNoteModal = computed(() => {
-  const pid = noteDetailProjectId.value
+  const pid = noteEditProjectId.value
   return taskStore.tasks
     .filter(t => t.project_id === pid)
     .map(t => ({ id: t.id, title: t.title }))
@@ -235,45 +239,66 @@ const tasksBreadcrumbItems = computed(() => [
 ])
 
 function openTaskView(taskId: number) {
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'view'
-  detailOpen.value = true
+  detailPanel.openTask(taskId)
 }
 
 function openTaskEdit(taskId: number) {
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'edit'
-  detailOpen.value = true
+  taskEditModalId.value = taskId
+  taskEditModalOpen.value = true
 }
 
 async function openLinkedNote(payload: { noteId: number; projectId: number }) {
-  detailOpen.value = false
-  noteDetailProjectId.value = payload.projectId
-  noteDetailId.value = payload.noteId
-  noteDetailModalMode.value = 'view'
-  noteDetailOpen.value = true
   try {
     await projectStore.fetchOne(payload.projectId).catch(() => {})
     await projectStore.fetchSections(payload.projectId)
     await noteStore.fetchList(payload.projectId, { quiet: true })
   } catch {
     toast.error(t('tasks.openLinkedNoteFailed'))
+    return
   }
+  detailPanel.openNote(payload.projectId, payload.noteId)
 }
 
 function openTaskFromNote(taskId: number) {
-  noteDetailOpen.value = false
-  detailTaskId.value = taskId
-  detailTaskModalMode.value = 'view'
-  detailOpen.value = true
+  detailPanel.openTask(taskId)
 }
 
-watch(detailOpen, (open) => {
-  if (!open) detailTaskId.value = null
+watch(taskEditModalOpen, open => {
+  if (!open) taskEditModalId.value = null
 })
 
-watch(noteDetailOpen, open => {
-  if (!open) noteDetailId.value = null
+watch(noteEditModalOpen, open => {
+  if (!open) {
+    noteEditModalId.value = null
+    noteEditProjectId.value = 0
+  }
+})
+
+watch(pendingTaskEditId, tid => {
+  if (tid == null) return
+  openTaskEdit(tid)
+  detailPanel.clearPendingTaskEdit()
+})
+
+watch(pendingNoteEdit, async payload => {
+  if (!payload) return
+  noteEditProjectId.value = payload.projectId
+  noteEditModalId.value = payload.noteId
+  try {
+    await projectStore.fetchOne(payload.projectId).catch(() => {})
+    await projectStore.fetchSections(payload.projectId)
+    await noteStore.fetchList(payload.projectId, { quiet: true })
+  } catch {
+    toast.error(t('tasks.openLinkedNoteFailed'))
+    detailPanel.clearPendingNoteEdit()
+    return
+  }
+  noteEditModalOpen.value = true
+  detailPanel.clearPendingNoteEdit()
+})
+
+watch(workspaceRefreshTick, () => {
+  void load()
 })
 
 onMounted(async () => {
@@ -609,21 +634,21 @@ async function onSectionMove(payload: {
     </Modal>
 
     <TaskDetailModal
-      v-model="detailOpen"
-      :task-id="detailTaskId"
-      :initial-mode="detailTaskModalMode"
+      v-model="taskEditModalOpen"
+      :task-id="taskEditModalId"
+      initial-mode="edit"
       @saved="load"
       @open-note="openLinkedNote"
     />
 
     <NoteDetailModal
-      v-model="noteDetailOpen"
-      :project-id="noteDetailProjectId"
-      :note-id="noteDetailId"
+      v-model="noteEditModalOpen"
+      :project-id="noteEditProjectId"
+      :note-id="noteEditModalId"
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageNotesForNoteModal"
-      :initial-mode="noteDetailModalMode"
+      initial-mode="edit"
       @saved="load"
       @deleted="load"
       @open-task="openTaskFromNote"
