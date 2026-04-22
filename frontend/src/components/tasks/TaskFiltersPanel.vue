@@ -312,7 +312,10 @@ const clearBtnClass =
         role="group"
         :aria-label="t('taskFiltersPanel.aria.sortOrderGrouping')"
       >
-        <div class="flex shrink-0 flex-col gap-1.5">
+        <div
+          v-if="!showProjectWorkspaceOptions || !manualSectionOrder"
+          class="flex shrink-0 flex-col gap-1.5"
+        >
           <label class="block text-xs font-medium text-foreground">{{
             t('taskFiltersPanel.labels.sortBy')
           }}</label>
@@ -323,7 +326,10 @@ const clearBtnClass =
             :options="sortKeySegmented"
           />
         </div>
-        <div class="flex shrink-0 flex-col gap-1.5">
+        <div
+          v-if="!showProjectWorkspaceOptions || !manualSectionOrder"
+          class="flex shrink-0 flex-col gap-1.5"
+        >
           <label class="block text-xs font-medium text-foreground">{{
             t('taskFiltersPanel.labels.order')
           }}</label>

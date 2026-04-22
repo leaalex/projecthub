@@ -20,7 +20,6 @@ import SectionEditModal from '../components/projects/SectionEditModal.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import {
   presentProjectItems,
-  type ProjectItemGroup,
   type ProjectItemKindFilter,
 } from '@app/composables/useProjectItemsPresentation'
 import {
@@ -144,8 +143,16 @@ const searchQuery = ref('')
 const clientPriority = ref<TaskPriority[]>([])
 const assigneeFilter = ref<AssigneeFilterValue[]>([])
 const sortKey = ref<TaskSortKey>('updated_at')
-const sortDir = ref<SortDir>('desc')
+const sortDir = ref<SortDir>('asc')
 const groupBy = ref<TaskGroupBy>('section')
+
+watch(
+  manualOrder,
+  (v) => {
+    if (v) sortDir.value = 'asc'
+  },
+  { immediate: true },
+)
 
 const showModal = ref(false)
 const modalTitle = ref('')
@@ -228,7 +235,7 @@ function resetTaskFilters() {
   clientPriority.value = []
   assigneeFilter.value = []
   sortKey.value = 'updated_at'
-  sortDir.value = 'desc'
+  sortDir.value = 'asc'
   groupBy.value = 'section'
   filterProject.value = ''
   filterStatus.value = []
@@ -420,10 +427,6 @@ function openSectionCreate() {
   sectionEditOpen.value = true
 }
 
-function sectionKeyFromSectionId(sectionId: number | null): string {
-  return sectionId == null ? 'unsectioned' : `s-${sectionId}`
-}
-
 function currentSectionIdForItem(
   kind: 'task' | 'note',
   itemId: number,
@@ -438,34 +441,41 @@ function currentSectionIdForItem(
 
 /**
  * Строит новый порядок kind+id в целевой секции по drop-индексу (как в ProjectItemList).
+ * Источник — сторы, сортировка по position ASC (как на бэкенде), независимо от sortDir в UI.
  */
 function buildOrderedSectionItems(
-  groups: ProjectItemGroup[],
   targetSectionId: number | null,
   payload: { kind: 'task' | 'note'; id: number; position: number },
 ): { kind: 'task' | 'note'; id: number }[] {
-  const key = sectionKeyFromSectionId(targetSectionId)
-  const g = groups.find(x => x.key === key)
-  if (!g) return []
+  const pid = id.value
+  if (!Number.isFinite(pid) || pid <= 0) return []
 
-  const current = g.items.map((it): { kind: 'task' | 'note'; id: number } =>
-    it.kind === 'task'
-      ? { kind: 'task', id: it.task.id }
-      : { kind: 'note', id: it.note.id },
+  const tasks = projectStore.tasks
+    .filter(
+      t =>
+        t.project_id === pid && (t.section_id ?? null) === targetSectionId,
+    )
+    .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
+  const notes = noteStore.notes
+    .filter(
+      n =>
+        n.project_id === pid && (n.section_id ?? null) === targetSectionId,
+    )
+    .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
+  const mixed = [...tasks, ...notes].sort(
+    (a, b) => a.position - b.position || a.id - b.id,
   )
-  const filtered = current.filter(
+  const filtered = mixed.filter(
     x => !(x.kind === payload.kind && x.id === payload.id),
   )
-  const oldIdx = current.findIndex(
+  const oldIdx = mixed.findIndex(
     x => x.kind === payload.kind && x.id === payload.id,
   )
   let insertAt = payload.position
-  if (oldIdx >= 0 && oldIdx < insertAt) {
-    insertAt -= 1
-  }
+  if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
   insertAt = Math.max(0, Math.min(insertAt, filtered.length))
   filtered.splice(insertAt, 0, { kind: payload.kind, id: payload.id })
-  return filtered
+  return filtered.map(({ kind, id: itemId }) => ({ kind, id: itemId }))
 }
 
 async function onItemMove(payload: {
@@ -500,11 +510,7 @@ async function onItemMove(payload: {
       }
     }
 
-    const ordered = buildOrderedSectionItems(
-      itemGroups.value,
-      targetSec,
-      payload,
-    )
+    const ordered = buildOrderedSectionItems(targetSec, payload)
     if (ordered.length === 0) {
       await onNotesChanged()
       return

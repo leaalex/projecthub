@@ -71,12 +71,12 @@ export function applyMoveLocally(
     targetSection === null
       ? null
       : next.find(
-          (t) =>
-            normSection(t.section_id) === targetSection &&
-            t.section?.id === targetSection,
-        )?.section ??
-        moved.section ??
-        null
+        (t) =>
+          normSection(t.section_id) === targetSection &&
+          t.section?.id === targetSection,
+      )?.section ??
+      moved.section ??
+      null
 
   orderedIds.forEach((id, i) => {
     const idx = next.findIndex((x) => x.id === id)
