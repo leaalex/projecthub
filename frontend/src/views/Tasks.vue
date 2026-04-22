@@ -776,7 +776,6 @@ async function onSectionMove(payload: {
     <TaskDetailModal
       v-model="taskEditModalOpen"
       :task-id="taskEditModalId"
-      initial-mode="edit"
       @saved="load"
       @open-note="openLinkedNote"
     />
@@ -788,7 +787,6 @@ async function onSectionMove(payload: {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageNotesForNoteModal"
-      initial-mode="edit"
       @saved="onNoteModalChanged"
       @deleted="onNoteModalChanged"
       @open-task="openTaskFromNote"

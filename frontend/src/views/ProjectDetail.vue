@@ -806,7 +806,6 @@ async function onReopen(taskId: number) {
     <TaskDetailModal
       v-model="taskEditModalOpen"
       :task-id="taskEditModalId"
-      initial-mode="edit"
       @saved="refreshProjectTasks"
       @open-note="openLinkedNote"
     />
@@ -818,7 +817,6 @@ async function onReopen(taskId: number) {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNotes"
       :can-manage="canManageNoteOnProject"
-      initial-mode="edit"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
       @open-task="openTaskFromNote"

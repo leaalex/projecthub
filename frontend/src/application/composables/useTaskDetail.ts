@@ -157,11 +157,15 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
         task.value = await taskStore.fetchOne(id)
         await refreshLinkedNotes()
         await nextTick()
-        editing.value =
-          options.allowInlineEdit()
-          && canEdit.value
-          && options.initialMode() === 'edit'
-        if (!canEdit.value) editing.value = false
+        if (!canEdit.value) {
+          toast.error(t('taskDetailModal.toasts.noEditPermission'))
+          options.onClose?.()
+          editing.value = false
+        } else {
+          editing.value =
+            options.allowInlineEdit()
+            && options.initialMode() === 'edit'
+        }
       } catch {
         loadError.value = t('taskDetailModal.loadError')
       } finally {
@@ -250,6 +254,7 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       editing.value = false
       toast.success(t('taskDetailModal.toasts.updated'))
       options.onSaved?.()
+      options.onClose?.()
     } catch (e: unknown) {
       toast.error(mapApiError(e, 'taskDetailModal.toasts.updateFailed'))
       try {
@@ -368,6 +373,9 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       formPriority.value = cur.priority
     }
     editing.value = false
+    if (options.allowInlineEdit()) {
+      options.onClose?.()
+    }
   }
 
   const taskModalDirty = computed(() => {
@@ -387,29 +395,15 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
   const taskFooterVisible = computed(() => {
     if (!task.value || loading.value || loadError.value) return false
     if (options.trashed() && options.canManageTrash()) return true
-    if (canEdit.value && editing.value && !options.trashed()) return true
+    if (canEdit.value && !options.trashed()) return true
     return false
   })
-
-  const showHeaderEditButton = computed(
-    () =>
-      Boolean(
-        task.value
-        && canEdit.value
-        && !editing.value
-        && !options.trashed()
-        && !loading.value
-        && !loadError.value
-        && options.allowInlineEdit(),
-      ),
-  )
 
   const showHeaderLinkedNotesButton = computed(
     () =>
       Boolean(
         task.value
         && canEdit.value
-        && editing.value
         && !options.trashed()
         && canManageNotes.value
         && !loading.value
@@ -467,7 +461,6 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     pickerCandidates,
     taskModalDirty,
     taskFooterVisible,
-    showHeaderEditButton,
     showHeaderLinkedNotesButton,
     refreshLinkedNotes,
     save,

@@ -823,6 +823,7 @@
       "loadFailed": "Could not load linked notes"
     },
     "toasts": {
+      "noEditPermission": "You don’t have permission to edit this task.",
       "enterTitle": "Enter a task title",
       "updated": "Task updated",
       "updateFailed": "Could not update task",
@@ -931,6 +932,7 @@
     },
     "detail": {
       "title": "Note",
+      "noManagePermission": "You don’t have permission to edit this note.",
       "loadError": "Could not load note.",
       "saved": "Note saved",
       "saveFailed": "Could not save note",

@@ -96,36 +96,31 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
   const noteFooterVisible = computed(() => {
     if (!note.value || loading.value) return false
     if (options.trashed() && options.canManage()) return true
-    if (options.canManage() && editing.value && !options.trashed()) return true
+    if (
+      options.canManage()
+      && !options.trashed()
+      && options.allowInlineEdit()
+    ) {
+      return true
+    }
     return false
   })
-
-  const showHeaderEditButton = computed(
-    () =>
-      Boolean(
-        note.value
-        && options.canManage()
-        && !options.trashed()
-        && !editing.value
-        && !loading.value
-        && options.allowInlineEdit(),
-      ),
-  )
 
   const showHeaderLinkedTasksButton = computed(
     () =>
       Boolean(
         note.value
         && options.canManage()
-        && editing.value
         && !options.trashed()
-        && !loading.value
-        && options.allowInlineEdit(),
+        && !loading.value,
       ),
   )
 
   function cancelEdit() {
     editing.value = false
+    if (options.allowInlineEdit()) {
+      options.onClose?.()
+    }
   }
 
   watch(
@@ -164,10 +159,15 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
           const n = await noteStore.fetchOne(pid, nid)
           note.value = n
           noteStore.patchNoteInList(n.id, { linked_task_ids: n.linked_task_ids })
-          editing.value =
-            options.allowInlineEdit()
-            && options.canManage()
-            && options.initialMode() === 'edit'
+          if (!options.canManage()) {
+            toast.error(t('notes.detail.noManagePermission'))
+            options.onClose?.()
+            editing.value = false
+          } else {
+            editing.value =
+              options.allowInlineEdit()
+              && options.initialMode() === 'edit'
+          }
         }
       } catch {
         toast.error(t('notes.detail.loadError'))
@@ -210,6 +210,7 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
       editing.value = false
       toast.success(t('notes.detail.saved'))
       options.onSaved?.()
+      options.onClose?.()
     } catch (e: unknown) {
       toast.error(extractNoteAxiosError(e, 'notes.detail.saveFailed'))
     } finally {
@@ -337,7 +338,6 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
     formSectionId,
     noteModalDirty,
     noteFooterVisible,
-    showHeaderEditButton,
     showHeaderLinkedTasksButton,
     cancelEdit,
     saveFromForm,

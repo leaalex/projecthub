@@ -2,14 +2,12 @@
 import {
   DocumentTextIcon,
   LinkIcon,
-  PencilSquareIcon,
 } from '@heroicons/vue/24/outline'
 import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
 import Skeleton from '../ui/UiSkeleton.vue'
 import UiInput from '../ui/UiInput.vue'
-import NoteCard from '../notes/NoteCard.vue'
 import TaskForm from './TaskForm.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { useProjectStore } from '@app/project.store'
@@ -24,8 +22,6 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     taskId: number | null
-    /** When user opened modal via Edit on the card. */
-    initialMode?: 'view' | 'edit'
     /** Загрузка из корзины проекта (GET .../trash/tasks/:id). */
     trashed?: boolean
     /** project_id для корзины; обязателен при `trashed`. */
@@ -33,7 +29,7 @@ const props = withDefaults(
     /** Restore / удалить навсегда в корзине (как права на заметки в проекте). */
     canManageTrash?: boolean
   }>(),
-  { initialMode: 'view', trashed: false, trashProjectId: null, canManageTrash: true },
+  { trashed: false, trashProjectId: null, canManageTrash: true },
 )
 
 const emit = defineEmits<{
@@ -50,7 +46,6 @@ const {
   removing,
   restoring,
   purging,
-  editing,
   formTitle,
   formDescription,
   formProjectId,
@@ -68,7 +63,6 @@ const {
   pickerCandidates,
   taskModalDirty,
   taskFooterVisible,
-  showHeaderEditButton,
   showHeaderLinkedNotesButton,
   save,
   refreshTask,
@@ -85,7 +79,7 @@ const {
   trashed: () => props.trashed,
   trashProjectId: () => props.trashProjectId,
   canManageTrash: () => props.canManageTrash,
-  initialMode: () => props.initialMode,
+  initialMode: () => 'edit',
   allowInlineEdit: () => true,
   onSaved: () => emit('saved'),
   onOpenNote: p => emit('openNote', p),
@@ -117,15 +111,6 @@ const {
             class="ml-1 inline-flex min-w-4 items-center justify-center rounded bg-surface-muted px-1 text-[10px] leading-none text-muted"
           >{{ linkedNotes.length }}</span>
         </Button>
-        <Button
-          v-if="showHeaderEditButton"
-          type="button"
-          variant="secondary"
-          @click="editing = true"
-        >
-          <PencilSquareIcon class="h-4 w-4" />
-          <span class="ml-1">{{ t('common.edit') }}</span>
-        </Button>
       </div>
     </template>
     <div v-if="loading" class="space-y-3">
@@ -135,7 +120,7 @@ const {
     <p v-else-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
     <template v-else-if="task">
       <dl
-        v-if="!canEdit || !editing || trashed"
+        v-if="trashed"
         class="space-y-4"
       >
         <div>
@@ -219,7 +204,7 @@ const {
         </div>
       </dl>
 
-      <div v-else-if="canEdit && editing && !trashed" class="space-y-4">
+      <div v-else-if="canEdit" class="space-y-4">
         <TaskForm
           v-model:title="formTitle"
           v-model:description="formDescription"
@@ -243,46 +228,9 @@ const {
         </TaskForm>
       </div>
 
-      <div
-        v-if="!trashed && (!editing || !canManageNotes)"
-        class="mt-6 border-t border-border pt-4"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-            <LinkIcon class="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
-            <span class="truncate">{{ t('taskDetailModal.linkedNotes.heading') }}</span>
-          </h3>
-          <Button
-            v-if="canManageNotes"
-            type="button"
-            variant="secondary"
-            :disabled="linkBusy"
-            @click="linkManagerOpen = true"
-          >
-            {{ t('taskDetailModal.linkedNotes.addLink') }}
-          </Button>
-        </div>
-        <div
-          class="mt-3 overflow-hidden rounded-lg border border-border bg-surface"
-        >
-          <div v-if="linkedNotes.length > 0" class="divide-y divide-border">
-            <NoteCard
-              v-for="n in linkedNotes"
-              :key="n.id"
-              class="px-3"
-              :note="n"
-              :can-manage="false"
-              @view="openLinkedNote"
-            />
-          </div>
-          <p
-            v-else
-            class="px-3 py-6 text-center text-xs text-muted"
-          >
-            {{ t('taskDetailModal.linkedNotes.empty') }}
-          </p>
-        </div>
-      </div>
+      <p v-else class="text-sm text-muted">
+        {{ t('taskDetailModal.toasts.noEditPermission') }}
+      </p>
     </template>
     <template v-if="taskFooterVisible" #footer>
       <div
@@ -309,7 +257,7 @@ const {
         </Button>
       </div>
       <div
-        v-else-if="canEdit && editing && !trashed"
+        v-else-if="canEdit && !trashed"
         class="flex flex-wrap items-center gap-2"
       >
         <Button

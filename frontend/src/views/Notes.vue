@@ -759,7 +759,6 @@ async function onCreateSubmit(payload: {
       :sections="projectStore.sections"
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageDetailNote"
-      initial-mode="edit"
       @saved="load"
       @deleted="load"
       @open-task="openTaskFromNote"
@@ -768,7 +767,6 @@ async function onCreateSubmit(payload: {
     <TaskDetailModal
       v-model="taskEditModalOpen"
       :task-id="taskEditModalId"
-      initial-mode="edit"
       @saved="load"
       @open-note="openNoteFromTask"
     />
