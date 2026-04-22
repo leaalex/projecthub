@@ -89,6 +89,7 @@ const {
   onLinkTask,
   onUnlinkTask,
   openTask,
+  refresh,
 } = useNoteDetail({
   projectId: () => props.projectId,
   noteId: () => props.noteId,
@@ -103,6 +104,13 @@ const {
   onClose: () => {},
   onOpenTask: id => detailPanel.openTask(id),
 })
+
+watch(
+  () => detailPanel.workspaceRefreshTick,
+  () => {
+    void refresh()
+  },
+)
 
 const showEditButton = computed(
   () =>

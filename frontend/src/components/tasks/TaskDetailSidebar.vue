@@ -4,7 +4,7 @@ import {
   LinkIcon,
   PencilSquareIcon,
 } from '@heroicons/vue/24/outline'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiDetailPanelShell from '../ui/UiDetailPanelShell.vue'
 import Modal from '../ui/UiModal.vue'
@@ -39,6 +39,7 @@ const {
   linkNoteFromPicker,
   unlinkNote,
   openLinkedNote,
+  refresh,
 } = useTaskDetail({
   taskId: () => props.taskId,
   active: () => true,
@@ -51,6 +52,13 @@ const {
   onOpenNote: p => detailPanel.openNote(p.projectId, p.noteId),
   onClose: () => {},
 })
+
+watch(
+  () => detailPanel.workspaceRefreshTick,
+  () => {
+    void refresh()
+  },
+)
 
 const showEditButton = computed(
   () => Boolean(task.value && canEdit.value && !loading.value && !loadError.value),

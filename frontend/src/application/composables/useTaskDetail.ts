@@ -281,6 +281,18 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     }
   }
 
+  /** Перечитать задачу и связанные заметки (для синка сайдбара после save в модалке). */
+  async function refresh() {
+    const id = options.taskId()
+    if (id == null) return
+    try {
+      task.value = await taskStore.fetchOne(id)
+      await refreshLinkedNotes()
+    } catch {
+      /* keep stale */
+    }
+  }
+
   async function linkNoteFromPicker(noteId: number) {
     const cur = task.value
     if (!cur || !canManageNotes.value) return
@@ -469,6 +481,7 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     refreshLinkedNotes,
     save,
     refreshTask,
+    refresh,
     linkNoteFromPicker,
     unlinkNote,
     openLinkedNote,

@@ -11,12 +11,14 @@ import UiInput from '../ui/UiInput.vue'
 import TaskForm from './TaskForm.vue'
 import TaskSubtasksPanel from './TaskSubtasksPanel.vue'
 import { useProjectStore } from '@app/project.store'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useTaskDetail } from '@app/composables/useTaskDetail'
 import { formatDate } from '@infra/formatters/date'
 import { taskPriorityLabel, taskStatusLabel } from '@infra/i18n/labels'
 
 const { t, locale } = useI18n()
 const projectStore = useProjectStore()
+const detailPanel = useDetailPanelStore()
 
 const props = withDefaults(
   defineProps<{
@@ -81,7 +83,10 @@ const {
   canManageTrash: () => props.canManageTrash,
   initialMode: () => 'edit',
   allowInlineEdit: () => true,
-  onSaved: () => emit('saved'),
+  onSaved: () => {
+    detailPanel.requestWorkspaceRefresh()
+    emit('saved')
+  },
   onOpenNote: p => emit('openNote', p),
   onClose: () => emit('update:modelValue', false),
 })

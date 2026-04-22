@@ -301,6 +301,19 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
     }
   }
 
+  /** Перечитать заметку и связанные задачи (для синка сайдбара после save в модалке). */
+  async function refresh() {
+    const pid = options.projectId()
+    const nid = options.noteId()
+    if (nid == null || !Number.isFinite(pid) || pid <= 0) return
+    try {
+      note.value = await noteStore.fetchOne(pid, nid)
+      await refreshLinkedTasks()
+    } catch {
+      /* keep stale */
+    }
+  }
+
   async function purgeFromTrash() {
     const n = note.value
     const pid = options.projectId()
@@ -353,5 +366,6 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
     purgeFromTrash,
     openTask,
     close,
+    refresh,
   }
 }

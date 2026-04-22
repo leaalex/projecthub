@@ -5,6 +5,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { useI18n } from 'vue-i18n'
 import type { ProjectSection } from '@domain/project/types'
+import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useNoteDetail } from '@app/composables/useNoteDetail'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
@@ -14,6 +15,7 @@ import NoteForm from './NoteForm.vue'
 import NoteLinkedTasksPicker from './NoteLinkedTasksPicker.vue'
 
 const { t } = useI18n()
+const detailPanel = useDetailPanelStore()
 
 const props = withDefaults(
   defineProps<{
@@ -70,8 +72,14 @@ const {
   trashed: () => props.trashed,
   initialMode: () => 'edit',
   allowInlineEdit: () => true,
-  onSaved: () => emit('saved'),
-  onDeleted: () => emit('deleted'),
+  onSaved: () => {
+    detailPanel.requestWorkspaceRefresh()
+    emit('saved')
+  },
+  onDeleted: () => {
+    detailPanel.requestWorkspaceRefresh()
+    emit('deleted')
+  },
   onClose: () => emit('update:modelValue', false),
   onOpenTask: id => emit('openTask', id),
 })
