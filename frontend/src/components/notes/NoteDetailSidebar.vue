@@ -129,7 +129,7 @@ function onEdit() {
       <h2
         class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-foreground"
       >
-        {{ note?.title ?? t('notes.detail.title') }}
+        {{ t('notes.detail.sidebarTitle') }}
       </h2>
     </template>
     <template #header-actions>
@@ -151,6 +151,11 @@ function onEdit() {
     </div>
     <template v-else-if="note">
       <div class="space-y-3">
+        <h3
+          class="break-words text-base font-semibold leading-snug text-foreground"
+        >
+          {{ note.title }}
+        </h3>
         <div class="space-y-1">
           <div class="text-xs font-medium text-foreground">
             {{ t('notes.form.body') }}

@@ -77,9 +77,3 @@ export interface ProjectSection {
 
 /** @deprecated Используйте `ProjectSection`. */
 export type TaskSection = ProjectSection
-
-export interface TaskMovePayload {
-  task_id: number
-  section_id?: number | null
-  position?: number
-}

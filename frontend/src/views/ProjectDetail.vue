@@ -439,45 +439,6 @@ function currentSectionIdForItem(
   return note ? note.section_id ?? null : undefined
 }
 
-/**
- * Строит новый порядок kind+id в целевой секции по drop-индексу (как в ProjectItemList).
- * Источник — сторы, сортировка по position ASC (как на бэкенде), независимо от sortDir в UI.
- */
-function buildOrderedSectionItems(
-  targetSectionId: number | null,
-  payload: { kind: 'task' | 'note'; id: number; position: number },
-): { kind: 'task' | 'note'; id: number }[] {
-  const pid = id.value
-  if (!Number.isFinite(pid) || pid <= 0) return []
-
-  const tasks = projectStore.tasks
-    .filter(
-      t =>
-        t.project_id === pid && (t.section_id ?? null) === targetSectionId,
-    )
-    .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
-  const notes = noteStore.notes
-    .filter(
-      n =>
-        n.project_id === pid && (n.section_id ?? null) === targetSectionId,
-    )
-    .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
-  const mixed = [...tasks, ...notes].sort(
-    (a, b) => a.position - b.position || a.id - b.id,
-  )
-  const filtered = mixed.filter(
-    x => !(x.kind === payload.kind && x.id === payload.id),
-  )
-  const oldIdx = mixed.findIndex(
-    x => x.kind === payload.kind && x.id === payload.id,
-  )
-  let insertAt = payload.position
-  if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
-  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
-  filtered.splice(insertAt, 0, { kind: payload.kind, id: payload.id })
-  return filtered.map(({ kind, id: itemId }) => ({ kind, id: itemId }))
-}
-
 async function onItemMove(payload: {
   kind: 'task' | 'note'
   id: number
@@ -487,35 +448,45 @@ async function onItemMove(payload: {
   const pid = id.value
   if (!Number.isFinite(pid) || pid <= 0) return
 
-  const currentSec = currentSectionIdForItem(payload.kind, payload.id)
-  if (currentSec === undefined) return
+  if (currentSectionIdForItem(payload.kind, payload.id) === undefined) return
 
   const targetSec = payload.sectionId
 
   try {
-    if (currentSec !== targetSec) {
-      if (payload.kind === 'task') {
-        await taskStore.moveTask(pid, {
-          task_id: payload.id,
-          section_id: targetSec,
-          position: payload.position,
-        })
-      } else {
-        await noteStore.move(
-          pid,
-          payload.id,
-          { section_id: targetSec, position: payload.position },
-          { refetch: false },
-        )
-      }
-    }
+    const tasks = projectStore.tasks
+      .filter(
+        t =>
+          t.project_id === pid && (t.section_id ?? null) === targetSec,
+      )
+      .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
+    const notes = noteStore.notes
+      .filter(
+        n =>
+          n.project_id === pid && (n.section_id ?? null) === targetSec,
+      )
+      .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
+    const mixed = [...tasks, ...notes].sort(
+      (a, b) => a.position - b.position || a.id - b.id,
+    )
+    const filtered = mixed.filter(
+      x => !(x.kind === payload.kind && x.id === payload.id),
+    )
+    const oldIdx = mixed.findIndex(
+      x => x.kind === payload.kind && x.id === payload.id,
+    )
+    let insertAt = payload.position
+    if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
+    insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+    const before = filtered[insertAt - 1] ?? null
+    const after = filtered[insertAt] ?? null
 
-    const ordered = buildOrderedSectionItems(targetSec, payload)
-    if (ordered.length === 0) {
-      await onNotesChanged()
-      return
-    }
-    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+    await projectStore.moveItem(pid, {
+      kind: payload.kind,
+      id: payload.id,
+      sectionId: targetSec,
+      beforeRef: before ? { kind: before.kind, id: before.id } : null,
+      afterRef: after ? { kind: after.kind, id: after.id } : null,
+    })
   } catch (e: unknown) {
     toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
     await Promise.all([

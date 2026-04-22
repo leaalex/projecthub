@@ -70,24 +70,28 @@ export const projectsApi = {
      */
     list: (projectId: number) =>
       api.get<{ tasks?: Task[] | null }>(`/projects/${projectId}/tasks`),
+  },
 
+  /**
+   * Смешанный порядок задач и заметок в секциях.
+   */
+  items: {
     /**
-     * Переместить задачу между секциями / позициями внутри проекта.
-     *
-     * @param projectId — id проекта
-     * @param payload — `task_id`, опционально `section_id`, `position`
-     * @http POST /projects/:projectId/tasks/move
+     * Переместить задачу или заметку относительно соседей (разрежённые position).
+     * @http POST /projects/:projectId/items/move
      */
     move: (
       projectId: number,
       payload: {
-        task_id: number
-        section_id?: number | null
-        position?: number
+        kind: 'task' | 'note'
+        id: number
+        section_id: number | null
+        before_id?: { kind: 'task' | 'note'; id: number } | null
+        after_id?: { kind: 'task' | 'note'; id: number } | null
       },
     ) =>
-      api.post<{ task: Task }>(
-        `/projects/${projectId}/tasks/move`,
+      api.post<{ task?: Task; note?: Note }>(
+        `/projects/${projectId}/items/move`,
         payload,
       ),
   },
@@ -139,19 +143,6 @@ export const projectsApi = {
     reorder: (projectId: number, section_ids: number[]) =>
       api.post(`/projects/${projectId}/sections/reorder`, {
         section_ids,
-      }),
-
-    /**
-     * Порядок задач и заметок внутри секции (sectionId `0` — без секции).
-     * @http POST /projects/:projectId/sections/:sectionId/items/reorder
-     */
-    reorderItems: (
-      projectId: number,
-      sectionId: number,
-      items: { kind: 'task' | 'note'; id: number }[],
-    ) =>
-      api.post(`/projects/${projectId}/sections/${sectionId}/items/reorder`, {
-        items,
       }),
   },
 

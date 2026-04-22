@@ -31,8 +31,7 @@ type Deps struct {
 	Projects          *application.ProjectService
 	MemberRemoval     *application.MemberRemovalService
 	Tasks             *application.TaskService
-	SectionItems      *application.SectionItemsReorderService
-	TaskMove          *application.TaskMoveService
+	SectionItemMove   *application.SectionItemMoveService
 	TaskAssign        *application.TaskAssignService
 	TaskTrash         *application.TaskTrashService
 	ProjectDeletion   *application.ProjectDeletionService
@@ -59,7 +58,6 @@ func BuildRouter(deps Deps) *gin.Engine {
 	memberHandler := &handler.MemberHandler{Projects: deps.Projects, Removal: deps.MemberRemoval}
 	taskHandler := &handler.TaskHandler{
 		Tasks:     deps.Tasks,
-		Move:      deps.TaskMove,
 		AssignSvc: deps.TaskAssign,
 		TaskTrash: deps.TaskTrash,
 		Notes:     deps.Notes,
@@ -72,7 +70,12 @@ func BuildRouter(deps Deps) *gin.Engine {
 		TaskSvc:   deps.Tasks,
 		Users:     deps.UserRepo,
 	}
-	projectSectionHandler := &handler.ProjectSectionHandler{Projects: deps.Projects, SectionItems: deps.SectionItems}
+	projectSectionHandler := &handler.ProjectSectionHandler{
+		Projects: deps.Projects,
+		ItemMove: deps.SectionItemMove,
+		Tasks:    deps.Tasks,
+		Users:    deps.UserRepo,
+	}
 	subtaskHandler := &handler.SubtaskHandler{Tasks: deps.Tasks}
 	userHandler := &handler.UserHandler{Svc: deps.Users}
 	reportHandler := &handler.ReportHandler{Svc: deps.Reports}
@@ -102,20 +105,18 @@ func BuildRouter(deps Deps) *gin.Engine {
 	projects.GET("", projectHandler.List)
 	projects.POST("", projectHandler.Create)
 	projects.GET("/:id/tasks", projectHandler.ListProjectTasks)
-	projects.POST("/:id/tasks/move", taskHandler.MoveInProject)
 	projects.GET("/:id/sections", projectSectionHandler.List)
 	projects.POST("/:id/sections", projectSectionHandler.Create)
 	projects.PUT("/:id/sections/:sectionId", projectSectionHandler.Update)
 	projects.DELETE("/:id/sections/:sectionId", projectSectionHandler.Delete)
 	projects.POST("/:id/sections/reorder", projectSectionHandler.Reorder)
-	projects.POST("/:id/sections/:sectionId/items/reorder", projectSectionHandler.ReorderItems)
+	projects.POST("/:id/items/move", projectSectionHandler.MoveItem)
 	projects.GET("/:id/notes", noteHandler.List)
 	projects.POST("/:id/notes", noteHandler.Create)
 	projects.GET("/:id/notes/:noteId", noteHandler.Get)
 	projects.PUT("/:id/notes/:noteId", noteHandler.Update)
 	projects.DELETE("/:id/notes/:noteId", noteHandler.Delete)
 	projects.POST("/:id/notes/:noteId/restore", noteHandler.Restore)
-	projects.POST("/:id/notes/:noteId/move", noteHandler.Move)
 	projects.POST("/:id/notes/:noteId/links", noteHandler.LinkTask)
 	projects.DELETE("/:id/notes/:noteId/links/:taskId", noteHandler.UnlinkTask)
 	projects.GET("/:id/trash/tasks", trashHandler.ListDeletedTasks)

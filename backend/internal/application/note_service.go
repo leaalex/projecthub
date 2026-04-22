@@ -321,34 +321,6 @@ func (s *NoteService) ListDeleted(ctx context.Context, projectID, callerID uint,
 	return s.Notes.ListDeletedByProject(ctx, project.ID(projectID))
 }
 
-// Move перемещает заметку в другую секцию/позицию.
-func (s *NoteService) Move(ctx context.Context, noteID, callerID uint, role user.Role, sectionID *uint, position int) (*note.Note, error) {
-	n, err := s.Notes.FindByID(ctx, note.ID(noteID))
-	if err != nil {
-		return nil, err
-	}
-	ok, err := s.canManage(ctx, n.ProjectID().Uint(), callerID, role)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, ErrForbidden
-	}
-	var secID *project.SectionID
-	if sectionID != nil {
-		s2 := project.SectionID(*sectionID)
-		secID = &s2
-	}
-	if err := s.ensureNoteSectionInProject(ctx, n.ProjectID(), secID); err != nil {
-		return nil, err
-	}
-	n.MoveToSection(secID, position, s.Clock())
-	if err := s.Notes.Save(ctx, n); err != nil {
-		return nil, err
-	}
-	return n, nil
-}
-
 // ListLinks возвращает id задач, связанных с заметкой.
 func (s *NoteService) ListLinks(ctx context.Context, noteID, callerID uint, role user.Role) ([]task.ID, error) {
 	n, err := s.Notes.FindByID(ctx, note.ID(noteID))

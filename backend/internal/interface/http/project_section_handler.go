@@ -1,18 +1,34 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"task-manager/backend/internal/application"
 	"task-manager/backend/internal/domain/project"
+	"task-manager/backend/internal/domain/task"
+	"task-manager/backend/internal/domain/user"
 
 	"github.com/gin-gonic/gin"
 )
 
 type ProjectSectionHandler struct {
-	Projects     *application.ProjectService
-	SectionItems *application.SectionItemsReorderService
+	Projects *application.ProjectService
+	ItemMove *application.SectionItemMoveService
+	Tasks    *application.TaskService
+	Users    user.Repository
+}
+
+func (h *ProjectSectionHandler) enrichAssignee(ctx context.Context, t *task.Task) *user.User {
+	if h.Users == nil || t.AssigneeID() == nil {
+		return nil
+	}
+	u, err := h.Users.FindByID(ctx, *t.AssigneeID())
+	if err != nil {
+		return nil
+	}
+	return u
 }
 
 func sectionJSON(projectID uint, s *project.Section) gin.H {
@@ -230,12 +246,16 @@ func (h *ProjectSectionHandler) Reorder(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-type sectionItemsReorderBody struct {
-	Items []application.SectionItemRef `json:"items" binding:"required,min=1,dive"`
+type projectItemMoveBody struct {
+	Kind      string `json:"kind" binding:"required"`
+	ID        uint   `json:"id" binding:"required"`
+	SectionID *uint  `json:"section_id"`
+	BeforeID  *application.SectionItemRef `json:"before_id"`
+	AfterID   *application.SectionItemRef `json:"after_id"`
 }
 
-// ReorderItems задаёт порядок задач и заметок внутри секции (sectionId=0 — без секции).
-func (h *ProjectSectionHandler) ReorderItems(c *gin.Context) {
+// MoveItem перемещает задачу или заметку в секцию проекта с порядком между соседями (разрежённые position).
+func (h *ProjectSectionHandler) MoveItem(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -251,33 +271,40 @@ func (h *ProjectSectionHandler) ReorderItems(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
 		return
 	}
-	sectionIDRaw, err := strconv.ParseUint(c.Param("sectionId"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad section id"})
-		return
-	}
 	pid := uint(projectIDRaw)
-	var secPtr *uint
-	if sectionIDRaw != 0 {
-		v := uint(sectionIDRaw)
-		secPtr = &v
-	}
-	var body sectionItemsReorderBody
+	var body projectItemMoveBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if h.SectionItems == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "section items reorder not configured"})
+	if h.ItemMove == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "item move not configured"})
 		return
 	}
-	if err := h.SectionItems.Reorder(c.Request.Context(), uid, role, application.SectionItemsReorderInput{
+	res, err := h.ItemMove.Move(c.Request.Context(), uid, role, application.SectionItemMoveInput{
 		ProjectID: pid,
-		SectionID: secPtr,
-		Items:     body.Items,
-	}); err != nil {
+		Kind:      body.Kind,
+		ItemID:    body.ID,
+		SectionID: body.SectionID,
+		BeforeID:  body.BeforeID,
+		AfterID:   body.AfterID,
+	})
+	if err != nil {
 		handleServiceError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	if res.Task != nil {
+		if h.Tasks == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "tasks service not configured"})
+			return
+		}
+		acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), res.Task, uid, role)
+		c.JSON(http.StatusOK, gin.H{"task": taskToJSON(res.Task, nil, 0, h.enrichAssignee(c.Request.Context(), res.Task), acl)})
+		return
+	}
+	if res.Note != nil {
+		c.JSON(http.StatusOK, gin.H{"note": noteToJSON(res.Note)})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "empty move result"})
 }

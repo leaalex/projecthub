@@ -107,22 +107,6 @@ export const useNoteStore = defineStore('note', () => {
     await notesApi.permanentDelete(projectId, noteId)
   }
 
-  async function move(
-    projectId: number,
-    noteId: number,
-    payload: { section_id?: number | null; position: number },
-    options: { refetch?: boolean } = {},
-  ): Promise<Note> {
-    const { data } = await notesApi.move(projectId, noteId, payload)
-    const i = notes.value.findIndex(n => n.id === noteId)
-    if (i >= 0) notes.value[i] = data.note
-    else notes.value.push(data.note)
-    if (options.refetch !== false) {
-      await fetchList(projectId, { quiet: true })
-    }
-    return data.note
-  }
-
   async function listLinks(projectId: number, noteId: number): Promise<number[]> {
     return notesApi.links.list(projectId, noteId)
   }
@@ -179,7 +163,6 @@ export const useNoteStore = defineStore('note', () => {
     remove,
     restore,
     permanentDelete,
-    move,
     listLinks,
     linkTask,
     unlinkTask,

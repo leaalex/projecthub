@@ -155,20 +155,18 @@ func TestTask_Assign(t *testing.T) {
 	})
 }
 
-func TestTask_MoveInProject(t *testing.T) {
+func TestTask_MoveItemInProject(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
 	p := app.SeedProject(owner.ID().Uint(), "team")
 
-	// Создаём две задачи через API для получения валидных ID.
 	rec1, d1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{"title": "T1", "project_id": p.ID().Uint()}, token)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("create T1: %d %v", rec1.Code, d1)
 	}
 	task1ID := uint(d1["task"].(map[string]any)["id"].(float64))
 
-	// Создаём секцию.
 	recS, dS := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", p.ID().Uint()), map[string]any{
 		"name": "Section A",
 	}, token)
@@ -178,11 +176,10 @@ func TestTask_MoveInProject(t *testing.T) {
 	sectionID := uint(dS["section"].(map[string]any)["id"].(float64))
 
 	t.Run("move task into section", func(t *testing.T) {
-		pos := 0
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID().Uint()), map[string]any{
-			"task_id":    task1ID,
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/items/move", p.ID().Uint()), map[string]any{
+			"kind":       "task",
+			"id":         task1ID,
 			"section_id": sectionID,
-			"position":   pos,
 		}, token)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)
@@ -198,10 +195,10 @@ func TestTask_MoveInProject(t *testing.T) {
 	})
 
 	t.Run("move task out of section (nil section)", func(t *testing.T) {
-		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/tasks/move", p.ID().Uint()), map[string]any{
-			"task_id":    task1ID,
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/items/move", p.ID().Uint()), map[string]any{
+			"kind":       "task",
+			"id":         task1ID,
 			"section_id": nil,
-			"position":   0,
 		}, token)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %v", rec.Code, data)

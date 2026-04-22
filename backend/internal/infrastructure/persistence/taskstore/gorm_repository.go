@@ -7,6 +7,7 @@ import (
 	"task-manager/backend/internal/domain/project"
 	"task-manager/backend/internal/domain/task"
 	"task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/infrastructure/persistence/sectionposition"
 
 	"gorm.io/gorm"
 )
@@ -52,17 +53,13 @@ func (r *GormRepository) FindByIDUnscoped(ctx context.Context, id task.ID) (*tas
 }
 
 func (r *GormRepository) NextPosition(ctx context.Context, projectID project.ID, sectionID *project.SectionID) (int, error) {
-	q := r.db.WithContext(ctx).Model(&TaskRecord{}).Where("project_id = ?", projectID.Uint())
-	if sectionID == nil {
-		q = q.Where("section_id IS NULL")
-	} else {
-		q = q.Where("section_id = ?", sectionID.Uint())
+	db := r.db.WithContext(ctx)
+	var secPtr *uint
+	if sectionID != nil {
+		v := sectionID.Uint()
+		secPtr = &v
 	}
-	var maxPos int
-	if err := q.Select("COALESCE(MAX(position), 0)").Scan(&maxPos).Error; err != nil {
-		return 0, err
-	}
-	return maxPos + 1, nil
+	return sectionposition.NextMixed(db, projectID.Uint(), secPtr)
 }
 
 func (r *GormRepository) Save(ctx context.Context, t *task.Task) error {

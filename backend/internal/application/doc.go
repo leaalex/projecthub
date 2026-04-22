@@ -1,7 +1,7 @@
 // Package application содержит сервисы приложения (use cases).
 //
 // Уже здесь: AuthService, UserService, ProjectService, MemberRemovalService,
-// ProjectDeletionService, TaskService, TaskMoveService, TaskAssignService,
+// ProjectDeletionService, TaskService, SectionItemMoveService, TaskAssignService,
 // ReportingService (отчёты и сохранённые экспорты).
 //
 // Межагрегатные оркестраторы и транзакционные границы — см.

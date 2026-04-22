@@ -14,7 +14,6 @@ import (
 // TaskHandler — HTTP-обработчики задач.
 type TaskHandler struct {
 	Tasks     *application.TaskService
-	Move      *application.TaskMoveService
 	AssignSvc *application.TaskAssignService
 	TaskTrash *application.TaskTrashService
 	Notes     *application.NoteService
@@ -41,12 +40,6 @@ type taskUpdateBody struct {
 
 type assignBody struct {
 	AssigneeID uint `json:"assignee_id"`
-}
-
-type moveTaskBody struct {
-	TaskID    uint  `json:"task_id" binding:"required"`
-	SectionID *uint `json:"section_id"`
-	Position  *int  `json:"position"`
 }
 
 func (h *TaskHandler) enrichAssignee(ctx context.Context, t *task.Task) *user.User {
@@ -322,41 +315,6 @@ func (h *TaskHandler) Complete(c *gin.Context) {
 		return
 	}
 	t, err := h.Tasks.Complete(c.Request.Context(), uint(id), uid, role)
-	if err != nil {
-		handleServiceError(c, err)
-		return
-	}
-	acl, _ := h.Tasks.CallerTaskACL(c.Request.Context(), t, uid, role)
-	c.JSON(http.StatusOK, gin.H{"task": taskToJSON(t, nil, 0, h.enrichAssignee(c.Request.Context(), t), acl)})
-}
-
-func (h *TaskHandler) MoveInProject(c *gin.Context) {
-	uid, ok := ctxUserID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	role, ok := ctxRole(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	projectIDRaw, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
-		return
-	}
-	var body moveTaskBody
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	t, err := h.Move.Move(c.Request.Context(), uid, role, application.TaskMoveInput{
-		TaskID:    body.TaskID,
-		ProjectID: uint(projectIDRaw),
-		SectionID: body.SectionID,
-		Position:  body.Position,
-	})
 	if err != nil {
 		handleServiceError(c, err)
 		return

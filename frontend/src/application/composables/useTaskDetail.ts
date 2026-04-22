@@ -240,10 +240,14 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
 
       const desiredSid = formSectionId.value
       if (desiredSid !== (updated.section_id ?? null)) {
-        updated = await taskStore.moveTask(updated.project_id, {
-          task_id: updated.id,
-          section_id: desiredSid,
+        const moved = await projectStore.moveItem(updated.project_id, {
+          kind: 'task',
+          id: updated.id,
+          sectionId: desiredSid,
+          beforeRef: null,
+          afterRef: null,
         })
+        updated = moved.task ?? (await taskStore.fetchOne(updated.id))
       }
 
       if (formAssigneeId.value !== (updated.assignee_id ?? 0)) {

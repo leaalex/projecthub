@@ -29,13 +29,17 @@ func mustNotePosition(t *testing.T, app *testutil.TestApp, id uint) int {
 	return r.Position
 }
 
-func TestProjectSection_ReorderItems_HappyPath(t *testing.T) {
+func moveItemURL(pid uint) string {
+	return fmt.Sprintf("/api/projects/%d/items/move", pid)
+}
+
+func TestProjectSection_MoveItem_TwoTasksReorder(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
 
 	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
-		"name": "Reorder",
+		"name": "Move2",
 		"kind": "team",
 	}, token)
 	if rec.Code != http.StatusCreated {
@@ -70,46 +74,33 @@ func TestProjectSection_ReorderItems_HappyPath(t *testing.T) {
 	}
 	t2 := uint(dT2["task"].(map[string]any)["id"].(float64))
 
-	recN1, dN1 := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pid), map[string]any{
-		"title":      "N1",
-		"section_id": sid,
-	}, token)
-	if recN1.Code != http.StatusCreated {
-		t.Fatalf("note1: %d %v", recN1.Code, dN1)
+	p1 := mustTaskPosition(t, app, t1)
+	p2 := mustTaskPosition(t, app, t2)
+	if p1 >= p2 {
+		t.Fatalf("expected t1 before t2 initially, got pos %d %d", p1, p2)
 	}
-	n1 := uint(dN1["note"].(map[string]any)["id"].(float64))
-	recN2, dN2 := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pid), map[string]any{
-		"title":      "N2",
-		"section_id": sid,
-	}, token)
-	if recN2.Code != http.StatusCreated {
-		t.Fatalf("note2: %d %v", recN2.Code, dN2)
-	}
-	n2 := uint(dN2["note"].(map[string]any)["id"].(float64))
 
-	path := fmt.Sprintf("/api/projects/%d/sections/%d/items/reorder", pid, sid)
-	body := map[string]any{
-		"items": []map[string]any{
-			{"kind": "note", "id": float64(n1)},
-			{"kind": "task", "id": float64(t1)},
-			{"kind": "note", "id": float64(n2)},
-			{"kind": "task", "id": float64(t2)},
+	recM, dM := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         t2,
+		"section_id": sid,
+		"before_id":  nil,
+		"after_id": map[string]any{
+			"kind": "task",
+			"id":   t1,
 		},
+	}, token)
+	if recM.Code != http.StatusOK {
+		t.Fatalf("move: %d %v", recM.Code, dM)
 	}
-	recR, _ := app.Do(http.MethodPost, path, body, token)
-	if recR.Code != http.StatusNoContent {
-		t.Fatalf("reorder: expected 204, got %d", recR.Code)
-	}
-
-	if mustNotePosition(t, app, n1) != 1 || mustTaskPosition(t, app, t1) != 2 ||
-		mustNotePosition(t, app, n2) != 3 || mustTaskPosition(t, app, t2) != 4 {
-		t.Fatalf("unexpected positions n1=%d t1=%d n2=%d t2=%d",
-			mustNotePosition(t, app, n1), mustTaskPosition(t, app, t1),
-			mustNotePosition(t, app, n2), mustTaskPosition(t, app, t2))
+	p1a := mustTaskPosition(t, app, t1)
+	p2a := mustTaskPosition(t, app, t2)
+	if p2a >= p1a {
+		t.Fatalf("expected t2 before t1 after move, got pos t2=%d t1=%d", p2a, p1a)
 	}
 }
 
-func TestProjectSection_ReorderItems_Unsectioned(t *testing.T) {
+func TestProjectSection_MoveItem_UnsectionedMixed(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
@@ -131,14 +122,6 @@ func TestProjectSection_ReorderItems_Unsectioned(t *testing.T) {
 		t.Fatal(dT1)
 	}
 	t1 := uint(dT1["task"].(map[string]any)["id"].(float64))
-	recT2, dT2 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
-		"title":      "B",
-		"project_id": pid,
-	}, token)
-	if recT2.Code != http.StatusCreated {
-		t.Fatal(dT2)
-	}
-	t2 := uint(dT2["task"].(map[string]any)["id"].(float64))
 	recN1, dN1 := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pid), map[string]any{
 		"title": "nA",
 	}, token)
@@ -146,34 +129,26 @@ func TestProjectSection_ReorderItems_Unsectioned(t *testing.T) {
 		t.Fatal(dN1)
 	}
 	n1 := uint(dN1["note"].(map[string]any)["id"].(float64))
-	recN2, dN2 := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pid), map[string]any{
-		"title": "nB",
-	}, token)
-	if recN2.Code != http.StatusCreated {
-		t.Fatal(dN2)
-	}
-	n2 := uint(dN2["note"].(map[string]any)["id"].(float64))
 
-	path := fmt.Sprintf("/api/projects/%d/sections/0/items/reorder", pid)
-	body := map[string]any{
-		"items": []map[string]any{
-			{"kind": "note", "id": float64(n2)},
-			{"kind": "task", "id": float64(t2)},
-			{"kind": "note", "id": float64(n1)},
-			{"kind": "task", "id": float64(t1)},
+	recM, _ := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "note",
+		"id":         n1,
+		"section_id": nil,
+		"before_id":  nil,
+		"after_id": map[string]any{
+			"kind": "task",
+			"id":   t1,
 		},
+	}, token)
+	if recM.Code != http.StatusOK {
+		t.Fatalf("move note before task: %d", recM.Code)
 	}
-	recR, _ := app.Do(http.MethodPost, path, body, token)
-	if recR.Code != http.StatusNoContent {
-		t.Fatalf("reorder: expected 204, got %d", recR.Code)
-	}
-	if mustNotePosition(t, app, n2) != 1 || mustTaskPosition(t, app, t2) != 2 ||
-		mustNotePosition(t, app, n1) != 3 || mustTaskPosition(t, app, t1) != 4 {
-		t.Fatal("unexpected positions for unsectioned reorder")
+	if mustNotePosition(t, app, n1) >= mustTaskPosition(t, app, t1) {
+		t.Fatal("expected note before task")
 	}
 }
 
-func TestProjectSection_ReorderItems_ExecutorForbidden(t *testing.T) {
+func TestProjectSection_MoveItem_ExecutorForbidden(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, ownerPass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	member, _ := app.SeedUserWithPassword(domainuser.RoleUser, "memberpass")
@@ -210,17 +185,17 @@ func TestProjectSection_ReorderItems_ExecutorForbidden(t *testing.T) {
 	}
 	tid := uint(dT["task"].(map[string]any)["id"].(float64))
 
-	path := fmt.Sprintf("/api/projects/%d/sections/%d/items/reorder", pid, sid)
-	body := map[string]any{
-		"items": []map[string]any{{"kind": "task", "id": float64(tid)}},
-	}
-	recR, _ := app.Do(http.MethodPost, path, body, memberToken)
+	recR, _ := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         tid,
+		"section_id": sid,
+	}, memberToken)
 	if recR.Code != http.StatusForbidden {
-		t.Fatalf("executor reorder: expected 403, got %d", recR.Code)
+		t.Fatalf("executor move: expected 403, got %d", recR.Code)
 	}
 }
 
-func TestProjectSection_ReorderItems_StrangerForbidden(t *testing.T) {
+func TestProjectSection_MoveItem_StrangerForbidden(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	other, otherPass := app.SeedUserWithPassword(domainuser.RoleCreator, "other123")
@@ -252,17 +227,17 @@ func TestProjectSection_ReorderItems_StrangerForbidden(t *testing.T) {
 	}
 	tid := uint(dT["task"].(map[string]any)["id"].(float64))
 
-	path := fmt.Sprintf("/api/projects/%d/sections/%d/items/reorder", pid, sid)
-	body := map[string]any{
-		"items": []map[string]any{{"kind": "task", "id": float64(tid)}},
-	}
-	recR, _ := app.Do(http.MethodPost, path, body, otherToken)
+	recR, _ := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         tid,
+		"section_id": sid,
+	}, otherToken)
 	if recR.Code != http.StatusForbidden {
-		t.Fatalf("stranger reorder: expected 403, got %d", recR.Code)
+		t.Fatalf("stranger move: expected 403, got %d", recR.Code)
 	}
 }
 
-func TestProjectSection_ReorderItems_BadRequest(t *testing.T) {
+func TestProjectSection_MoveItem_BadRequest_nonAdjacentRefs(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
@@ -300,82 +275,39 @@ func TestProjectSection_ReorderItems_BadRequest(t *testing.T) {
 		t.Fatal(dT2)
 	}
 	t2 := uint(dT2["task"].(map[string]any)["id"].(float64))
-	recN, dN := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes", pid), map[string]any{
-		"title":      "N",
+	recT3, dT3 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+		"title":      "T3",
+		"project_id": pid,
 		"section_id": sid,
 	}, token)
-	if recN.Code != http.StatusCreated {
-		t.Fatal(dN)
+	if recT3.Code != http.StatusCreated {
+		t.Fatal(dT3)
 	}
-	n1 := uint(dN["note"].(map[string]any)["id"].(float64))
+	_ = uint(dT3["task"].(map[string]any)["id"].(float64)) // t3 — между t1 и t4
+	recT4, dT4 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+		"title":      "T4",
+		"project_id": pid,
+		"section_id": sid,
+	}, token)
+	if recT4.Code != http.StatusCreated {
+		t.Fatal(dT4)
+	}
+	t4 := uint(dT4["task"].(map[string]any)["id"].(float64))
 
-	path := fmt.Sprintf("/api/projects/%d/sections/%d/items/reorder", pid, sid)
-
-	t.Run("length mismatch", func(t *testing.T) {
-		recR, _ := app.Do(http.MethodPost, path, map[string]any{
-			"items": []map[string]any{{"kind": "task", "id": float64(t1)}},
-		}, token)
-		if recR.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", recR.Code)
-		}
-	})
-
-	t.Run("duplicate task ref", func(t *testing.T) {
-		recR, _ := app.Do(http.MethodPost, path, map[string]any{
-			"items": []map[string]any{
-				{"kind": "task", "id": float64(t1)},
-				{"kind": "task", "id": float64(t1)},
-				{"kind": "task", "id": float64(t2)},
-				{"kind": "note", "id": float64(n1)},
-			},
-		}, token)
-		if recR.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", recR.Code)
-		}
-	})
-
-	t.Run("wrong kind string", func(t *testing.T) {
-		recR, _ := app.Do(http.MethodPost, path, map[string]any{
-			"items": []map[string]any{
-				{"kind": "task", "id": float64(t1)},
-				{"kind": "bogus", "id": float64(t2)},
-				{"kind": "note", "id": float64(n1)},
-			},
-		}, token)
-		if recR.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", recR.Code)
-		}
-	})
-
-	t.Run("unknown id in section set", func(t *testing.T) {
-		recR, _ := app.Do(http.MethodPost, path, map[string]any{
-			"items": []map[string]any{
-				{"kind": "task", "id": float64(t1)},
-				{"kind": "task", "id": float64(t2)},
-				{"kind": "note", "id": float64(n1)},
-				{"kind": "task", "id": 999999},
-			},
-		}, token)
-		if recR.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", recR.Code)
-		}
-	})
-
-	t.Run("task kind with note id", func(t *testing.T) {
-		recR, _ := app.Do(http.MethodPost, path, map[string]any{
-			"items": []map[string]any{
-				{"kind": "task", "id": float64(t1)},
-				{"kind": "task", "id": float64(n1)},
-				{"kind": "task", "id": float64(t2)},
-			},
-		}, token)
-		if recR.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", recR.Code)
-		}
-	})
+	// Порядок t1,t2,t3,t4 — исключаем t2: t1,t3,t4; before=t1 after=t4 не соседи
+	recR, _ := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         t2,
+		"section_id": sid,
+		"before_id": map[string]any{"kind": "task", "id": t1},
+		"after_id":  map[string]any{"kind": "task", "id": t4},
+	}, token)
+	if recR.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", recR.Code)
+	}
 }
 
-func TestProjectSection_ReorderItems_SectionFromOtherProject_NotFound(t *testing.T) {
+func TestProjectSection_MoveItem_SectionFromOtherProject_NotFound(t *testing.T) {
 	app := testutil.NewTestApp(t)
 	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
 	token, _ := app.Login(owner.Email().String(), pass)
@@ -405,7 +337,6 @@ func TestProjectSection_ReorderItems_SectionFromOtherProject_NotFound(t *testing
 	}
 	sOther := uint(dSec["section"].(map[string]any)["id"].(float64))
 
-	// Valid task in p1 (unsectioned); reorder URL uses section id from p2 → ErrSectionNotFound.
 	recT2, dT2 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
 		"title":      "Lonely",
 		"project_id": p1,
@@ -415,12 +346,11 @@ func TestProjectSection_ReorderItems_SectionFromOtherProject_NotFound(t *testing
 	}
 	tid := uint(dT2["task"].(map[string]any)["id"].(float64))
 
-	// p1 URL but section id belongs to p2 only.
-	path := fmt.Sprintf("/api/projects/%d/sections/%d/items/reorder", p1, sOther)
-	body := map[string]any{
-		"items": []map[string]any{{"kind": "task", "id": float64(tid)}},
-	}
-	recR, _ := app.Do(http.MethodPost, path, body, token)
+	recR, _ := app.Do(http.MethodPost, moveItemURL(p1), map[string]any{
+		"kind":       "task",
+		"id":         tid,
+		"section_id": sOther,
+	}, token)
 	if recR.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 for foreign section, got %d", recR.Code)
 	}

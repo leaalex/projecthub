@@ -62,13 +62,6 @@ export const notesApi = {
     api.delete(`/projects/${projectId}/notes/${noteId}?permanent=true`),
 
   /**
-   * Переместить заметку в другую секцию / позицию.
-   * @http POST /projects/:projectId/notes/:noteId/move
-   */
-  move: (projectId: number, noteId: number, payload: { section_id?: number | null; position: number }) =>
-    api.post<{ note: Note }>(`/projects/${projectId}/notes/${noteId}/move`, payload),
-
-  /**
    * Управление связями заметки с задачами.
    */
   links: {

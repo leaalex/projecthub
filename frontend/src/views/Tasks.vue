@@ -286,38 +286,6 @@ function sectionKeyFromSectionId(sectionId: number | null): string {
   return sectionId == null ? 'unsectioned' : `s-${sectionId}`
 }
 
-/**
- * Строит новый порядок kind+id в целевой секции по drop-индексу (как в ProjectItemList).
- */
-function buildOrderedSectionItems(
-  groups: ProjectItemGroup[],
-  targetSectionId: number | null,
-  payload: { kind: 'task' | 'note'; id: number; position: number },
-): { kind: 'task' | 'note'; id: number }[] {
-  const key = sectionKeyFromSectionId(targetSectionId)
-  const g = groups.find(x => x.key === key)
-  if (!g) return []
-
-  const current = g.items.map((it): { kind: 'task' | 'note'; id: number } =>
-    it.kind === 'task'
-      ? { kind: 'task', id: it.task.id }
-      : { kind: 'note', id: it.note.id },
-  )
-  const filtered = current.filter(
-    x => !(x.kind === payload.kind && x.id === payload.id),
-  )
-  const oldIdx = current.findIndex(
-    x => x.kind === payload.kind && x.id === payload.id,
-  )
-  let insertAt = payload.position
-  if (oldIdx >= 0 && oldIdx < insertAt) {
-    insertAt -= 1
-  }
-  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
-  filtered.splice(insertAt, 0, { kind: payload.kind, id: payload.id })
-  return filtered
-}
-
 const tasksBreadcrumbItems = computed(() => [
   { label: t('common.home'), to: '/dashboard' },
   { label: t('tasks.breadcrumb') },
@@ -548,28 +516,43 @@ async function onSectionMove(payload: {
   const task = taskStore.tasks.find((t) => t.id === payload.id)
   if (!task) return
   const pid = task.project_id
-  const currentSec = task.section_id ?? null
   const targetSec = payload.sectionId
 
   try {
-    if (currentSec !== targetSec) {
-      await taskStore.moveTask(pid, {
-        task_id: payload.id,
-        section_id: targetSec,
-        position: payload.position,
-      })
-    }
-
-    const ordered = buildOrderedSectionItems(
-      sectionWorkspaceGroups.value,
-      targetSec,
-      payload,
+    const tasks = taskStore.tasks
+      .filter(
+        t =>
+          t.project_id === pid && (t.section_id ?? null) === targetSec,
+      )
+      .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
+    const notes = noteStore.notes
+      .filter(
+        n =>
+          n.project_id === pid && (n.section_id ?? null) === targetSec,
+      )
+      .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
+    const mixed = [...tasks, ...notes].sort(
+      (a, b) => a.position - b.position || a.id - b.id,
     )
-    if (ordered.length === 0) {
-      await load()
-      return
-    }
-    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+    const filtered = mixed.filter(
+      x => !(x.kind === payload.kind && x.id === payload.id),
+    )
+    const oldIdx = mixed.findIndex(
+      x => x.kind === payload.kind && x.id === payload.id,
+    )
+    let insertAt = payload.position
+    if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
+    insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+    const before = filtered[insertAt - 1] ?? null
+    const after = filtered[insertAt] ?? null
+
+    await projectStore.moveItem(pid, {
+      kind: payload.kind,
+      id: payload.id,
+      sectionId: targetSec,
+      beforeRef: before ? { kind: before.kind, id: before.id } : null,
+      afterRef: after ? { kind: after.kind, id: after.id } : null,
+    })
     await taskStore.fetchList(taskListParams())
   } catch (e: unknown) {
     toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))

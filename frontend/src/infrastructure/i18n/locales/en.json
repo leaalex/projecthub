@@ -931,6 +931,7 @@
       "noteActions": "Note actions"
     },
     "detail": {
+      "sidebarTitle": "Note details",
       "title": "Note",
       "noManagePermission": "You don’t have permission to edit this note.",
       "loadError": "Could not load note.",

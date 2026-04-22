@@ -5,5 +5,5 @@
 // docs/architecture/aggregates.md (раздел «Task Aggregate»).
 //
 // Персистентность: infrastructure/persistence/taskstore; сценарии API —
-// application.TaskService / TaskMoveService / TaskAssignService.
+// application.TaskService / SectionItemMoveService / TaskAssignService.
 package task

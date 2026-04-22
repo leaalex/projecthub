@@ -4,6 +4,7 @@ import type { Task } from '@domain/task/types'
 import type { Note } from '@domain/note/types'
 import { useTaskStore } from '@app/task.store'
 import { useNoteStore, extractNoteAxiosError } from '@app/note.store'
+import { useProjectStore } from '@app/project.store'
 import { useTrashNotesStore } from '@app/trashNotes.store'
 import { useToast } from '@app/composables/useToast'
 import { useConfirm } from '@app/composables/useConfirm'
@@ -28,6 +29,7 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
   const toast = useToast()
   const { confirm } = useConfirm()
   const noteStore = useNoteStore()
+  const projectStore = useProjectStore()
   const taskStore = useTaskStore()
   const trashNotesStore = useTrashNotesStore()
 
@@ -201,11 +203,14 @@ export function useNoteDetail(options: UseNoteDetailOptions) {
       note.value = updated
       const sid = payload.section_id
       if (sid !== prevSid) {
-        const moved = await noteStore.move(pid, n.id, {
-          section_id: sid,
-          position: updated.position,
+        const moved = await projectStore.moveItem(pid, {
+          kind: 'note',
+          id: n.id,
+          sectionId: sid,
+          beforeRef: null,
+          afterRef: null,
         })
-        note.value = moved
+        note.value = moved.note ?? (await noteStore.fetchOne(pid, n.id))
       }
       editing.value = false
       toast.success(t('notes.detail.saved'))

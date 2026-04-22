@@ -235,9 +235,10 @@ func TestNote_Move_BetweenSections(t *testing.T) {
 	}
 	noteID := uint(dN["note"].(map[string]any)["id"].(float64))
 
-	recM, _ := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/notes/%d/move", p.ID().Uint(), noteID), map[string]any{
+	recM, _ := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/items/move", p.ID().Uint()), map[string]any{
+		"kind":       "note",
+		"id":         noteID,
 		"section_id": sidB,
-		"position":   0,
 	}, token)
 	if recM.Code != http.StatusOK {
 		t.Fatalf("move: expected 200, got %d", recM.Code)

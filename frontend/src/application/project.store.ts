@@ -12,6 +12,7 @@ import type {
   TaskTransferMode,
 } from '@domain/project/types'
 import type { Task } from '@domain/task/types'
+import type { Note } from '@domain/note/types'
 import { useNoteStore } from '@app/note.store'
 import { projectsApi } from '@infra/api/projects'
 
@@ -144,21 +145,37 @@ export const useProjectStore = defineStore('project', () => {
     ])
   }
 
-  async function reorderSectionItems(
+  async function moveItem(
     projectId: number,
-    sectionId: number | null,
-    items: { kind: 'task' | 'note'; id: number }[],
-  ) {
-    if (sectionId != null && sectionId < 0) {
-      throw new Error('invalid section id')
+    payload: {
+      kind: 'task' | 'note'
+      id: number
+      sectionId: number | null
+      beforeRef: { kind: 'task' | 'note'; id: number } | null
+      afterRef: { kind: 'task' | 'note'; id: number } | null
+    },
+  ): Promise<{ task?: Task; note?: Note }> {
+    const body: {
+      kind: 'task' | 'note'
+      id: number
+      section_id: number | null
+      before_id?: { kind: 'task' | 'note'; id: number }
+      after_id?: { kind: 'task' | 'note'; id: number }
+    } = {
+      kind: payload.kind,
+      id: payload.id,
+      section_id: payload.sectionId,
     }
-    const sid = sectionId ?? 0
-    await projectsApi.sections.reorderItems(projectId, sid, items)
+    if (payload.beforeRef != null) body.before_id = payload.beforeRef
+    if (payload.afterRef != null) body.after_id = payload.afterRef
+
+    const { data } = await projectsApi.items.move(projectId, body)
     const noteStore = useNoteStore()
     await Promise.all([
       fetchTasks(projectId),
       noteStore.fetchList(projectId, { quiet: true }),
     ])
+    return { task: data.task, note: data.note }
   }
 
   async function reorderSections(projectId: number, sectionIds: number[]) {
@@ -344,7 +361,7 @@ export const useProjectStore = defineStore('project', () => {
     updateSection,
     deleteSection,
     reorderSections,
-    reorderSectionItems,
+    moveItem,
     fetchMembers,
     addMember,
     updateMemberRole,

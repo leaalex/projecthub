@@ -72,12 +72,11 @@ func NewTestApp(t *testing.T) *TestApp {
 	projectsSvc := application.NewProjectService(projectRepo, userRepo)
 	memberRemovalSvc := application.NewMemberRemovalService(projectRepo, taskRepo, db)
 	tasksSvc := application.NewTaskService(taskRepo, projectRepo, userRepo)
-	taskMoveSvc := application.NewTaskMoveService(taskRepo, projectRepo, db)
 	taskAssignSvc := application.NewTaskAssignService(taskRepo, projectRepo, userRepo)
 	projectDelSvc := application.NewProjectDeletionService(projectRepo, taskRepo, db)
 	noteRepo := notestore.NewGormRepository(db)
 	noteSvc := application.NewNoteService(noteRepo, taskRepo, projectRepo)
-	sectionItemsSvc := application.NewSectionItemsReorderService(taskRepo, noteRepo, projectRepo, db)
+	sectionItemMoveSvc := application.NewSectionItemMoveService(taskRepo, noteRepo, projectRepo, db)
 	taskTrashSvc := application.NewTaskTrashService(taskRepo, projectRepo)
 
 	router := httpserver.BuildRouter(httpserver.Deps{
@@ -94,8 +93,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		Projects:          projectsSvc,
 		MemberRemoval:     memberRemovalSvc,
 		Tasks:             tasksSvc,
-		SectionItems:      sectionItemsSvc,
-		TaskMove:          taskMoveSvc,
+		SectionItemMove:   sectionItemMoveSvc,
 		TaskAssign:        taskAssignSvc,
 		TaskTrash:         taskTrashSvc,
 		ProjectDeletion:   projectDelSvc,

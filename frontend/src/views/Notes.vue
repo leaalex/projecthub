@@ -212,63 +212,6 @@ function sectionIdMatchesStore(
   return (itemSectionId ?? null) === sectionId
 }
 
-/** Порядок kind+id в секции по position (задачи и заметки), как на бэкенде. */
-function getMixedSectionItemsOrdered(
-  projectId: number,
-  sectionId: number | null,
-): { kind: 'task' | 'note'; id: number }[] {
-  const tasks = taskStore.tasks
-    .filter(
-      t =>
-        t.project_id === projectId
-        && sectionIdMatchesStore(sectionId, t.section_id),
-    )
-    .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
-  const notes = noteStore.notes
-    .filter(
-      n =>
-        n.project_id === projectId
-        && sectionIdMatchesStore(sectionId, n.section_id),
-    )
-    .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
-  const all = [...tasks, ...notes]
-  all.sort((a, b) => a.position - b.position || a.id - b.id)
-  return all.map(({ kind, id }) => ({ kind, id }))
-}
-
-function buildMixedOrderAfterNoteDrop(
-  projectId: number,
-  targetSectionId: number | null,
-  noteId: number,
-  mixedInsertIndex: number,
-): { kind: 'task' | 'note'; id: number }[] {
-  const mixed = getMixedSectionItemsOrdered(projectId, targetSectionId)
-  const filtered = mixed.filter(x => !(x.kind === 'note' && x.id === noteId))
-  const oldIdx = mixed.findIndex(x => x.kind === 'note' && x.id === noteId)
-  let insertAt = mixedInsertIndex
-  if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
-  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
-  filtered.splice(insertAt, 0, { kind: 'note', id: noteId })
-  return filtered
-}
-
-/** ProjectItemList отдаёт индекс только среди заметок в группе; API ждёт индекс в смешанном списке. */
-function noteOnlyDropIndexToMixedInsertIndex(
-  projectId: number,
-  targetSectionId: number | null,
-  grp: ProjectItemGroup | undefined,
-  noteOnlyPosition: number,
-): number {
-  const mixed = getMixedSectionItemsOrdered(projectId, targetSectionId)
-  if (!grp || noteOnlyPosition >= grp.items.length) return mixed.length
-  const targetItem = grp.items[noteOnlyPosition]
-  if (targetItem.kind !== 'note') return mixed.length
-  const mixedIdx = mixed.findIndex(
-    m => m.kind === 'note' && m.id === targetItem.note.id,
-  )
-  return mixedIdx >= 0 ? mixedIdx : mixed.length
-}
-
 function currentSectionIdForNote(noteId: number): number | null | undefined {
   const n = noteStore.notes.find(x => x.id === noteId)
   return n ? n.section_id ?? null : undefined
@@ -290,33 +233,61 @@ async function onNoteMove(payload: {
 
   const key = sectionKeyFromSectionId(targetSec)
   const grp = sectionWorkspaceGroups.value.find(x => x.key === key)
-  const mixedInsertIndex = noteOnlyDropIndexToMixedInsertIndex(
-    pid,
-    targetSec,
-    grp,
-    payload.position,
+
+  const tasks = taskStore.tasks
+    .filter(
+      t =>
+        t.project_id === pid
+        && sectionIdMatchesStore(targetSec, t.section_id),
+    )
+    .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
+  const notes = noteStore.notes
+    .filter(
+      n =>
+        n.project_id === pid
+        && sectionIdMatchesStore(targetSec, n.section_id),
+    )
+    .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
+  const mixed = [...tasks, ...notes].sort(
+    (a, b) => a.position - b.position || a.id - b.id,
   )
 
-  try {
-    if (currentSec !== targetSec) {
-      await noteStore.move(
-        pid,
-        payload.id,
-        { section_id: targetSec, position: mixedInsertIndex },
-        { refetch: false },
+  /** Индекс вставки в смешанном списке: ProjectItemList даёт позицию только среди заметок группы. */
+  let mixedInsertAt: number
+  if (!grp || payload.position >= grp.items.length) {
+    mixedInsertAt = mixed.length
+  } else {
+    const targetItem = grp.items[payload.position]
+    if (targetItem.kind !== 'note') {
+      mixedInsertAt = mixed.length
+    } else {
+      const idx = mixed.findIndex(
+        m => m.kind === 'note' && m.id === targetItem.note.id,
       )
+      mixedInsertAt = idx >= 0 ? idx : mixed.length
     }
-    const ordered = buildMixedOrderAfterNoteDrop(
-      pid,
-      targetSec,
-      payload.id,
-      mixedInsertIndex,
+  }
+
+  try {
+    const filtered = mixed.filter(
+      x => !(x.kind === 'note' && x.id === payload.id),
     )
-    if (ordered.length === 0) {
-      await load()
-      return
-    }
-    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+    const oldIdx = mixed.findIndex(
+      x => x.kind === 'note' && x.id === payload.id,
+    )
+    let insertAt = mixedInsertAt
+    if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
+    insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+    const before = filtered[insertAt - 1] ?? null
+    const after = filtered[insertAt] ?? null
+
+    await projectStore.moveItem(pid, {
+      kind: 'note',
+      id: payload.id,
+      sectionId: targetSec,
+      beforeRef: before ? { kind: before.kind, id: before.id } : null,
+      afterRef: after ? { kind: after.kind, id: after.id } : null,
+    })
   } catch (e: unknown) {
     toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
     await Promise.all([

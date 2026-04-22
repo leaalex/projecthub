@@ -27,11 +27,6 @@ type noteUpdateBody struct {
 	Body  *string `json:"body"`
 }
 
-type noteMoveBody struct {
-	SectionID *uint `json:"section_id"`
-	Position  int   `json:"position"`
-}
-
 type noteLinkBody struct {
 	TaskID uint `json:"task_id" binding:"required"`
 }
@@ -313,44 +308,6 @@ func (h *NoteHandler) Restore(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func (h *NoteHandler) Move(c *gin.Context) {
-	uid, ok := ctxUserID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	role, ok := ctxRole(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	projectID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad project id"})
-		return
-	}
-	noteID, err := strconv.ParseUint(c.Param("noteId"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad note id"})
-		return
-	}
-	if _, err := h.getNoteInProject(c, uint(projectID), uint(noteID), uid, role); err != nil {
-		handleServiceError(c, err)
-		return
-	}
-	var body noteMoveBody
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	n, err := h.Notes.Move(c.Request.Context(), uint(noteID), uid, role, body.SectionID, body.Position)
-	if err != nil {
-		handleServiceError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"note": noteToJSON(n)})
 }
 
 func (h *NoteHandler) LinkTask(c *gin.Context) {

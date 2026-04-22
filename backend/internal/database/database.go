@@ -62,6 +62,10 @@ func Open(databasePath string) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	if err := migrateSparsePositions(db); err != nil {
+		return nil, err
+	}
+
 	// Одноразовая миграция устаревших глобальных ролей
 	_ = db.Model(&userstore.Record{}).Where("role = ?", "member").Update("role", string(user.RoleUser)).Error
 	_ = db.Model(&userstore.Record{}).Where("role = ?", "manager").Update("role", string(user.RoleCreator)).Error
