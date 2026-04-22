@@ -801,8 +801,11 @@
       "assignee": "Исполнитель",
       "dueDate": "Срок",
       "created": "Создано",
-      "updated": "Обновлено"
+      "updated": "Обновлено",
+      "noDescription": "Описание не указано",
+      "overdue": "Просрочено"
     },
+    "sidebarTitle": "Детали задачи",
     "meta": {
       "created": "Создано {date}",
       "updated": "Обновлено {date}",
@@ -940,7 +943,8 @@
       "deleted": "Заметка в корзине",
       "deleteFailed": "Не удалось удалить заметку",
       "linkedTasks": "Связанные задачи",
-      "noLinkedTasks": "Пока нет связанных задач."
+      "noLinkedTasks": "Пока нет связанных задач.",
+      "emptyBody": "Содержимое не заполнено"
     },
     "confirm": {
       "deleteTitle": "Удалить заметку",

@@ -801,8 +801,11 @@
       "assignee": "Assignee",
       "dueDate": "Due date",
       "created": "Created",
-      "updated": "Updated"
+      "updated": "Updated",
+      "noDescription": "No description",
+      "overdue": "Overdue"
     },
+    "sidebarTitle": "Task details",
     "meta": {
       "created": "Created {date}",
       "updated": "Updated {date}",
@@ -940,7 +943,8 @@
       "deleted": "Note moved to trash",
       "deleteFailed": "Could not delete note",
       "linkedTasks": "Linked tasks",
-      "noLinkedTasks": "No tasks linked yet."
+      "noLinkedTasks": "No tasks linked yet.",
+      "emptyBody": "No content yet"
     },
     "confirm": {
       "deleteTitle": "Delete note",

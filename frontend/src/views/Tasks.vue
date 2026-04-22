@@ -282,10 +282,6 @@ const sectionWorkspaceGroups = computed((): ProjectItemGroup[] => {
   })
 })
 
-function sectionKeyFromSectionId(sectionId: number | null): string {
-  return sectionId == null ? 'unsectioned' : `s-${sectionId}`
-}
-
 const tasksBreadcrumbItems = computed(() => [
   { label: t('common.home'), to: '/dashboard' },
   { label: t('tasks.breadcrumb') },

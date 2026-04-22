@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import {
+  ClockIcon,
   DocumentCheckIcon,
+  DocumentTextIcon,
+  FolderOpenIcon,
   LinkIcon,
   PencilSquareIcon,
+  PlusIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,13 +24,14 @@ import Skeleton from '../ui/UiSkeleton.vue'
 import NoteMarkdownView from './NoteMarkdownView.vue'
 import NoteLinkedTasksPicker from './NoteLinkedTasksPicker.vue'
 import TaskCard from '../tasks/TaskCard.vue'
+import { formatDateShort, timeAgo } from '@infra/formatters/date'
 
 const props = defineProps<{
   projectId: number
   noteId: number
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
@@ -121,6 +126,21 @@ const showEditButton = computed(
     ),
 )
 
+const projectName = computed(() => {
+  const fromCurrent = projectStore.current?.id === props.projectId
+    ? projectStore.current?.name
+    : null
+  if (fromCurrent) return fromCurrent
+  const p = projectStore.projects.find(pr => pr.id === props.projectId)
+  return p?.name ?? t('taskCard.meta.projectNum', { n: props.projectId })
+})
+
+const sectionName = computed(() => {
+  const sid = note.value?.section_id
+  if (sid == null) return null
+  return projectStore.sections.find(s => s.id === sid)?.name ?? null
+})
+
 function onEdit() {
   detailPanel.requestNoteEdit(props.projectId, props.noteId)
 }
@@ -130,93 +150,122 @@ function onEdit() {
   <div class="flex min-h-0 flex-1 flex-col">
   <UiDetailPanelShell
     class="min-h-0 flex-1"
+    :title="t('notes.detail.sidebarTitle')"
     :collapse-aria-label="t('detailPanel.collapse')"
     @toggle-collapsed="detailPanel.toggleCollapsed()"
   >
-    <template #title>
-      <h2
-        class="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-foreground"
-      >
-        {{ t('notes.detail.sidebarTitle') }}
-      </h2>
-    </template>
     <template #header-actions>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button
-          v-if="showEditButton"
-          type="button"
-          variant="secondary"
-          @click="onEdit"
-        >
-          <PencilSquareIcon class="h-4 w-4" />
-          <span class="ml-1">{{ t('common.edit') }}</span>
-        </Button>
-      </div>
+      <Button
+        v-if="showEditButton"
+        type="button"
+        variant="secondary"
+        @click="onEdit"
+      >
+        <PencilSquareIcon class="h-4 w-4" />
+        <span class="ml-1">{{ t('common.edit') }}</span>
+      </Button>
     </template>
+
     <div v-if="loading" class="space-y-2">
       <Skeleton variant="line" />
       <Skeleton variant="line" :lines="4" />
     </div>
+
     <template v-else-if="note">
-      <div class="space-y-3">
+      <!-- HERO: title + project/section chip row -->
+      <section class="space-y-2.5">
         <h3
           class="break-words text-base font-semibold leading-snug text-foreground"
         >
           {{ note.title }}
         </h3>
-        <div class="space-y-1">
-          <div class="text-xs font-medium text-foreground">
-            {{ t('notes.form.body') }}
-          </div>
-          <NoteMarkdownView :source="note.body ?? ''" />
+        <div class="flex min-w-0 items-center gap-2 text-xs">
+          <FolderOpenIcon class="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+          <span class="min-w-0 truncate text-foreground">{{ projectName }}</span>
+          <template v-if="sectionName">
+            <span class="shrink-0 text-muted" aria-hidden="true">·</span>
+            <span class="min-w-0 truncate text-muted">{{ sectionName }}</span>
+          </template>
+          <template v-else>
+            <span class="shrink-0 text-muted" aria-hidden="true">·</span>
+            <span class="min-w-0 truncate text-muted">{{ t('notes.section.none') }}</span>
+          </template>
         </div>
-      </div>
+      </section>
 
-      <div class="mt-6 border-t border-border pt-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-            <LinkIcon class="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
-            <span class="truncate">{{ t('notes.detail.linkedTasks') }}</span>
-          </h3>
-          <Button
+      <!-- BODY -->
+      <section class="mt-5 space-y-2">
+        <div class="flex min-w-0 items-center gap-2">
+          <DocumentTextIcon class="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+          <span class="shrink-0 text-xs font-medium text-muted">
+            {{ t('notes.form.body') }}
+          </span>
+          <div class="h-px min-h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
+        <div v-if="note.body" class="pl-5">
+          <NoteMarkdownView :source="note.body" />
+        </div>
+        <p v-else class="pl-5 text-xs italic text-muted">
+          {{ t('notes.detail.emptyBody') }}
+        </p>
+      </section>
+
+      <!-- LINKED TASKS -->
+      <section class="mt-5 space-y-2">
+        <div class="flex min-w-0 items-center gap-2">
+          <LinkIcon class="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+          <span class="shrink-0 text-xs font-medium text-muted">
+            {{ t('notes.detail.linkedTasks') }}
+          </span>
+          <span
+            v-if="linkedTaskObjects.length > 0"
+            class="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted"
+          >
+            {{ linkedTaskObjects.length }}
+          </span>
+          <div class="h-px min-h-px flex-1 bg-border" aria-hidden="true" />
+          <button
             v-if="canManageThisProject"
             type="button"
-            variant="secondary"
+            class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             :disabled="linkBusy"
+            :aria-label="t('taskDetailModal.linkedNotes.addLink')"
+            :title="t('taskDetailModal.linkedNotes.addLink')"
             @click="linkManagerOpen = true"
           >
-            {{ t('taskDetailModal.linkedNotes.addLink') }}
-          </Button>
+            <PlusIcon class="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
         </div>
-        <div
-          class="mt-3 overflow-hidden rounded-lg border border-border bg-surface"
-        >
-          <div v-if="linkedTaskObjects.length > 0" class="divide-y divide-border">
-            <div
+        <div class="pl-5">
+          <div
+            v-if="linkedTaskObjects.length > 0"
+            class="divide-y divide-border overflow-hidden rounded-md border border-border bg-surface"
+          >
+            <TaskCard
               v-for="tk in linkedTaskObjects"
               :key="tk.id"
-              class="flex items-center gap-2.5 px-3"
-            >
-              <DocumentCheckIcon
-                class="h-5 w-5 shrink-0 text-muted"
-                aria-hidden="true"
-              />
-              <TaskCard
-                class="min-w-0 flex-1 border-0 bg-transparent px-0 shadow-none"
-                :task="tk"
-                :can-edit="false"
-                @view="openTask"
-              />
-            </div>
+              class="px-3"
+              :task="tk"
+              :can-edit="false"
+              @view="openTask"
+            />
           </div>
           <p
             v-else
-            class="px-3 py-6 text-center text-xs text-muted"
+            class="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted"
           >
             {{ t('notes.detail.noLinkedTasks') }}
           </p>
         </div>
-      </div>
+      </section>
+
+      <!-- TIMELINE -->
+      <section class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+        <ClockIcon class="h-3 w-3 shrink-0" aria-hidden="true" />
+        <span>{{ t('taskDetailModal.meta.updated', { date: timeAgo(note.updated_at, t, locale) }) }}</span>
+        <span class="opacity-60" aria-hidden="true">·</span>
+        <span>{{ t('taskDetailModal.meta.created', { date: formatDateShort(note.created_at, locale) }) }}</span>
+      </section>
     </template>
   </UiDetailPanelShell>
 
