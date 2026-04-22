@@ -179,4 +179,4 @@ sequenceDiagram
 
 ### Drag-and-drop порядка внутри / между секциями
 
-`NoteList` собирает новый порядок id по секциям и вызывает `reorderNotes`: для затронутых секций позиции применяются **снизу вверх**, затем `fetchList` для согласования с БД.
+Страница `/notes` (группировка по секциям) и страница проекта собирают полный порядок `{ kind, id }` задач и заметок в секции и вызывают `POST .../sections/:sectionId/items/reorder` через `projectStore.reorderSectionItems`.

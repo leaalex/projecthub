@@ -23,11 +23,12 @@ import {
   type TaskGroupBy,
   type TaskSortKey,
 } from '@app/composables/useTaskListPresentation'
+import type { ProjectItemGroup } from '@app/composables/useProjectItemsPresentation'
 import { useAuthStore } from '@app/auth.store'
 import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
-import { useNoteStore } from '@app/note.store'
+import { extractNoteAxiosError, useNoteStore } from '@app/note.store'
 import { useTasksPageAssignableUsers } from '@app/composables/useAdminAssignableUsers'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
@@ -36,6 +37,7 @@ import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
 import { mapApiError } from '@infra/api/errorMap'
+import { tasksApi } from '@infra/api/tasks'
 
 const route = useRoute()
 const router = useRouter()
@@ -118,6 +120,8 @@ const taskEditModalId = ref<number | null>(null)
 const noteEditModalOpen = ref(false)
 const noteEditModalId = ref<number | null>(null)
 const noteEditProjectId = ref(0)
+/** Задачи проекта для модалки редактирования заметки (без подмены taskStore). */
+const noteEditModalTaskOptions = ref<{ id: number; title: string }[]>([])
 
 const notePermissionCtx = computed(
   (): NotePermissionContext => ({
@@ -142,6 +146,7 @@ const canManageNotesForNoteModal = computed(() =>
 )
 
 const projectTasksForNoteModal = computed(() => {
+  if (noteEditModalTaskOptions.value.length > 0) return noteEditModalTaskOptions.value
   const pid = noteEditProjectId.value
   return taskStore.tasks
     .filter(t => t.project_id === pid)
@@ -163,11 +168,9 @@ const presentation = computed(() =>
       assignee: assigneeFilter.value,
       sortKey: sortKey.value,
       sortDir: sortDir.value,
-      groupBy: groupBy.value,
-      sections:
-        filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
-          ? projectStore.sections
-          : [],
+      /** Секции собирает `sectionGroupsForList`; не дублировать группировку в presentTasks. */
+      groupBy: groupBy.value === 'section' ? 'none' : groupBy.value,
+      sections: [],
       status: filterStatus.value,
     },
     t,
@@ -176,6 +179,16 @@ const presentation = computed(() =>
 
 const displayFlat = computed(() => presentation.value.flat)
 const displayGroups = computed(() => presentation.value.groups)
+
+const filteredProjectId = computed((): number | null => {
+  const n = Number(filterProject.value)
+  if (filterProject.value === '' || !Number.isFinite(n) || n <= 0) return null
+  return n
+})
+
+/** DnD только при фильтре по одному проекту (смешанный порядок task+note в секции). */
+const tasksDnDEnabled = computed(() => filteredProjectId.value != null)
+
 const sectionGroupsForList = computed(() => {
   const sourceSections =
     filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
@@ -224,14 +237,86 @@ const sectionGroupsForList = computed(() => {
     }))
 })
 
-const sectionWorkspaceGroups = computed(() =>
-  sectionGroupsForList.value.map((g, idx) => ({
-    key: g.key,
-    label: g.label,
-    order: idx,
-    items: g.tasks.map((t) => ({ kind: 'task' as const, task: t })),
-  })),
-)
+function sectionIdFromGroupKey(key: string): number | null {
+  if (key === 'unsectioned') return null
+  const m = /^s-(\d+)$/.exec(key)
+  return m ? Number(m[1]) : null
+}
+
+const sectionWorkspaceGroups = computed((): ProjectItemGroup[] => {
+  const pid = filteredProjectId.value
+  return sectionGroupsForList.value.map((g, idx) => {
+    const sid = sectionIdFromGroupKey(g.key)
+    const taskItems = g.tasks.map(t => ({
+      kind: 'task' as const,
+      task: t,
+      position: t.position,
+    }))
+    const noteItems =
+      pid != null
+        ? noteStore.notes
+            .filter(
+              n =>
+                n.project_id === pid
+                && (n.section_id ?? null) === (sid ?? null),
+            )
+            .map(n => ({
+              kind: 'note' as const,
+              note: n,
+              position: n.position,
+            }))
+        : []
+    const mixed = [...taskItems, ...noteItems].sort((a, b) => {
+      const d = a.position - b.position
+      if (d !== 0) return d
+      const idA = a.kind === 'task' ? a.task.id : a.note.id
+      const idB = b.kind === 'task' ? b.task.id : b.note.id
+      return idA - idB
+    })
+    const items = mixed.map(ent =>
+      ent.kind === 'task'
+        ? { kind: 'task' as const, task: ent.task }
+        : { kind: 'note' as const, note: ent.note },
+    )
+    return { key: g.key, label: g.label, order: idx, items }
+  })
+})
+
+function sectionKeyFromSectionId(sectionId: number | null): string {
+  return sectionId == null ? 'unsectioned' : `s-${sectionId}`
+}
+
+/**
+ * Строит новый порядок kind+id в целевой секции по drop-индексу (как в ProjectItemList).
+ */
+function buildOrderedSectionItems(
+  groups: ProjectItemGroup[],
+  targetSectionId: number | null,
+  payload: { kind: 'task' | 'note'; id: number; position: number },
+): { kind: 'task' | 'note'; id: number }[] {
+  const key = sectionKeyFromSectionId(targetSectionId)
+  const g = groups.find(x => x.key === key)
+  if (!g) return []
+
+  const current = g.items.map((it): { kind: 'task' | 'note'; id: number } =>
+    it.kind === 'task'
+      ? { kind: 'task', id: it.task.id }
+      : { kind: 'note', id: it.note.id },
+  )
+  const filtered = current.filter(
+    x => !(x.kind === payload.kind && x.id === payload.id),
+  )
+  const oldIdx = current.findIndex(
+    x => x.kind === payload.kind && x.id === payload.id,
+  )
+  let insertAt = payload.position
+  if (oldIdx >= 0 && oldIdx < insertAt) {
+    insertAt -= 1
+  }
+  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+  filtered.splice(insertAt, 0, { kind: payload.kind, id: payload.id })
+  return filtered
+}
 
 const tasksBreadcrumbItems = computed(() => [
   { label: t('common.home'), to: '/dashboard' },
@@ -247,20 +332,24 @@ function openTaskEdit(taskId: number) {
   taskEditModalOpen.value = true
 }
 
-async function openLinkedNote(payload: { noteId: number; projectId: number }) {
-  try {
-    await projectStore.fetchOne(payload.projectId).catch(() => {})
-    await projectStore.fetchSections(payload.projectId)
-    await noteStore.fetchList(payload.projectId, { quiet: true })
-  } catch {
-    toast.error(t('tasks.openLinkedNoteFailed'))
-    return
-  }
+function openLinkedNote(payload: { noteId: number; projectId: number }) {
   detailPanel.openNote(payload.projectId, payload.noteId)
 }
 
 function openTaskFromNote(taskId: number) {
   detailPanel.openTask(taskId)
+}
+
+function onSectionListViewNote(noteId: number) {
+  const pid = filteredProjectId.value
+  if (pid == null) return
+  detailPanel.openNote(pid, noteId)
+}
+
+async function onNoteModalChanged() {
+  const pid = noteEditProjectId.value
+  if (!pid) return
+  await noteStore.fetchList(pid, { quiet: true }).catch(() => {})
 }
 
 watch(taskEditModalOpen, open => {
@@ -271,6 +360,7 @@ watch(noteEditModalOpen, open => {
   if (!open) {
     noteEditModalId.value = null
     noteEditProjectId.value = 0
+    noteEditModalTaskOptions.value = []
   }
 })
 
@@ -288,6 +378,15 @@ watch(pendingNoteEdit, async payload => {
     await projectStore.fetchOne(payload.projectId).catch(() => {})
     await projectStore.fetchSections(payload.projectId)
     await noteStore.fetchList(payload.projectId, { quiet: true })
+    try {
+      const { data } = await tasksApi.list({ project_id: payload.projectId })
+      noteEditModalTaskOptions.value = (data.tasks ?? []).map(t => ({
+        id: t.id,
+        title: t.title,
+      }))
+    } catch {
+      noteEditModalTaskOptions.value = []
+    }
   } catch {
     toast.error(t('tasks.openLinkedNoteFailed'))
     detailPanel.clearPendingNoteEdit()
@@ -315,37 +414,34 @@ watch(
   },
 )
 
-watch([filterProject, filterStatus], async () => {
-  if (!allowServerFilterWatch.value) return
-  await load()
-}, { deep: true })
-
 watch(
-  filterProject,
-  async (pid) => {
+  [filterProject, filterStatus],
+  async ([pid]) => {
     if (pid === '') {
-      projectStore.sections = []
-      return
+      projectStore.clearSections()
+    } else {
+      const n = Number(pid)
+      if (!Number.isFinite(n) || n <= 0) {
+        projectStore.clearSections()
+      } else {
+        await projectStore.fetchSections(n).catch(() => {
+          projectStore.clearSections()
+        })
+      }
     }
-    const n = Number(pid)
-    if (!Number.isFinite(n) || n <= 0) {
-      projectStore.sections = []
-      return
-    }
-    await projectStore.fetchSections(n).catch(() => {
-      projectStore.sections = []
-    })
+    if (!allowServerFilterWatch.value) return
+    await load()
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 )
 
 async function prefetchTaskCreateSections(pid: number) {
   if (!Number.isFinite(pid) || pid <= 0) {
-    projectStore.sections = []
+    projectStore.clearSections()
     return
   }
   await projectStore.fetchSections(pid).catch(() => {
-    projectStore.sections = []
+    projectStore.clearSections()
   })
 }
 
@@ -361,17 +457,28 @@ watch(showModal, async (open) => {
   const filtered = Number(filterProject.value)
   if (filterProject.value !== '' && Number.isFinite(filtered) && filtered > 0) {
     projectId.value = filtered
-  } else {
-    const first = projectStore.projects[0]
-    if (first) projectId.value = first.id
+    return
   }
+  const first = projectStore.projects[0]
+  if (first) projectId.value = first.id
   await prefetchTaskCreateSections(projectId.value)
 })
 
-async function load() {
+function taskListParams(): { project_id?: number; status?: TaskStatus } {
   const params: { project_id?: number; status?: TaskStatus } = {}
-  if (filterProject.value !== '') params.project_id = Number(filterProject.value)
+  if (filterProject.value !== '') {
+    const n = Number(filterProject.value)
+    if (Number.isFinite(n) && n > 0) params.project_id = n
+  }
   if (filterStatus.value.length === 1) params.status = filterStatus.value[0]!
+  return params
+}
+
+async function load() {
+  const params = taskListParams()
+  if (params.project_id != null) {
+    await noteStore.fetchList(params.project_id, { quiet: true }).catch(() => {})
+  }
   await taskStore.fetchList(params)
 }
 
@@ -410,7 +517,6 @@ async function createTask() {
       priority: priority.value,
     })
     showModal.value = false
-    await load()
     toast.success(t('tasks.toasts.created'))
   } catch (e: unknown) {
     toast.error(mapApiError(e, 'tasks.toasts.createFailed'))
@@ -421,13 +527,11 @@ async function createTask() {
 
 async function onComplete(id: number) {
   await taskStore.complete(id)
-  await load()
 }
 
 async function onReopen(id: number) {
   try {
     await taskStore.update(id, { status: 'todo' })
-    await load()
     toast.success(t('tasks.toasts.reopened'))
   } catch (e: unknown) {
     toast.error(mapApiError(e, 'tasks.toasts.updateFailed'))
@@ -443,14 +547,36 @@ async function onSectionMove(payload: {
   if (payload.kind !== 'task') return
   const task = taskStore.tasks.find((t) => t.id === payload.id)
   if (!task) return
+  const pid = task.project_id
+  const currentSec = task.section_id ?? null
+  const targetSec = payload.sectionId
+
   try {
-    await taskStore.moveTask(task.project_id, {
-      task_id: payload.id,
-      section_id: payload.sectionId,
-      position: payload.position,
-    })
+    if (currentSec !== targetSec) {
+      await taskStore.moveTask(pid, {
+        task_id: payload.id,
+        section_id: targetSec,
+        position: payload.position,
+      })
+    }
+
+    const ordered = buildOrderedSectionItems(
+      sectionWorkspaceGroups.value,
+      targetSec,
+      payload,
+    )
+    if (ordered.length === 0) {
+      await load()
+      return
+    }
+    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+    await taskStore.fetchList(taskListParams())
   } catch (e: unknown) {
-    toast.error(mapApiError(e, 'tasks.toasts.moveFailed'))
+    toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
+    await Promise.all([
+      taskStore.fetchList(taskListParams()).catch(() => {}),
+      noteStore.fetchList(pid, { quiet: true }).catch(() => {}),
+    ])
   }
 }
 </script>
@@ -560,18 +686,32 @@ async function onSectionMove(payload: {
       </EmptyState>
       <div v-else class="mt-6 space-y-4">
         <ProjectItemList
+          v-if="groupBy === 'section'"
           :groups="sectionWorkspaceGroups"
           :can-manage-note="false"
           :can-edit-task="canManageTask"
           :can-change-status-task="canChangeTaskStatus"
+          :enable-item-drag="tasksDnDEnabled"
           :empty-message="t('tasks.emptySection')"
           @complete="onComplete"
           @reopen="onReopen"
           @view-task="openTaskView"
+          @view-note="onSectionListViewNote"
           @edit-task="openTaskEdit"
           @move="onSectionMove"
         />
-        <template v-if="groupBy !== 'section' && groupBy !== 'none'">
+        <TaskList
+          v-else-if="groupBy === 'none'"
+          :tasks="displayFlat"
+          :can-edit-task="canManageTask"
+          :can-change-status-task="canChangeTaskStatus"
+          :empty-message="t('tasks.emptyGroup')"
+          @complete="onComplete"
+          @reopen="onReopen"
+          @view-task="openTaskView"
+          @edit-task="openTaskEdit"
+        />
+        <template v-else>
           <div
             v-for="g in displayGroups"
             :key="g.key"
@@ -649,8 +789,8 @@ async function onSectionMove(payload: {
       :project-tasks="projectTasksForNoteModal"
       :can-manage="canManageNotesForNoteModal"
       initial-mode="edit"
-      @saved="load"
-      @deleted="load"
+      @saved="onNoteModalChanged"
+      @deleted="onNoteModalChanged"
       @open-task="openTaskFromNote"
     />
   </div>

@@ -113,6 +113,10 @@ export const useProjectStore = defineStore('project', () => {
     return sections.value
   }
 
+  function clearSections() {
+    sections.value = []
+  }
+
   async function createSection(projectId: number, name: string) {
     const { data } = await projectsApi.sections.create(projectId, name)
     sections.value = [...sections.value, data.section].sort(
@@ -335,6 +339,7 @@ export const useProjectStore = defineStore('project', () => {
     fetchOne,
     fetchTasks,
     fetchSections,
+    clearSections,
     createSection,
     updateSection,
     deleteSection,

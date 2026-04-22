@@ -15,7 +15,7 @@
 | `/projects` | `Projects.vue` | `auth.store`, `project.store`, `useConfirm` | `ProjectList`, `ProjectForm`, `UiModal`, `UiEmptyState` |
 | `/projects/:id` | `ProjectDetail.vue` | + `note.store`, `trashTasks.store`, `trashNotes.store` | Вкладки **Tasks / Notes / Trash** (`UiSegmentedControl`); заметки: `NoteSectionList`, `NoteList`, `NoteDetailModal`, `ProjectTrashPanel`; задачи — как раньше |
 | `/projects/:id/settings` | `ProjectSettings.vue` | `auth.store`, `project.store` | `ProjectMembers`, `AddMemberModal`, `TransferOwnershipModal` |
-| `/tasks` | `Tasks.vue` | + `note.store` (модалка заметки) | `TaskSectionList`, `TaskDetailModal`, `NoteDetailModal` при открытии связанной заметки с карточки/деталей задачи |
+| `/tasks` | `Tasks.vue` | `task.store`, `note.store`, `project.store` | `TaskFiltersPanel`, `ProjectItemList` (группировка по секциям + DnD при фильтре проекта, затем `reorderSectionItems`), `TaskList` (без секций / другие группировки), `TaskDetailModal`, `NoteDetailModal` |
 | `/notes` | `Notes.vue` | `note.store` (`fetchAll`), `project.store`, `task.store`, `useNoteListPresentation` | `NoteFiltersPanel`, `NoteCard`, `NoteDetailModal`, создание через `NoteForm` с выбором проекта |
 | `/reports` | `Reports.vue` | `report.store`, `useConfirm`, `useToast` | `ReportSettings`, `ReportViewer`, `UiCard`, `UiModal`, `UiTable` |
 | `/profile` | `Profile.vue` | `auth.store`, `ui.store`, `useToast` | `UiBreadcrumb`, `UiButton`, `UiCard`, `UiInput`, `UiSegmentedControl` |
@@ -121,7 +121,7 @@
 | `markdown.css` | Базовые стили ProseMirror для редактора/превью |
 | `NoteForm.vue` | Заголовок, секция, тело (markdown) |
 | `NoteCard.vue` | Карточка в списке: превью, дата, меню |
-| `NoteList.vue` | Группировка по note-секциям + HTML5 DnD, вызов `noteStore.reorderNotes` |
+| `Notes.vue` (страница) | При группировке по секциям — `ProjectItemList` + DnD, `projectStore.reorderSectionItems` (смешанный порядок с задачами) |
 | `NoteFiltersPanel.vue` | Панель фильтров глобальной страницы `/notes`: проект, сортировка, группировка (секция — только при фильтре по одному проекту) |
 | `NoteSectionList.vue` | CRUD и порядок секций заметок |
 | `NoteInlineComposer.vue` | Быстрое создание в шапке секции |

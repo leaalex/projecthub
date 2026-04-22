@@ -143,7 +143,6 @@
 |----------|----------|-----|--------------|
 | **Medium** | `watch(() => route.fullPath, refreshMemberProjects)` — лишние запросы списка проектов при навигации для роли `user`. | [`App.vue`](../frontend/src/App.vue) | Триггерить по событию/инвалидации, debounce или сравнение «нужен ли refetch». |
 | **Medium** | `:key="route.fullPath"` на `<router-view>` — полный remount при смене query/hash, сброс локального UI. | [`App.vue`](../frontend/src/App.vue) | Ключ: `route.name` + релевантные `params`, или точечно убрать key. |
-| **Medium** | Последовательные `await` при reorder заметок (много RTT). | [`note.store.ts`](../frontend/src/application/note.store.ts) (проверить `reorderNotes`) | Batch API или уже существующий путь `reorderSectionItems` — унифицировать. |
 | **Low–Medium** | Тяжёлые computed на больших проектах (`ProjectDetail` + presentation). | [`useProjectItemsPresentation.ts`](../frontend/src/application/composables/useProjectItemsPresentation.ts) | Мемоизация, debounce поиска, виртуализация списков при росте данных. |
 
 ### 4.4 i18n и UI

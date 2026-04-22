@@ -15,12 +15,15 @@ import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import NoteForm from '../components/notes/NoteForm.vue'
 import NoteFiltersPanel from '../components/notes/NoteFiltersPanel.vue'
+import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import {
   presentNotes,
   type NoteGroupBy,
   type NoteSortKey,
   type SortDir,
 } from '@app/composables/useNoteListPresentation'
+import type { ProjectItemGroup } from '@app/composables/useProjectItemsPresentation'
+import type { Note } from '@domain/note/types'
 import { useAuthStore } from '@app/auth.store'
 import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
@@ -123,6 +126,220 @@ const presentation = computed(() =>
 const displayGroups = computed(() => presentation.value.groups)
 const displayFlat = computed(() => presentation.value.flat)
 
+const filteredProjectId = computed((): number | null => {
+  const n = Number(filterProject.value)
+  if (filterProject.value === '' || !Number.isFinite(n) || n <= 0) return null
+  return n
+})
+
+/** DnD порядка заметок: один проект в фильтре, группировка по секциям, права на управление. */
+const notesDnDEnabled = computed(() => {
+  if (effectiveGroupBy.value !== 'section') return false
+  const pid = filteredProjectId.value
+  if (pid == null) return false
+  return canManageNoteForProject(pid)
+})
+
+const sectionGroupsForNotesList = computed(() => {
+  const sourceSections =
+    filteredProjectId.value != null ? projectStore.sections : []
+  const map = new Map<
+    string,
+    { key: string; label: string; order: number; notes: Note[] }
+  >()
+  map.set('unsectioned', {
+    key: 'unsectioned',
+    label: t('tasks.unsectioned'),
+    order: -1,
+    notes: [],
+  })
+  for (const s of [...sourceSections].sort(
+    (a, b) => a.position - b.position || a.id - b.id,
+  )) {
+    map.set(`s-${s.id}`, {
+      key: `s-${s.id}`,
+      label: s.name,
+      order: s.position,
+      notes: [],
+    })
+  }
+  for (const n of displayFlat.value) {
+    const key = n.section_id == null ? 'unsectioned' : `s-${n.section_id}`
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: t('notes.unknownSection', { id: n.section_id }),
+        order: Number.MAX_SAFE_INTEGER,
+        notes: [],
+      })
+    }
+    map.get(key)!.notes.push(n)
+  }
+  return [...map.values()]
+    .filter(g => g.notes.length > 0)
+    .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+    .map(({ key, label, notes: noteList }) => ({
+      key,
+      label,
+      notes: notesDnDEnabled.value
+        ? [...noteList].sort((a, b) => a.position - b.position || a.id - b.id)
+        : noteList,
+    }))
+})
+
+const sectionWorkspaceGroups = computed((): ProjectItemGroup[] =>
+  sectionGroupsForNotesList.value.map((g, idx) => ({
+    key: g.key,
+    label: g.label,
+    order: idx,
+    items: g.notes.map(n => ({ kind: 'note' as const, note: n })),
+  })),
+)
+
+const canManageNotesInCurrentFilter = computed(() => {
+  const pid = filteredProjectId.value
+  return pid != null && canManageNoteForProject(pid)
+})
+
+function sectionKeyFromSectionId(sectionId: number | null): string {
+  return sectionId == null ? 'unsectioned' : `s-${sectionId}`
+}
+
+function sectionIdMatchesStore(
+  sectionId: number | null,
+  itemSectionId: number | null | undefined,
+): boolean {
+  return (itemSectionId ?? null) === sectionId
+}
+
+/** Порядок kind+id в секции по position (задачи и заметки), как на бэкенде. */
+function getMixedSectionItemsOrdered(
+  projectId: number,
+  sectionId: number | null,
+): { kind: 'task' | 'note'; id: number }[] {
+  const tasks = taskStore.tasks
+    .filter(
+      t =>
+        t.project_id === projectId
+        && sectionIdMatchesStore(sectionId, t.section_id),
+    )
+    .map(t => ({ kind: 'task' as const, id: t.id, position: t.position }))
+  const notes = noteStore.notes
+    .filter(
+      n =>
+        n.project_id === projectId
+        && sectionIdMatchesStore(sectionId, n.section_id),
+    )
+    .map(n => ({ kind: 'note' as const, id: n.id, position: n.position }))
+  const all = [...tasks, ...notes]
+  all.sort((a, b) => a.position - b.position || a.id - b.id)
+  return all.map(({ kind, id }) => ({ kind, id }))
+}
+
+function buildMixedOrderAfterNoteDrop(
+  projectId: number,
+  targetSectionId: number | null,
+  noteId: number,
+  mixedInsertIndex: number,
+): { kind: 'task' | 'note'; id: number }[] {
+  const mixed = getMixedSectionItemsOrdered(projectId, targetSectionId)
+  const filtered = mixed.filter(x => !(x.kind === 'note' && x.id === noteId))
+  const oldIdx = mixed.findIndex(x => x.kind === 'note' && x.id === noteId)
+  let insertAt = mixedInsertIndex
+  if (oldIdx >= 0 && oldIdx < insertAt) insertAt -= 1
+  insertAt = Math.max(0, Math.min(insertAt, filtered.length))
+  filtered.splice(insertAt, 0, { kind: 'note', id: noteId })
+  return filtered
+}
+
+/** ProjectItemList отдаёт индекс только среди заметок в группе; API ждёт индекс в смешанном списке. */
+function noteOnlyDropIndexToMixedInsertIndex(
+  projectId: number,
+  targetSectionId: number | null,
+  grp: ProjectItemGroup | undefined,
+  noteOnlyPosition: number,
+): number {
+  const mixed = getMixedSectionItemsOrdered(projectId, targetSectionId)
+  if (!grp || noteOnlyPosition >= grp.items.length) return mixed.length
+  const targetItem = grp.items[noteOnlyPosition]
+  if (targetItem.kind !== 'note') return mixed.length
+  const mixedIdx = mixed.findIndex(
+    m => m.kind === 'note' && m.id === targetItem.note.id,
+  )
+  return mixedIdx >= 0 ? mixedIdx : mixed.length
+}
+
+function currentSectionIdForNote(noteId: number): number | null | undefined {
+  const n = noteStore.notes.find(x => x.id === noteId)
+  return n ? n.section_id ?? null : undefined
+}
+
+async function onNoteMove(payload: {
+  kind: 'task' | 'note'
+  id: number
+  sectionId: number | null
+  position: number
+}) {
+  if (payload.kind !== 'note') return
+  const pid = filteredProjectId.value
+  if (pid == null) return
+
+  const currentSec = currentSectionIdForNote(payload.id)
+  if (currentSec === undefined) return
+  const targetSec = payload.sectionId
+
+  const key = sectionKeyFromSectionId(targetSec)
+  const grp = sectionWorkspaceGroups.value.find(x => x.key === key)
+  const mixedInsertIndex = noteOnlyDropIndexToMixedInsertIndex(
+    pid,
+    targetSec,
+    grp,
+    payload.position,
+  )
+
+  try {
+    if (currentSec !== targetSec) {
+      await noteStore.move(
+        pid,
+        payload.id,
+        { section_id: targetSec, position: mixedInsertIndex },
+        { refetch: false },
+      )
+    }
+    const ordered = buildMixedOrderAfterNoteDrop(
+      pid,
+      targetSec,
+      payload.id,
+      mixedInsertIndex,
+    )
+    if (ordered.length === 0) {
+      await load()
+      return
+    }
+    await projectStore.reorderSectionItems(pid, targetSec, ordered)
+  } catch (e: unknown) {
+    toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
+    await Promise.all([
+      projectStore.fetchTasks(pid).catch(() => {}),
+      noteStore.fetchList(pid, { quiet: true }).catch(() => {}),
+    ])
+  } finally {
+    await load()
+  }
+}
+
+function onSectionListViewNote(noteId: number) {
+  const pid = filteredProjectId.value
+  if (pid == null) return
+  openNoteView(noteId, pid)
+}
+
+function onSectionListEditNote(noteId: number) {
+  const pid = filteredProjectId.value
+  if (pid == null) return
+  void openNoteEdit(noteId, pid)
+}
+
 const notesBreadcrumbItems = computed(() => [
   { label: t('common.home'), to: '/dashboard' },
   { label: t('notes.breadcrumb') },
@@ -171,8 +388,7 @@ function syncFiltersFromRoute() {
   }
 }
 
-async function openNoteView(noteId: number, projectId: number) {
-  await prepareNoteModalContext(projectId)
+function openNoteView(noteId: number, projectId: number) {
   detailPanel.openNote(projectId, noteId)
 }
 
@@ -187,8 +403,7 @@ function openTaskFromNote(taskId: number) {
   detailPanel.openTask(taskId)
 }
 
-async function openNoteFromTask(payload: { noteId: number; projectId: number }) {
-  await prepareNoteModalContext(payload.projectId)
+function openNoteFromTask(payload: { noteId: number; projectId: number }) {
   detailPanel.openNote(payload.projectId, payload.noteId)
 }
 
@@ -244,26 +459,23 @@ watch(
   },
 )
 
-watch([filterProject], async () => {
-  if (!allowServerFilterWatch.value) return
-  await load()
-})
-
 watch(
   filterProject,
   async pid => {
     if (pid === '') {
-      projectStore.sections = []
-      return
+      projectStore.clearSections()
+    } else {
+      const n = Number(pid)
+      if (!Number.isFinite(n) || n <= 0) {
+        projectStore.clearSections()
+      } else {
+        await projectStore.fetchSections(n).catch(() => {
+          projectStore.clearSections()
+        })
+      }
     }
-    const n = Number(pid)
-    if (!Number.isFinite(n) || n <= 0) {
-      projectStore.sections = []
-      return
-    }
-    await projectStore.fetchSections(n).catch(() => {
-      projectStore.sections = []
-    })
+    if (!allowServerFilterWatch.value) return
+    await load()
   },
   { immediate: true },
 )
@@ -295,7 +507,10 @@ async function load() {
   const params: { project_id?: number } = {}
   if (filterProject.value !== '') {
     const n = Number(filterProject.value)
-    if (Number.isFinite(n) && n > 0) params.project_id = n
+    if (Number.isFinite(n) && n > 0) {
+      params.project_id = n
+      await taskStore.fetchList({ project_id: n }).catch(() => {})
+    }
   }
   try {
     await noteStore.fetchAll(params)
@@ -333,7 +548,6 @@ async function onCreateSubmit(payload: {
       section_id: payload.section_id ?? undefined,
     })
     showCreateModal.value = false
-    await load()
     toast.success(t('notes.toasts.created'))
   } catch (e: unknown) {
     toast.error(extractNoteAxiosError(e, 'notes.toasts.createFailed'))
@@ -460,6 +674,18 @@ async function onCreateSubmit(payload: {
             />
           </div>
         </div>
+        <ProjectItemList
+          v-else-if="effectiveGroupBy === 'section'"
+          class="space-y-4"
+          :groups="sectionWorkspaceGroups"
+          :can-manage-note="canManageNotesInCurrentFilter"
+          :can-edit-task="() => false"
+          :enable-item-drag="notesDnDEnabled"
+          :empty-message="t('tasks.emptySection')"
+          @view-note="onSectionListViewNote"
+          @edit-note="onSectionListEditNote"
+          @move="onNoteMove"
+        />
         <template v-else>
           <div v-for="g in displayGroups" :key="g.key" class="space-y-2">
             <h2 v-if="g.label" class="text-sm font-semibold text-foreground">

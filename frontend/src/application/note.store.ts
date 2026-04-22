@@ -4,21 +4,6 @@ import type { Note, CreateNotePayload, UpdateNotePayload } from '@domain/note/ty
 import { notesApi } from '@infra/api/notes'
 import { mapApiError } from '@infra/api/errorMap'
 
-/** Ключ группы: `unsectioned` | `ns-{sectionId}` */
-export function parseNoteSectionGroupKey(key: string): number | null {
-  if (key === 'unsectioned') return null
-  if (key.startsWith('ns-')) {
-    const n = Number(key.slice(3))
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
-
-export function noteSectionGroupKey(sectionId: number | null | undefined): string {
-  if (sectionId == null) return 'unsectioned'
-  return `ns-${sectionId}`
-}
-
 /** `fallbackKey` — ключ i18n (например `notes.toasts.loadFailed`). */
 export function extractNoteAxiosError(e: unknown, fallbackKey: string): string {
   return mapApiError(e, fallbackKey)
@@ -138,45 +123,6 @@ export const useNoteStore = defineStore('note', () => {
     return data.note
   }
 
-  /**
-   * Применить порядок после drag-n-drop: секции обрабатываются по порядку `keys`
-   * (при переносе между секциями сначала целевая, затем исходная); позиции — снизу вверх,
-   * чтобы не ломать уникальность порядка в БД между запросами.
-   *
-   * @deprecated Используйте `projectStore.reorderSectionItems` (POST `/sections/:sid/items/reorder`)
-   * для смешанного порядка задач и заметок; этот путь остаётся для постепенной миграции UI.
-   */
-  async function reorderNotes(
-    projectId: number,
-    keys: string[],
-    groupNoteIds: Map<string, number[]>,
-  ): Promise<void> {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        '[noteStore.reorderNotes] deprecated: prefer projectStore.reorderSectionItems for unified section order',
-      )
-    }
-    for (const key of keys) {
-      const sectionId = parseNoteSectionGroupKey(key)
-      const ids = groupNoteIds.get(key) ?? []
-      for (let pos = ids.length - 1; pos >= 0; pos--) {
-        const noteId = ids[pos]
-        const n = notes.value.find(x => x.id === noteId)
-        if (!n) continue
-        if (n.section_id !== sectionId || n.position !== pos) {
-          await move(
-            projectId,
-            noteId,
-            { section_id: sectionId, position: pos },
-            { refetch: false },
-          )
-        }
-      }
-    }
-    await fetchList(projectId, { quiet: true })
-  }
-
   async function listLinks(projectId: number, noteId: number): Promise<number[]> {
     return notesApi.links.list(projectId, noteId)
   }
@@ -234,7 +180,6 @@ export const useNoteStore = defineStore('note', () => {
     restore,
     permanentDelete,
     move,
-    reorderNotes,
     listLinks,
     linkTask,
     unlinkTask,

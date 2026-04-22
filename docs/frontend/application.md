@@ -106,9 +106,9 @@
 
 **State:** `notes`, `sections` (note-секции), `currentProjectId`, `loading`, `sectionsLoading`, `error`, `savingId`, `deletingId`, `linksByTaskId` (кэш `GET /tasks/:id/notes`).
 
-**Actions:** **`fetchAll(params?)`** — `GET /notes` (опционально `project_id`); **`currentProjectId = null`**; остальное как у списка проекта. **`fetchList`**, `fetchSections`, `fetchOne`, `create`, `update`, `remove`, `restore`, `permanentDelete`, `move` (опционально `refetch: false` для пакетного DnD), **`reorderNotes(projectId, keys, groupNoteIds)`** — порядок после drag-and-drop; `createSection` / `renameSection` / `removeSection` / `reorderSections` через `projectsApi.noteSections`; `linkTask`, `unlinkTask`, `fetchLinkedByTask`, `invalidateTaskLinks`; **`patchNoteInList(noteId, patch)`** — точечное обновление строки в `notes` (например `linked_task_ids` после загрузки в модалке).
+**Actions:** **`fetchAll(params?)`** — `GET /notes` (опционально `project_id`); **`currentProjectId = null`**; остальное как у списка проекта. **`fetchList`**, `fetchOne`, `create`, `update`, `remove`, `restore`, `permanentDelete`, `move` (опционально `refetch: false` для пакетного DnD). Порядок заметок в секции вместе с задачами — **`projectStore.reorderSectionItems`**. `linkTask`, `unlinkTask`, `fetchLinkedByTask`, `invalidateTaskLinks`; **`patchNoteInList(noteId, patch)`** — точечное обновление строки в `notes` (например `linked_task_ids` после загрузки в модалке).
 
-**Экспорт:** `extractNoteAxiosError`, `parseNoteSectionGroupKey`, `noteSectionGroupKey`.
+**Экспорт:** `extractNoteAxiosError`.
 
 **Зависимости:** `@infra/api/notes`, `@infra/api/projects` (`noteSections`).
 
