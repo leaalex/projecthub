@@ -22,8 +22,12 @@ import {
   type NoteSortKey,
   type SortDir,
 } from '@app/composables/useNoteListPresentation'
-import type { ProjectItemGroup } from '@app/composables/useProjectItemsPresentation'
+import {
+  type ProjectItemGroup,
+  sectionDisplayMode,
+} from '@app/composables/useProjectItemsPresentation'
 import type { Note } from '@domain/note/types'
+import type { SectionDisplayMode } from '@domain/project/types'
 import { useAuthStore } from '@app/auth.store'
 import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
@@ -143,14 +147,22 @@ const notesDnDEnabled = computed(() => {
 const sectionGroupsForNotesList = computed(() => {
   const sourceSections =
     filteredProjectId.value != null ? projectStore.sections : []
+  const sectionById = new Map(sourceSections.map(s => [s.id, s]))
   const map = new Map<
     string,
-    { key: string; label: string; order: number; notes: Note[] }
+    {
+      key: string
+      label: string
+      order: number
+      displayMode: SectionDisplayMode
+      notes: Note[]
+    }
   >()
   map.set('unsectioned', {
     key: 'unsectioned',
     label: t('tasks.unsectioned'),
     order: -1,
+    displayMode: 'plain',
     notes: [],
   })
   for (const s of [...sourceSections].sort(
@@ -160,16 +172,19 @@ const sectionGroupsForNotesList = computed(() => {
       key: `s-${s.id}`,
       label: s.name,
       order: s.position,
+      displayMode: sectionDisplayMode(s.display_mode),
       notes: [],
     })
   }
   for (const n of displayFlat.value) {
     const key = n.section_id == null ? 'unsectioned' : `s-${n.section_id}`
     if (!map.has(key)) {
+      const meta = n.section_id != null ? sectionById.get(n.section_id) : undefined
       map.set(key, {
         key,
         label: t('notes.unknownSection', { id: n.section_id }),
         order: Number.MAX_SAFE_INTEGER,
+        displayMode: sectionDisplayMode(meta?.display_mode),
         notes: [],
       })
     }
@@ -178,13 +193,18 @@ const sectionGroupsForNotesList = computed(() => {
   return [...map.values()]
     .filter(g => g.notes.length > 0)
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, notes: noteList }) => ({
-      key,
-      label,
-      notes: notesDnDEnabled.value
-        ? [...noteList].sort((a, b) => a.position - b.position || a.id - b.id)
-        : noteList,
-    }))
+    .map(
+      ({ key, label, displayMode, notes: noteList }) => ({
+        key,
+        label,
+        displayMode,
+        notes: notesDnDEnabled.value
+          ? [...noteList].sort(
+              (a, b) => a.position - b.position || a.id - b.id,
+            )
+          : noteList,
+      }),
+    )
 })
 
 const sectionWorkspaceGroups = computed((): ProjectItemGroup[] =>
@@ -192,6 +212,7 @@ const sectionWorkspaceGroups = computed((): ProjectItemGroup[] =>
     key: g.key,
     label: g.label,
     order: idx,
+    displayMode: g.displayMode,
     items: g.notes.map(n => ({ kind: 'note' as const, note: n })),
   })),
 )

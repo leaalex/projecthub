@@ -24,7 +24,9 @@ export interface ProjectItemGroup {
   items: WorkspaceItem[]
 }
 
-function sectionDisplayMode(m: ProjectSection['display_mode'] | undefined): SectionDisplayMode {
+export function sectionDisplayMode(
+  m: ProjectSection['display_mode'] | undefined,
+): SectionDisplayMode {
   return m === 'progress' ? 'progress' : 'plain'
 }
 

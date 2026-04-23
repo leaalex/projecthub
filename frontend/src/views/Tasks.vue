@@ -23,7 +23,11 @@ import {
   type TaskGroupBy,
   type TaskSortKey,
 } from '@app/composables/useTaskListPresentation'
-import type { ProjectItemGroup } from '@app/composables/useProjectItemsPresentation'
+import {
+  type ProjectItemGroup,
+  sectionDisplayMode,
+} from '@app/composables/useProjectItemsPresentation'
+import type { SectionDisplayMode } from '@domain/project/types'
 import { useAuthStore } from '@app/auth.store'
 import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
@@ -203,14 +207,22 @@ const sectionGroupsForList = computed(() => {
     filterProject.value !== '' && Number.isFinite(Number(filterProject.value))
       ? projectStore.sections
       : []
+  const sectionById = new Map(sourceSections.map(s => [s.id, s]))
   const map = new Map<
     string,
-    { key: string; label: string; order: number; tasks: typeof displayFlat.value }
+    {
+      key: string
+      label: string
+      order: number
+      displayMode: SectionDisplayMode
+      tasks: typeof displayFlat.value
+    }
   >()
   map.set('unsectioned', {
     key: 'unsectioned',
     label: t('tasks.unsectioned'),
     order: -1,
+    displayMode: 'plain',
     tasks: [],
   })
   for (const s of [...sourceSections].sort((a, b) => a.position - b.position || a.id - b.id)) {
@@ -218,18 +230,24 @@ const sectionGroupsForList = computed(() => {
       key: `s-${s.id}`,
       label: s.name,
       order: s.position,
+      displayMode: sectionDisplayMode(s.display_mode),
       tasks: [],
     })
   }
   for (const task of displayFlat.value) {
     const key = task.section_id == null ? 'unsectioned' : `s-${task.section_id}`
     if (!map.has(key)) {
+      const sid = task.section_id
+      const meta = sid != null ? sectionById.get(sid) : undefined
       map.set(key, {
         key,
         label:
           task.section?.name ??
           t('tasks.unknownSection', { id: task.section_id }),
         order: task.section?.position ?? Number.MAX_SAFE_INTEGER,
+        displayMode: sectionDisplayMode(
+          meta?.display_mode ?? task.section?.display_mode,
+        ),
         tasks: [],
       })
     }
@@ -237,9 +255,10 @@ const sectionGroupsForList = computed(() => {
   }
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, tasks }) => ({
+    .map(({ key, label, displayMode, tasks }) => ({
       key,
       label,
+      displayMode,
       tasks: [...tasks].sort(
         (a, b) => a.position - b.position || a.id - b.id,
       ),
@@ -287,7 +306,13 @@ const sectionWorkspaceGroups = computed((): ProjectItemGroup[] => {
         ? { kind: 'task' as const, task: ent.task }
         : { kind: 'note' as const, note: ent.note },
     )
-    return { key: g.key, label: g.label, order: idx, items }
+    return {
+      key: g.key,
+      label: g.label,
+      order: idx,
+      displayMode: g.displayMode,
+      items,
+    }
   })
 })
 
