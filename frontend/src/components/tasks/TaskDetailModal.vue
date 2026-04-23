@@ -64,11 +64,13 @@ const {
   linkBusy,
   canManageNotes,
   pickerCandidates,
+  subtaskDraft,
+  subtaskRemovedIds,
+  subtaskOriginal,
   taskModalDirty,
   taskFooterVisible,
   showHeaderLinkedNotesButton,
   save,
-  refreshTask,
   linkNoteFromPicker,
   unlinkNote,
   openLinkedNote,
@@ -235,7 +237,13 @@ const taskModalTitle = computed(() => {
           @submit="save"
         >
           <template #before-extra>
-            <TaskSubtasksPanel :task="task" @updated="refreshTask" />
+            <TaskSubtasksPanel
+              :task="task"
+              draft-mode
+              v-model:draft="subtaskDraft"
+              v-model:removed-ids="subtaskRemovedIds"
+              :subtask-original="subtaskOriginal"
+            />
           </template>
         </TaskForm>
       </div>

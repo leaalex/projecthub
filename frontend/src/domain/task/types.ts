@@ -14,6 +14,15 @@ export interface Subtask {
   updated_at: string
 }
 
+/** Локальная подзадача в черновом режиме (модалка редактирования); `id: null` — ещё не на сервере. */
+export type DraftSubtask = {
+  clientKey: string
+  id: number | null
+  title: string
+  done: boolean
+  position: number
+}
+
 /** Краткое представление заметки, связанной с задачей (API). */
 export type LinkedNotePreview = {
   id: number

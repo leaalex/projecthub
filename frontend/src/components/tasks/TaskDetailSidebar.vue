@@ -214,7 +214,12 @@ const dueInfo = computed<DueInfo | null>(() => {
           </span>
           <div class="h-px min-h-px flex-1 bg-border" aria-hidden="true" />
         </div>
-        <TaskSubtasksPanel :task="task" hide-heading readonly />
+        <TaskSubtasksPanel
+          :task="task"
+          hide-heading
+          :readonly="!canEdit"
+          @updated="refresh"
+        />
       </section>
 
       <!-- LINKED NOTES -->

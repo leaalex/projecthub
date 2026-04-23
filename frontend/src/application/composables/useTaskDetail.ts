@@ -10,7 +10,7 @@ import { useCanEditTask } from '@app/composables/useCanEditTask'
 import { useConfirm } from '@app/composables/useConfirm'
 import { useToast } from '@app/composables/useToast'
 import type { Note } from '@domain/note/types'
-import type { Task, TaskPriority, TaskStatus } from '@domain/task/types'
+import type { DraftSubtask, Task, TaskPriority, TaskStatus } from '@domain/task/types'
 import { canManageNote } from '@domain/note/permissions'
 import { mapApiError } from '@infra/api/errorMap'
 
@@ -57,6 +57,12 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
   const formAssigneeId = ref(0)
   const formStatus = ref<TaskStatus>('todo')
   const formPriority = ref<TaskPriority>('medium')
+
+  const subtaskDraft = ref<DraftSubtask[]>([])
+  const subtaskRemovedIds = ref<number[]>([])
+  const subtaskOriginal = ref(
+    new Map<number, { title: string; done: boolean }>(),
+  )
 
   const { assignableUsers } = useProjectScopedAssignableUsers(() => formProjectId.value)
 
@@ -185,10 +191,38 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     }
   })
 
+  function resetSubtaskDraft(cur: Task | null) {
+    if (!cur) {
+      subtaskDraft.value = []
+      subtaskRemovedIds.value = []
+      subtaskOriginal.value = new Map()
+      return
+    }
+    const src = [...(cur.subtasks ?? [])].sort(
+      (a, b) => a.position - b.position || a.id - b.id,
+    )
+    subtaskDraft.value = src.map(s => ({
+      clientKey: `s-${s.id}`,
+      id: s.id,
+      title: s.title,
+      done: s.done,
+      position: s.position,
+    }))
+    subtaskRemovedIds.value = []
+    subtaskOriginal.value = new Map(
+      src.map(s => [s.id, { title: s.title, done: s.done }]),
+    )
+  }
+
   watch(
     () => [task.value, canEdit.value] as const,
     ([cur, edit]) => {
-      if (!cur || !edit) return
+      if (!cur || !edit) {
+        subtaskDraft.value = []
+        subtaskRemovedIds.value = []
+        subtaskOriginal.value = new Map()
+        return
+      }
       formTitle.value = cur.title
       formDescription.value = cur.description ?? ''
       formProjectId.value = cur.project_id
@@ -196,6 +230,9 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       formAssigneeId.value = cur.assignee_id ?? 0
       formStatus.value = cur.status
       formPriority.value = cur.priority
+      if (!saving.value) {
+        resetSubtaskDraft(cur)
+      }
     },
     { immediate: true },
   )
@@ -224,6 +261,10 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     const trimmedTitle = formTitle.value.trim()
     if (!trimmedTitle) {
       toast.error(t('taskDetailModal.toasts.enterTitle'))
+      return
+    }
+    if (subtaskDraft.value.some(it => !it.title.trim())) {
+      toast.error(t('taskSubtasks.toasts.enterTitle'))
       return
     }
     saving.value = true
@@ -255,6 +296,31 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       }
 
       task.value = updated
+
+      for (const subId of subtaskRemovedIds.value) {
+        await taskStore.deleteSubtask(cur.id, subId)
+      }
+      for (const it of subtaskDraft.value) {
+        const trimmed = it.title.trim()
+        if (it.id == null) {
+          const created = await taskStore.createSubtask(cur.id, trimmed)
+          if (it.done) {
+            await taskStore.updateSubtask(cur.id, created.id, { done: true })
+          }
+          continue
+        }
+        const o = subtaskOriginal.value.get(it.id)
+        if (!o) continue
+        const patch: Partial<{ title: string; done: boolean }> = {}
+        if (o.title !== trimmed) patch.title = trimmed
+        if (o.done !== it.done) patch.done = it.done
+        if (Object.keys(patch).length > 0) {
+          await taskStore.updateSubtask(cur.id, it.id, patch)
+        }
+      }
+
+      task.value = await taskStore.fetchOne(cur.id)
+      resetSubtaskDraft(task.value)
       editing.value = false
       toast.success(t('taskDetailModal.toasts.updated'))
       options.onSaved?.()
@@ -263,6 +329,7 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       toast.error(mapApiError(e, 'taskDetailModal.toasts.updateFailed'))
       try {
         task.value = await taskStore.fetchOne(cur.id)
+        resetSubtaskDraft(task.value)
       } catch {
         /* keep stale task */
       }
@@ -387,12 +454,23 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       formAssigneeId.value = cur.assignee_id ?? 0
       formStatus.value = cur.status
       formPriority.value = cur.priority
+      resetSubtaskDraft(cur)
     }
     editing.value = false
     if (options.allowInlineEdit()) {
       options.onClose?.()
     }
   }
+
+  const hasSubtaskChanges = computed(() => {
+    if (subtaskRemovedIds.value.length > 0) return true
+    for (const it of subtaskDraft.value) {
+      if (it.id == null) return true
+      const o = subtaskOriginal.value.get(it.id)
+      if (!o || o.title !== it.title || o.done !== it.done) return true
+    }
+    return false
+  })
 
   const taskModalDirty = computed(() => {
     const cur = task.value
@@ -405,7 +483,7 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
       || formProjectId.value !== cur.project_id
       || formSectionId.value !== (cur.section_id ?? null)
       || formAssigneeId.value !== (cur.assignee_id ?? 0)
-    )
+    ) || hasSubtaskChanges.value
   })
 
   const taskFooterVisible = computed(() => {
@@ -475,6 +553,10 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
     linkBusy,
     canManageNotes,
     pickerCandidates,
+    subtaskDraft,
+    subtaskRemovedIds,
+    subtaskOriginal,
+    hasSubtaskChanges,
     taskModalDirty,
     taskFooterVisible,
     showHeaderLinkedNotesButton,
