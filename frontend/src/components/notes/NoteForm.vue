@@ -173,27 +173,29 @@ function onSubmit() {
         <span class="h-px flex-1 bg-border" />
       </button>
       <div v-show="extraOpen" class="mt-3 space-y-3">
-        <div v-if="projects.length">
-          <label class="mb-1 block text-xs font-medium text-muted" for="note-form-project">{{
-            t('notes.form.project')
-          }}</label>
-          <UiSelect
-            id="note-form-project"
-            v-model="projectChoice"
-            :options="projectOptions"
-            :disabled="loading"
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-medium text-muted" for="note-form-section">{{
-            t('notes.form.section')
-          }}</label>
-          <UiSelect
-            id="note-form-section"
-            v-model="sectionChoiceStr"
-            :options="sectionOptions"
-            :disabled="loading"
-          />
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div v-if="projects.length" class="min-w-0">
+            <label class="mb-1 block text-xs font-medium text-muted" for="note-form-project">{{
+              t('notes.form.project')
+            }}</label>
+            <UiSelect
+              id="note-form-project"
+              v-model="projectChoice"
+              :options="projectOptions"
+              :disabled="loading"
+            />
+          </div>
+          <div class="min-w-0" :class="projects.length ? '' : 'sm:col-span-2'">
+            <label class="mb-1 block text-xs font-medium text-muted" for="note-form-section">{{
+              t('notes.form.section')
+            }}</label>
+            <UiSelect
+              id="note-form-section"
+              v-model="sectionChoiceStr"
+              :options="sectionOptions"
+              :disabled="loading"
+            />
+          </div>
         </div>
       </div>
     </div>

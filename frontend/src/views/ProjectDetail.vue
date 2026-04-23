@@ -161,6 +161,7 @@ const modalProjectId = ref(0)
 const modalTaskSectionId = ref<number | null>(null)
 const modalStatus = ref<TaskStatus>('todo')
 const modalPriority = ref<TaskPriority>('medium')
+const modalAssigneeId = ref(0)
 const modalSaving = ref(false)
 
 const taskCreateModalDirty = computed(
@@ -170,7 +171,8 @@ const taskCreateModalDirty = computed(
       || modalDescription.value.trim() !== ''
       || modalStatus.value !== 'todo'
       || modalPriority.value !== 'medium'
-      || modalTaskSectionId.value !== null),
+      || modalTaskSectionId.value !== null
+      || modalAssigneeId.value > 0),
 )
 
 const editProjectModalOpen = ref(false)
@@ -328,6 +330,7 @@ watch(showModal, (open) => {
     modalTaskSectionId.value = null
     modalStatus.value = 'todo'
     modalPriority.value = 'medium'
+    modalAssigneeId.value = 0
     return
   }
   if (Number.isFinite(id.value) && id.value > 0) {
@@ -575,7 +578,7 @@ async function createTaskFromModal() {
   }
   modalSaving.value = true
   try {
-    await taskStore.create({
+    const created = await taskStore.create({
       title: trimmedTitle,
       description: modalDescription.value.trim(),
       project_id: pid,
@@ -583,6 +586,16 @@ async function createTaskFromModal() {
       status: modalStatus.value,
       priority: modalPriority.value,
     })
+    if (modalAssigneeId.value > 0) {
+      try {
+        await taskStore.assign(created.id, modalAssigneeId.value)
+      } catch (e: unknown) {
+        toast.error(mapApiError(e, 'projectDetail.createTaskFailed'))
+        showModal.value = false
+        await refreshProjectTasks()
+        return
+      }
+    }
     showModal.value = false
     await refreshProjectTasks()
     toast.success(t('projectDetail.taskCreated'))
@@ -865,11 +878,13 @@ async function onReopen(taskId: number) {
         v-model:section-id="modalTaskSectionId"
         v-model:status="modalStatus"
         v-model:priority="modalPriority"
+        v-model:assignee-id="modalAssigneeId"
         form-id="project-new-task"
         hide-footer
         hide-project-select
         :sections="projectStore.sections"
         :projects="projectOptions"
+        :assignable-users="assignableUsers"
         :loading="modalSaving"
         :submit-label="t('projectDetail.submitCreate')"
         @submit="createTaskFromModal"

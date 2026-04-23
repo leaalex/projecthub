@@ -3,6 +3,7 @@ import {
   DocumentTextIcon,
   LinkIcon,
 } from '@heroicons/vue/24/outline'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Modal from '../ui/UiModal.vue'
 import Button from '../ui/UiButton.vue'
@@ -90,12 +91,18 @@ const {
   onOpenNote: p => emit('openNote', p),
   onClose: () => emit('update:modelValue', false),
 })
+
+const taskModalTitle = computed(() => {
+  if (props.trashed) return t('taskDetailModal.viewTitle')
+  if (task.value && !canEdit.value) return t('taskDetailModal.viewTitle')
+  return t('taskDetailModal.editTitle')
+})
 </script>
 
 <template>
   <Modal
     :model-value="modelValue"
-    :title="t('taskDetailModal.title')"
+    :title="taskModalTitle"
     :dirty="taskModalDirty"
     @update:model-value="emit('update:modelValue', $event)"
   >

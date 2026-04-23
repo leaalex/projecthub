@@ -789,7 +789,8 @@
     "reset": "Reset filters"
   },
   "taskDetailModal": {
-    "title": "Task details",
+    "editTitle": "Edit task",
+    "viewTitle": "Task details",
     "loadError": "Could not load task.",
     "labels": {
       "title": "Title",
@@ -935,7 +936,8 @@
     },
     "detail": {
       "sidebarTitle": "Note details",
-      "title": "Note",
+      "editModalTitle": "Edit note",
+      "viewTitle": "Note details",
       "noManagePermission": "You don’t have permission to edit this note.",
       "loadError": "Could not load note.",
       "saved": "Note saved",

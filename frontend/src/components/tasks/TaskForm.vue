@@ -112,10 +112,7 @@ const priorityMenuLabel = computed(
 )
 
 const showExtraBlock = computed(
-  () =>
-    !props.hideProjectSelect
-    || props.sections.length > 0
-    || props.assignableUsers.length > 0,
+  () => !props.hideProjectSelect || props.sections.length > 0,
 )
 
 const extraOpen = ref(true)
@@ -186,6 +183,18 @@ watch(
       </div>
     </div>
 
+    <div v-if="assignableUsers.length > 0">
+      <label class="mb-1 block text-xs font-medium text-muted" for="tf-assignee">{{
+        t('taskForm.labels.assignee')
+      }}</label>
+      <UiSelect
+        id="tf-assignee"
+        v-model="assigneeSelectStr"
+        :options="assigneeOptions"
+        :disabled="loading"
+      />
+    </div>
+
     <slot name="before-extra" />
 
     <div v-if="showExtraBlock" class="mt-6">
@@ -204,38 +213,31 @@ watch(
         <span class="h-px flex-1 bg-border" />
       </button>
       <div v-show="extraOpen" class="mt-3 space-y-3">
-        <div v-if="!hideProjectSelect">
-          <label class="mb-1 block text-xs font-medium text-muted" for="tf-project">{{
-            t('taskForm.labels.project')
-          }}</label>
-          <UiSelect
-            id="tf-project"
-            v-model="projectSelectStr"
-            :options="projectSelectOptions"
-            :disabled="loading"
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-medium text-muted" for="tf-section">{{
-            t('taskForm.labels.section')
-          }}</label>
-          <UiSelect
-            id="tf-section"
-            v-model="sectionChoiceStr"
-            :options="sectionOptions"
-            :disabled="loading"
-          />
-        </div>
-        <div v-if="assignableUsers.length > 0">
-          <label class="mb-1 block text-xs font-medium text-muted" for="tf-assignee">{{
-            t('taskForm.labels.assignee')
-          }}</label>
-          <UiSelect
-            id="tf-assignee"
-            v-model="assigneeSelectStr"
-            :options="assigneeOptions"
-            :disabled="loading"
-          />
+        <div
+          class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
+        >
+          <div v-if="!hideProjectSelect" class="min-w-0">
+            <label class="mb-1 block text-xs font-medium text-muted" for="tf-project">{{
+              t('taskForm.labels.project')
+            }}</label>
+            <UiSelect
+              id="tf-project"
+              v-model="projectSelectStr"
+              :options="projectSelectOptions"
+              :disabled="loading"
+            />
+          </div>
+          <div class="min-w-0" :class="hideProjectSelect ? 'sm:col-span-2' : ''">
+            <label class="mb-1 block text-xs font-medium text-muted" for="tf-section">{{
+              t('taskForm.labels.section')
+            }}</label>
+            <UiSelect
+              id="tf-section"
+              v-model="sectionChoiceStr"
+              :options="sectionOptions"
+              :disabled="loading"
+            />
+          </div>
         </div>
       </div>
     </div>

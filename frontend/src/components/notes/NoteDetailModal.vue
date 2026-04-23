@@ -3,6 +3,7 @@ import {
   DocumentCheckIcon,
   LinkIcon,
 } from '@heroicons/vue/24/outline'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ProjectSection } from '@domain/project/types'
 import { useDetailPanelStore } from '@app/detailPanel.store'
@@ -83,12 +84,18 @@ const {
   onClose: () => emit('update:modelValue', false),
   onOpenTask: id => emit('openTask', id),
 })
+
+const noteModalTitle = computed(() => {
+  if (props.trashed) return t('notes.detail.viewTitle')
+  if (note.value && !props.canManage) return t('notes.detail.viewTitle')
+  return t('notes.detail.editModalTitle')
+})
 </script>
 
 <template>
   <Modal
     :model-value="modelValue"
-    :title="note?.title ?? t('notes.detail.title')"
+    :title="noteModalTitle"
     :dirty="noteModalDirty"
     @update:model-value="emit('update:modelValue', $event)"
   >

@@ -29,7 +29,10 @@ import { useDetailPanelStore } from '@app/detailPanel.store'
 import { useProjectStore } from '@app/project.store'
 import { useTaskStore } from '@app/task.store'
 import { extractNoteAxiosError, useNoteStore } from '@app/note.store'
-import { useTasksPageAssignableUsers } from '@app/composables/useAdminAssignableUsers'
+import {
+  useProjectScopedAssignableUsers,
+  useTasksPageAssignableUsers,
+} from '@app/composables/useAdminAssignableUsers'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
@@ -101,7 +104,12 @@ const projectId = ref(0)
 const taskSectionId = ref<number | null>(null)
 const status = ref<TaskStatus>('todo')
 const priority = ref<TaskPriority>('medium')
+const taskAssigneeId = ref(0)
 const saving = ref(false)
+
+const { assignableUsers: createAssignableUsers } = useProjectScopedAssignableUsers(
+  () => projectId.value,
+)
 
 const taskCreateModalDirty = computed(
   () =>
@@ -110,7 +118,8 @@ const taskCreateModalDirty = computed(
       || description.value.trim() !== ''
       || status.value !== 'todo'
       || priority.value !== 'medium'
-      || taskSectionId.value !== null),
+      || taskSectionId.value !== null
+      || taskAssigneeId.value > 0),
 )
 
 const allowServerFilterWatch = ref(false)
@@ -416,6 +425,7 @@ watch(showModal, async (open) => {
     taskSectionId.value = null
     status.value = 'todo'
     priority.value = 'medium'
+    taskAssigneeId.value = 0
     return
   }
   const filtered = Number(filterProject.value)
@@ -472,7 +482,7 @@ async function createTask() {
   }
   saving.value = true
   try {
-    await taskStore.create({
+    const created = await taskStore.create({
       title: trimmedTitle,
       description: description.value.trim(),
       project_id: pid,
@@ -480,6 +490,16 @@ async function createTask() {
       status: status.value,
       priority: priority.value,
     })
+    if (taskAssigneeId.value > 0) {
+      try {
+        await taskStore.assign(created.id, taskAssigneeId.value)
+      } catch (e: unknown) {
+        toast.error(mapApiError(e, 'tasks.toasts.createFailed'))
+        showModal.value = false
+        await load()
+        return
+      }
+    }
     showModal.value = false
     toast.success(t('tasks.toasts.created'))
   } catch (e: unknown) {
@@ -727,10 +747,12 @@ async function onSectionMove(payload: {
         v-model:section-id="taskSectionId"
         v-model:status="status"
         v-model:priority="priority"
+        v-model:assignee-id="taskAssigneeId"
         form-id="tasks-new-task"
         hide-footer
         :sections="projectStore.sections"
         :projects="projectStore.projects.map((p) => ({ id: p.id, name: p.name }))"
+        :assignable-users="createAssignableUsers"
         :loading="saving"
         :submit-label="t('tasks.submitCreate')"
         @project-picked="prefetchTaskCreateSections"
