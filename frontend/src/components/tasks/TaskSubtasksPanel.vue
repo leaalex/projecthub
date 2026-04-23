@@ -83,6 +83,13 @@ const effectiveAllowRename = computed(() => {
   return !props.compact
 })
 
+/** В сайдбаре (draftMode=false) — edit/trash скрыты до hover; в модалке — всегда. */
+const subtaskActionRevealClass = computed(() =>
+  props.draftMode
+    ? 'transition-opacity'
+    : 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
+)
+
 function sortSubtasks(list: Subtask[]): Subtask[] {
   return [...list].sort(
     (a, b) => a.position - b.position || a.id - b.id,
@@ -222,7 +229,7 @@ function onNewKeydown(e: KeyboardEvent) {
 }
 
 function startEdit(s: Subtask | DraftSubtask) {
-  if (!effectiveAllowRename.value || busyId.value != null) return
+  if (busyId.value != null) return
   if (isDraft(s)) {
     editingClientKey.value = s.clientKey
   } else {
@@ -326,13 +333,13 @@ defineExpose({ focusNewInput })
     <div class="min-w-0 space-y-2 pl-2 sm:pl-3">
     <ul
       v-if="sorted.length > 0"
-      :class="compact ? 'space-y-1' : 'space-y-1.5'"
+      class="space-y-0.5"
     >
       <li
         v-for="s in sorted"
         :key="itemKey(s)"
-        class="flex min-w-0 items-center gap-2"
-        :class="compact ? 'py-1' : 'py-1.5'"
+        class="group flex min-w-0 items-center gap-2"
+        :class="compact ? 'py-0.5' : 'py-1'"
       >
         <div
           v-if="draftMode && isDraft(s) && isSubtaskRowDirty(s)"
@@ -384,9 +391,8 @@ defineExpose({ focusNewInput })
               <button
                 v-if="effectiveAllowRename && !compact"
                 type="button"
-                class="min-w-0 flex-1 rounded px-0.5 text-left leading-snug transition-colors hover:bg-surface-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                class="min-w-0 flex-1 rounded px-0.5 py-0 text-left text-sm leading-snug transition-colors hover:bg-surface-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 :class="[
-                  'pt-0.5 text-sm',
                   s.done ? 'text-muted line-through' : 'text-foreground',
                 ]"
                 :title="t('taskSubtasks.clickToEdit')"
@@ -421,7 +427,7 @@ defineExpose({ focusNewInput })
                 v-else
                 class="min-w-0 flex-1 leading-snug"
                 :class="[
-                  compact ? 'pt-0 text-xs' : 'pt-0.5 text-sm',
+                  compact ? 'pt-0 text-xs' : 'py-0 text-sm',
                   s.done ? 'text-muted line-through' : 'text-foreground',
                 ]"
               >
@@ -430,9 +436,23 @@ defineExpose({ focusNewInput })
             </template>
           </div>
           <button
+            v-if="!compact && !isEditingItem(s)"
+            type="button"
+            class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            :class="subtaskActionRevealClass"
+            :aria-label="t('taskSubtasks.aria.editSubtaskTitle')"
+            :title="t('taskSubtasks.editTitle')"
+            :disabled="busyId != null && !isDraft(s) && busyId === s.id"
+            @mousedown.prevent
+            @click.stop="startEdit(s)"
+          >
+            <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
             v-if="!compact"
             type="button"
-            class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            :class="subtaskActionRevealClass"
             :aria-label="t('taskSubtasks.aria.removeSubtask')"
             :disabled="(busyId != null && !isDraft(s) && busyId === s.id) || isEditingItem(s)"
             @mousedown.prevent
@@ -453,7 +473,7 @@ defineExpose({ focusNewInput })
 
     <div
       v-if="!readonly && !compact"
-      class="flex min-w-0 items-center gap-2 py-1.5"
+      class="flex min-w-0 items-center gap-2 py-1"
     >
       <input
         type="checkbox"
