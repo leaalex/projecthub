@@ -62,6 +62,36 @@ func TestProject_RemoveMember_owner(t *testing.T) {
 	}
 }
 
+func TestProject_UpdateSection_displayMode(t *testing.T) {
+	owner := user.ID(1)
+	p, err := project.NewProject(owner, user.RoleCreator, "T", "", project.KindTeam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	s, _ := p.AddSection("A", now)
+	s.AssignID(1)
+	if s.DisplayMode() != project.SectionDisplayPlain {
+		t.Fatalf("default mode %v", s.DisplayMode())
+	}
+	if err := p.UpdateSection(1, "A2", project.SectionDisplayProgress, now); err != nil {
+		t.Fatal(err)
+	}
+	if s.Name() != "A2" || s.DisplayMode() != project.SectionDisplayProgress {
+		t.Fatalf("got name=%q mode=%v", s.Name(), s.DisplayMode())
+	}
+	if err := p.UpdateSection(999, "X", project.SectionDisplayPlain, now); err != project.ErrSectionNotFound {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestParseSectionDisplayMode_invalid(t *testing.T) {
+	_, err := project.ParseSectionDisplayMode("nope")
+	if err != project.ErrInvalidSectionDisplayMode {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestProject_ReorderSections_invalid(t *testing.T) {
 	owner := user.ID(1)
 	p, err := project.NewProject(owner, user.RoleCreator, "T", "", project.KindTeam)

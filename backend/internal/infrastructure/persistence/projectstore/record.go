@@ -34,12 +34,13 @@ func (MemberRecord) TableName() string { return "project_members" }
 
 // SectionRecord — строка project_sections (общие секции задач и заметок).
 type SectionRecord struct {
-	ID        uint      `gorm:"primaryKey"`
-	ProjectID uint      `gorm:"not null;index"`
-	Name      string    `gorm:"not null"`
-	Position  int       `gorm:"not null;default:0;index"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	ID          uint      `gorm:"primaryKey"`
+	ProjectID   uint      `gorm:"not null;index"`
+	Name        string    `gorm:"not null"`
+	Position    int       `gorm:"not null;default:0;index"`
+	DisplayMode string    `gorm:"type:text;not null;default:'plain'"`
+	CreatedAt   time.Time `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
 }
 
 func (SectionRecord) TableName() string { return "project_sections" }

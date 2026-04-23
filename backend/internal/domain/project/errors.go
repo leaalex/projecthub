@@ -13,8 +13,9 @@ var (
 	ErrSectionNotFound       = errors.New("section not found")
 	ErrInvalidReorder        = errors.New("invalid section reorder")
 	ErrInvalidMemberRole     = errors.New("invalid project role")
-	ErrInvalidSectionName    = errors.New("invalid section name")
-	ErrInvalidProjectName    = errors.New("invalid project name")
+	ErrInvalidSectionName        = errors.New("invalid section name")
+	ErrInvalidSectionDisplayMode = errors.New("invalid section display mode")
+	ErrInvalidProjectName        = errors.New("invalid project name")
 	// ErrOwnershipUnchanged — попытка передать владение тому же пользователю.
 	ErrOwnershipUnchanged = errors.New("invalid ownership transfer")
 )

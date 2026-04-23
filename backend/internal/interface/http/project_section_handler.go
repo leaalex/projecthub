@@ -33,21 +33,24 @@ func (h *ProjectSectionHandler) enrichAssignee(ctx context.Context, t *task.Task
 
 func sectionJSON(projectID uint, s *project.Section) gin.H {
 	return gin.H{
-		"id":         s.ID().Uint(),
-		"project_id": projectID,
-		"name":       s.Name(),
-		"position":   s.Position(),
-		"created_at": s.CreatedAt(),
-		"updated_at": s.UpdatedAt(),
+		"id":            s.ID().Uint(),
+		"project_id":    projectID,
+		"name":          s.Name(),
+		"position":      s.Position(),
+		"display_mode":  string(s.DisplayMode()),
+		"created_at":    s.CreatedAt(),
+		"updated_at":    s.UpdatedAt(),
 	}
 }
 
 type sectionCreateBody struct {
-	Name string `json:"name" binding:"required"`
+	Name        string  `json:"name" binding:"required"`
+	DisplayMode *string `json:"display_mode"`
 }
 
 type sectionUpdateBody struct {
-	Name string `json:"name" binding:"required"`
+	Name        string  `json:"name" binding:"required"`
+	DisplayMode *string `json:"display_mode"`
 }
 
 type sectionReorderBody struct {
@@ -118,7 +121,11 @@ func (h *ProjectSectionHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sec, err := h.Projects.AddSection(c.Request.Context(), pid, body.Name)
+	dm := ""
+	if body.DisplayMode != nil {
+		dm = *body.DisplayMode
+	}
+	sec, err := h.Projects.AddSection(c.Request.Context(), pid, body.Name, dm)
 	if err != nil {
 		handleServiceError(c, err)
 		return
@@ -162,7 +169,7 @@ func (h *ProjectSectionHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sec, err := h.Projects.RenameSection(c.Request.Context(), pid, uint(sectionIDRaw), body.Name)
+	sec, err := h.Projects.UpdateSection(c.Request.Context(), pid, uint(sectionIDRaw), body.Name, body.DisplayMode)
 	if err != nil {
 		handleServiceError(c, err)
 		return

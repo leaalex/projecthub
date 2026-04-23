@@ -38,6 +38,7 @@ import { useConfirm } from '@app/composables/useConfirm'
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
+import type { SectionDisplayMode } from '@domain/project/types'
 import type { TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
@@ -123,6 +124,7 @@ const projectOptions = computed(() =>
 const sectionEditOpen = ref(false)
 const sectionEditId = ref<number | null>(null)
 const sectionEditName = ref('')
+const sectionEditDisplayMode = ref<SectionDisplayMode>('plain')
 const showNoteModal = ref(false)
 const savingNote = ref(false)
 const noteCreateTitle = ref('')
@@ -418,15 +420,17 @@ function openNoteEdit(noteId: number) {
   noteEditModalOpen.value = true
 }
 
-function onEditSection(payload: { sectionId: number; name: string }) {
+function onEditSection(payload: { sectionId: number; name: string; displayMode: SectionDisplayMode }) {
   sectionEditId.value = payload.sectionId
   sectionEditName.value = payload.name
+  sectionEditDisplayMode.value = payload.displayMode
   sectionEditOpen.value = true
 }
 
 function openSectionCreate() {
   sectionEditId.value = null
   sectionEditName.value = ''
+  sectionEditDisplayMode.value = 'plain'
   sectionEditOpen.value = true
 }
 
@@ -817,6 +821,7 @@ async function onReopen(taskId: number) {
       :project-id="Number.isFinite(id) ? id : 0"
       :section-id="sectionEditId"
       :initial-name="sectionEditName"
+      :initial-display-mode="sectionEditDisplayMode"
       @saved="onNotesChanged"
       @deleted="onNotesChanged"
     />

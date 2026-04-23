@@ -3,6 +3,7 @@ import { PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ProjectItemGroup, WorkspaceItem } from '@app/composables/useProjectItemsPresentation'
+import type { SectionDisplayMode } from '@domain/project/types'
 import { useProjectStore } from '@app/project.store'
 import { extractNoteAxiosError } from '@app/note.store'
 import type { Note } from '@domain/note/types'
@@ -52,7 +53,7 @@ const emit = defineEmits<{
     },
   ]
   sectionsUpdated: []
-  editSection: [payload: { sectionId: number; name: string }]
+  editSection: [payload: { sectionId: number; name: string; displayMode: SectionDisplayMode }]
 }>()
 
 const dragItem = ref<{ kind: 'task' | 'note'; id: number } | null>(null)
@@ -222,7 +223,19 @@ async function onSectionDropAt(targetSectionId: number, placeAfter: boolean) {
 function openSectionEdit(g: ProjectItemGroup) {
   const sid = sectionIdForGroup(g)
   if (sid == null) return
-  emit('editSection', { sectionId: sid, name: g.label })
+  emit('editSection', { sectionId: sid, name: g.label, displayMode: g.displayMode })
+}
+
+function sectionTaskProgress(g: ProjectItemGroup): { done: number; total: number } {
+  const tasks = g.items.filter((i): i is { kind: 'task'; task: Task } => i.kind === 'task')
+  const total = tasks.length
+  const done = tasks.filter(i => i.task.status === 'done').length
+  return { done, total }
+}
+
+function sectionProgressLabel(g: ProjectItemGroup): string {
+  const { done, total } = sectionTaskProgress(g)
+  return `${done}/${total}`
 }
 
 function sectionIdForGroup(g: ProjectItemGroup): number | null {
@@ -367,6 +380,10 @@ function onRowDragLeave(e: DragEvent) {
             <h2 class="min-w-0 flex-1">
               {{ g.label }}
             </h2>
+            <span
+              v-if="g.displayMode === 'progress'"
+              class="shrink-0 text-xs tabular-nums text-muted"
+            >{{ sectionProgressLabel(g) }}</span>
           </div>
           <div
             class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
@@ -385,12 +402,18 @@ function onRowDragLeave(e: DragEvent) {
           </div>
         </div>
       </template>
-      <h2
+      <div
         v-else-if="g.key !== 'unsectioned'"
-        class="text-sm font-semibold text-foreground"
+        class="flex flex-wrap items-baseline gap-2"
       >
-        {{ g.label }}
-      </h2>
+        <h2 class="text-sm font-semibold text-foreground">
+          {{ g.label }}
+        </h2>
+        <span
+          v-if="g.displayMode === 'progress'"
+          class="text-xs tabular-nums text-muted"
+        >{{ sectionProgressLabel(g) }}</span>
+      </div>
 
       <div
         v-show="g.key !== 'unsectioned' || g.items.length > 0 || showUnsectionedDropZone"

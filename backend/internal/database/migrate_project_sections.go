@@ -43,6 +43,46 @@ func migrateProjectSections(db *gorm.DB) error {
 	return clearNoteSectionRefsAndDropLegacy(db)
 }
 
+// migrateProjectSectionDisplayMode — SQLite: при отсутствии колонки `display_mode` в `project_sections` добавить её
+// (существующие БД, созданные до AutoMigrate).
+func migrateProjectSectionDisplayMode(db *gorm.DB) error {
+	if db.Dialector.Name() != "sqlite" {
+		return nil
+	}
+	var n int64
+	if err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_sections'").Scan(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return nil
+	}
+	rows, err := db.Raw("PRAGMA table_info(project_sections)").Rows()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var (
+		cid     int
+		colName string
+		typ     string
+		notnull int
+		dflt    any
+		pk      int
+	)
+	for rows.Next() {
+		if err := rows.Scan(&cid, &colName, &typ, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if colName == "display_mode" {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return db.Exec("ALTER TABLE project_sections ADD COLUMN display_mode TEXT NOT NULL DEFAULT 'plain'").Error
+}
+
 func clearNoteSectionRefsAndDropLegacy(db *gorm.DB) error {
 	_ = db.Exec("UPDATE notes SET section_id = NULL WHERE section_id IS NOT NULL").Error
 	return db.Exec("DROP TABLE IF EXISTS note_sections").Error

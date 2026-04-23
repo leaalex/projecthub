@@ -1,4 +1,4 @@
-import type { Project } from '@domain/project/types'
+import type { Project, SectionDisplayMode } from '@domain/project/types'
 import type { User } from '@domain/user/types'
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
@@ -43,7 +43,13 @@ export interface Task {
   created_at: string
   updated_at: string
   project?: Project
-  section?: { id: number; project_id: number; name: string; position: number } | null
+  section?: {
+    id: number
+    project_id: number
+    name: string
+    position: number
+    display_mode?: SectionDisplayMode
+  } | null
   assignee?: User | null
   subtasks?: Subtask[]
   /** From API: caller can manage task fields (owner / manager / admin / staff). */

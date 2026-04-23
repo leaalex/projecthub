@@ -8,6 +8,7 @@ import type {
   ProjectMemberRole,
   ProjectSection,
   RemoveMemberResult,
+  SectionDisplayMode,
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
@@ -118,16 +119,30 @@ export const useProjectStore = defineStore('project', () => {
     sections.value = []
   }
 
-  async function createSection(projectId: number, name: string) {
-    const { data } = await projectsApi.sections.create(projectId, name)
+  async function createSection(
+    projectId: number,
+    name: string,
+    displayMode?: SectionDisplayMode,
+  ) {
+    const { data } = await projectsApi.sections.create(projectId, name, displayMode)
     sections.value = [...sections.value, data.section].sort(
       (a, b) => a.position - b.position || a.id - b.id,
     )
     return data.section
   }
 
-  async function updateSection(projectId: number, sectionId: number, name: string) {
-    const { data } = await projectsApi.sections.update(projectId, sectionId, name)
+  async function updateSection(
+    projectId: number,
+    sectionId: number,
+    name: string,
+    displayMode?: SectionDisplayMode,
+  ) {
+    const { data } = await projectsApi.sections.update(
+      projectId,
+      sectionId,
+      name,
+      displayMode,
+    )
     const i = sections.value.findIndex((s) => s.id === sectionId)
     if (i >= 0) sections.value.splice(i, 1, data.section)
     sections.value.sort((a, b) => a.position - b.position || a.id - b.id)

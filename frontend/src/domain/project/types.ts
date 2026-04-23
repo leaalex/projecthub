@@ -65,12 +65,17 @@ export interface RemoveMemberResult {
   transferred?: number
 }
 
+/** Режим отображения заголовка секции (серверное свойство). */
+export type SectionDisplayMode = 'plain' | 'progress'
+
 /** Общие секции проекта (`project_sections`) — для задач и заметок. */
 export interface ProjectSection {
   id: number
   project_id: number
   name: string
   position: number
+  /** С сервера; при старых ответах может отсутствовать — нормализуется в `plain`. */
+  display_mode?: SectionDisplayMode
   created_at: string
   updated_at: string
 }

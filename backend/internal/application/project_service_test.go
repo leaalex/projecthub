@@ -373,11 +373,11 @@ func TestProjectService_ReorderSections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1, err := svc.AddSection(context.Background(), p.ID().Uint(), "A")
+	s1, err := svc.AddSection(context.Background(), p.ID().Uint(), "A", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s2, err := svc.AddSection(context.Background(), p.ID().Uint(), "B")
+	s2, err := svc.AddSection(context.Background(), p.ID().Uint(), "B", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,5 +398,53 @@ func TestProjectService_ReorderSections(t *testing.T) {
 	}
 	if secs[1].ID() != s1.ID() || secs[1].Position() != 2 {
 		t.Fatalf("pos2 section %+v", secs[1])
+	}
+}
+
+func TestProjectService_SectionDisplayMode(t *testing.T) {
+	memU := newMemUsers()
+	repo := newMemProjects()
+	svc := application.NewProjectService(repo, memU)
+	seedUser(t, memU, user.RoleCreator, "c@x.test")
+
+	p, _, err := svc.Create(context.Background(), 1, user.RoleCreator, "S", "", "team")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sec, err := svc.AddSection(context.Background(), p.ID().Uint(), "Col", "progress")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sec.DisplayMode() != project.SectionDisplayProgress {
+		t.Fatalf("mode %v", sec.DisplayMode())
+	}
+	plain := "plain"
+	up, err := svc.UpdateSection(context.Background(), p.ID().Uint(), sec.ID().Uint(), "Col2", &plain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if up.Name() != "Col2" || up.DisplayMode() != project.SectionDisplayPlain {
+		t.Fatalf("got %+v / %v", up.Name(), up.DisplayMode())
+	}
+	p2, err := repo.FindByID(context.Background(), p.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *project.Section
+	for _, s := range p2.Sections() {
+		if s.ID() == sec.ID() {
+			found = s
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("section not found after repo load")
+	}
+	if found.DisplayMode() != project.SectionDisplayPlain {
+		t.Fatalf("after repo load display mode: got %v want plain", found.DisplayMode())
+	}
+	_, err = svc.AddSection(context.Background(), p.ID().Uint(), "Bad", "invalid")
+	if err != project.ErrInvalidSectionDisplayMode {
+		t.Fatalf("got %v", err)
 	}
 }

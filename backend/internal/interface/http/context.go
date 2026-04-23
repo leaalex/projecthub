@@ -140,6 +140,8 @@ func mapServiceError(err error) (code string, status int) {
 		return "invalid_member_role", http.StatusBadRequest
 	case errors.Is(err, project.ErrInvalidSectionName):
 		return "invalid_section_name", http.StatusBadRequest
+	case errors.Is(err, project.ErrInvalidSectionDisplayMode):
+		return "invalid_section_display_mode", http.StatusBadRequest
 
 	case errors.Is(err, user.ErrCannotDeleteSelf):
 		return "cannot_delete_self", http.StatusConflict

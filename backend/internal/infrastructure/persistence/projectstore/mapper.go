@@ -30,10 +30,15 @@ func recordToDomain(pr *ProjectRecord, memRows []MemberRecord, secRows []Section
 	sections := make([]*project.Section, 0, len(secRows))
 	for i := range secRows {
 		s := &secRows[i]
+		dm, err := project.ParseSectionDisplayMode(s.DisplayMode)
+		if err != nil {
+			dm = project.SectionDisplayPlain
+		}
 		sections = append(sections, project.ReconstituteSection(
 			project.SectionID(s.ID),
 			s.Name,
 			s.Position,
+			dm,
 			s.CreatedAt,
 			s.UpdatedAt,
 		))
@@ -88,11 +93,12 @@ func sectionToRecord(projectID project.ID, s *project.Section) SectionRecord {
 		id = s.ID().Uint()
 	}
 	return SectionRecord{
-		ID:        id,
-		ProjectID: projectID.Uint(),
-		Name:      s.Name(),
-		Position:  s.Position(),
-		CreatedAt: s.CreatedAt(),
-		UpdatedAt: s.UpdatedAt(),
+		ID:          id,
+		ProjectID:   projectID.Uint(),
+		Name:        s.Name(),
+		Position:    s.Position(),
+		DisplayMode: string(s.DisplayMode()),
+		CreatedAt:   s.CreatedAt(),
+		UpdatedAt:   s.UpdatedAt(),
 	}
 }

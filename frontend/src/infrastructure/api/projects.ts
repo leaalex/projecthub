@@ -4,6 +4,7 @@ import type {
   ProjectMemberRole,
   ProjectSection,
   RemoveMemberResult,
+  SectionDisplayMode,
   TaskTransfer,
   TaskTransferMode,
 } from '@domain/project/types'
@@ -113,20 +114,28 @@ export const projectsApi = {
      * Создать секцию.
      * @http POST /projects/:projectId/sections
      */
-    create: (projectId: number, name: string) =>
-      api.post<{ section: ProjectSection }>(
-        `/projects/${projectId}/sections`,
-        { name },
-      ),
+    create: (projectId: number, name: string, displayMode?: SectionDisplayMode) =>
+      api.post<{ section: ProjectSection }>(`/projects/${projectId}/sections`, {
+        name,
+        ...(displayMode !== undefined && { display_mode: displayMode }),
+      }),
 
     /**
-     * Переименовать секцию.
+     * Обновить секцию (имя и/или display_mode).
      * @http PUT /projects/:projectId/sections/:sectionId
      */
-    update: (projectId: number, sectionId: number, name: string) =>
+    update: (
+      projectId: number,
+      sectionId: number,
+      name: string,
+      displayMode?: SectionDisplayMode,
+    ) =>
       api.put<{ section: ProjectSection }>(
         `/projects/${projectId}/sections/${sectionId}`,
-        { name },
+        {
+          name,
+          ...(displayMode !== undefined && { display_mode: displayMode }),
+        },
       ),
 
     /**

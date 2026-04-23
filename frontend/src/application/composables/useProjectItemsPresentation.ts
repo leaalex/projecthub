@@ -1,6 +1,6 @@
 import type { ComposerTranslation } from 'vue-i18n'
 import type { Note } from '@domain/note/types'
-import type { ProjectSection } from '@domain/project/types'
+import type { ProjectSection, SectionDisplayMode } from '@domain/project/types'
 import {
   filterTasks,
   type AssigneeFilterValue,
@@ -19,7 +19,13 @@ export interface ProjectItemGroup {
   key: string
   label: string
   order: number
+  /** Режим отображения; для `unsectioned` / неизвестных — plain. */
+  displayMode: SectionDisplayMode
   items: WorkspaceItem[]
+}
+
+function sectionDisplayMode(m: ProjectSection['display_mode'] | undefined): SectionDisplayMode {
+  return m === 'progress' ? 'progress' : 'plain'
 }
 
 function parseIso(s: string): number {
@@ -132,13 +138,14 @@ export function presentProjectItems(
 
   const map = new Map<
     string,
-    { key: string; label: string; order: number; items: WorkspaceItem[] }
+    { key: string; label: string; order: number; displayMode: SectionDisplayMode; items: WorkspaceItem[] }
   >()
 
   map.set('unsectioned', {
     key: 'unsectioned',
     label: t('projectDetail.unsectioned'),
     order: -1,
+    displayMode: 'plain',
     items: [],
   })
 
@@ -149,6 +156,7 @@ export function presentProjectItems(
       key: `s-${s.id}`,
       label: s.name,
       order: s.position,
+      displayMode: sectionDisplayMode(s.display_mode),
       items: [],
     })
   }
@@ -170,6 +178,9 @@ export function presentProjectItems(
             ? t('tasks.unknownSection', { id: sid })
             : t('projectDetail.unsectioned')),
         order: meta?.position ?? task.section?.position ?? 9999,
+        displayMode: sectionDisplayMode(
+          meta?.display_mode ?? task.section?.display_mode,
+        ),
         items: [],
       })
     }
@@ -180,6 +191,8 @@ export function presentProjectItems(
     const key
       = note.section_id == null ? 'unsectioned' : `s-${note.section_id}`
     if (!map.has(key)) {
+      const sid = note.section_id
+      const meta = sid != null ? sectionById.get(sid) : undefined
       map.set(key, {
         key,
         label:
@@ -187,6 +200,7 @@ export function presentProjectItems(
             ? t('notes.unknownSection', { id: note.section_id })
             : t('projectDetail.unsectioned'),
         order: 9999,
+        displayMode: sectionDisplayMode(meta?.display_mode),
         items: [],
       })
     }
@@ -202,5 +216,11 @@ export function presentProjectItems(
 
   return [...map.values()]
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
-    .map(({ key, label, order, items }) => ({ key, label, order, items }))
+    .map(({ key, label, order, displayMode, items }) => ({
+      key,
+      label,
+      order,
+      displayMode,
+      items,
+    }))
 }

@@ -201,9 +201,10 @@ func (r *GormRepository) Save(ctx context.Context, p *project.Project) error {
 				s.AssignID(project.SectionID(sr.ID))
 			} else {
 				if err := tx.Model(&SectionRecord{}).Where("id = ?", sr.ID).Updates(map[string]any{
-					"name":       sr.Name,
-					"position":   sr.Position,
-					"updated_at": sr.UpdatedAt,
+					"name":         sr.Name,
+					"position":     sr.Position,
+					"display_mode": sr.DisplayMode,
+					"updated_at":   sr.UpdatedAt,
 				}).Error; err != nil {
 					return err
 				}

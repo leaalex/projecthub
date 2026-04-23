@@ -404,13 +404,17 @@ func (s *ProjectService) ListSections(ctx context.Context, projectID uint) ([]*p
 	return out, nil
 }
 
-// AddSection добавляет секцию.
-func (s *ProjectService) AddSection(ctx context.Context, projectID uint, name string) (*project.Section, error) {
+// AddSection добавляет секцию. displayMode — пустой или отсутствующий в JSON нормализуется в plain.
+func (s *ProjectService) AddSection(ctx context.Context, projectID uint, name, displayMode string) (*project.Section, error) {
+	mode, err := project.ParseSectionDisplayMode(displayMode)
+	if err != nil {
+		return nil, err
+	}
 	p, err := s.Projects.FindByID(ctx, project.ID(projectID))
 	if err != nil {
 		return nil, err
 	}
-	sec, err := p.AddSection(name, s.now())
+	sec, err := p.AddSection(name, s.now(), mode)
 	if err != nil {
 		return nil, err
 	}
@@ -420,14 +424,28 @@ func (s *ProjectService) AddSection(ctx context.Context, projectID uint, name st
 	return sec, nil
 }
 
-// RenameSection переименовывает секцию.
-func (s *ProjectService) RenameSection(ctx context.Context, projectID, sectionID uint, name string) (*project.Section, error) {
+// UpdateSection обновляет имя и/или display_mode. Если displayMode = nil, режим не меняется.
+func (s *ProjectService) UpdateSection(ctx context.Context, projectID, sectionID uint, name string, displayMode *string) (*project.Section, error) {
 	p, err := s.Projects.FindByID(ctx, project.ID(projectID))
 	if err != nil {
 		return nil, err
 	}
 	sid := project.SectionID(sectionID)
-	if err := p.RenameSection(sid, name, s.now()); err != nil {
+	cur := p.SectionByID(sid)
+	if cur == nil {
+		return nil, project.ErrSectionNotFound
+	}
+	var mode project.SectionDisplayMode
+	if displayMode == nil {
+		mode = cur.DisplayMode()
+	} else {
+		var err2 error
+		mode, err2 = project.ParseSectionDisplayMode(*displayMode)
+		if err2 != nil {
+			return nil, err2
+		}
+	}
+	if err := p.UpdateSection(sid, name, mode, s.now()); err != nil {
 		return nil, err
 	}
 	if err := s.Projects.Save(ctx, p); err != nil {
@@ -438,6 +456,11 @@ func (s *ProjectService) RenameSection(ctx context.Context, projectID, sectionID
 		return nil, err
 	}
 	return p2.SectionByID(sid), nil
+}
+
+// RenameSection переименовывает секцию.
+func (s *ProjectService) RenameSection(ctx context.Context, projectID, sectionID uint, name string) (*project.Section, error) {
+	return s.UpdateSection(ctx, projectID, sectionID, name, nil)
 }
 
 // DeleteSection удаляет секцию.

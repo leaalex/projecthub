@@ -46,6 +46,9 @@ func Open(databasePath string) (*gorm.DB, error) {
 	if err := migrateProjectSections(db); err != nil {
 		return nil, err
 	}
+	if err := migrateProjectSectionDisplayMode(db); err != nil {
+		return nil, err
+	}
 
 	if err := db.AutoMigrate(
 		&userstore.Record{},

@@ -172,8 +172,8 @@ func (p *Project) TransferOwnership(newOwner user.ID, now time.Time) error {
 	return nil
 }
 
-// AddSection добавляет секцию в конец (position = max+1).
-func (p *Project) AddSection(name string, now time.Time) (*Section, error) {
+// AddSection добавляет секцию в конец (position = max+1). Необязательный displayMode, иначе plain.
+func (p *Project) AddSection(name string, now time.Time, displayMode ...SectionDisplayMode) (*Section, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrInvalidSectionName
@@ -184,10 +184,46 @@ func (p *Project) AddSection(name string, now time.Time) (*Section, error) {
 			maxPos = s.Position()
 		}
 	}
-	sec := newSection(name, maxPos+1, now)
+	mode := SectionDisplayPlain
+	if len(displayMode) > 0 {
+		mode = displayMode[0]
+		if err := mode.validate(); err != nil {
+			return nil, err
+		}
+	}
+	sec := newSection(name, maxPos+1, mode, now)
 	p.sections = append(p.sections, sec)
 	p.Touch(now)
 	return sec, nil
+}
+
+// ChangeSectionDisplayMode задаёт режим отображения секции.
+func (p *Project) ChangeSectionDisplayMode(id SectionID, mode SectionDisplayMode, now time.Time) error {
+	s := p.findSection(id)
+	if s == nil {
+		return ErrSectionNotFound
+	}
+	if err := s.setDisplayMode(mode, now); err != nil {
+		return err
+	}
+	p.Touch(now)
+	return nil
+}
+
+// UpdateSection атомарно обновляет имя и отображение секции.
+func (p *Project) UpdateSection(id SectionID, name string, mode SectionDisplayMode, now time.Time) error {
+	s := p.findSection(id)
+	if s == nil {
+		return ErrSectionNotFound
+	}
+	if err := s.Rename(name, now); err != nil {
+		return err
+	}
+	if err := s.setDisplayMode(mode, now); err != nil {
+		return err
+	}
+	p.Touch(now)
+	return nil
 }
 
 // RenameSection переименовывает секцию.

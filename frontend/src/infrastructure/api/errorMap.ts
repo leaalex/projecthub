@@ -50,6 +50,7 @@ const CODE_TO_KEY: Record<string, string> = {
   invalid_project_name: 'errors.invalidProjectName',
   invalid_member_role: 'errors.invalidMemberRole',
   invalid_section_name: 'errors.invalidSectionName',
+  invalid_section_display_mode: 'errors.invalidSectionDisplayMode',
   cannot_delete_self: 'errors.cannotDeleteSelf',
   already_member: 'errors.alreadyMember',
   link_already_exists: 'errors.linkAlreadyExists',
