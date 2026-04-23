@@ -753,7 +753,7 @@ async function onReopen(taskId: number) {
         </Button>
       </EmptyState>
     </template>
-    <template v-else-if="totalItemCount === 0">
+    <template v-else-if="totalItemCount === 0 && projectStore.sections.length === 0">
       <EmptyState
         class="mt-6"
         :title="t('projectDetail.emptyWorkspaceTitle')"

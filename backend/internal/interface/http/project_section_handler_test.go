@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	domainuser "task-manager/backend/internal/domain/user"
+	"task-manager/backend/internal/domain/ordering"
 	"task-manager/backend/internal/infrastructure/persistence/notestore"
 	"task-manager/backend/internal/infrastructure/persistence/taskstore"
 	"task-manager/backend/internal/testutil"
@@ -27,6 +29,22 @@ func mustNotePosition(t *testing.T, app *testutil.TestApp, id uint) int {
 		t.Fatal(err)
 	}
 	return r.Position
+}
+
+func mustTaskUpdatedAt(t *testing.T, app *testutil.TestApp, id uint) time.Time {
+	t.Helper()
+	var r taskstore.TaskRecord
+	if err := app.DB.First(&r, id).Error; err != nil {
+		t.Fatal(err)
+	}
+	return r.UpdatedAt
+}
+
+func assertTimeUnchanged(t *testing.T, label string, before, after time.Time) {
+	t.Helper()
+	if before.UnixMicro() != after.UnixMicro() {
+		t.Fatalf("%s: updated_at changed: before=%v after=%v", label, before, after)
+	}
 }
 
 func moveItemURL(pid uint) string {
@@ -97,6 +115,158 @@ func TestProjectSection_MoveItem_TwoTasksReorder(t *testing.T) {
 	p2a := mustTaskPosition(t, app, t2)
 	if p2a >= p1a {
 		t.Fatalf("expected t2 before t1 after move, got pos t2=%d t1=%d", p2a, p1a)
+	}
+}
+
+func TestProjectSection_MoveItem_DoesNotBumpUpdatedAt(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+
+	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
+		"name": "MoveUpd",
+		"kind": "team",
+	}, token)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create project: %d %v", rec.Code, data)
+	}
+	pid := uint(data["project"].(map[string]any)["id"].(float64))
+
+	recSec, dSec := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", pid), map[string]any{
+		"name": "Sec",
+	}, token)
+	if recSec.Code != http.StatusCreated {
+		t.Fatalf("section: %d %v", recSec.Code, dSec)
+	}
+	sid := uint(dSec["section"].(map[string]any)["id"].(float64))
+
+	recT1, dT1 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+		"title":      "T1",
+		"project_id": pid,
+		"section_id": sid,
+	}, token)
+	if recT1.Code != http.StatusCreated {
+		t.Fatalf("task1: %d %v", recT1.Code, dT1)
+	}
+	t1 := uint(dT1["task"].(map[string]any)["id"].(float64))
+	recT2, dT2 := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+		"title":      "T2",
+		"project_id": pid,
+		"section_id": sid,
+	}, token)
+	if recT2.Code != http.StatusCreated {
+		t.Fatalf("task2: %d %v", recT2.Code, dT2)
+	}
+	t2 := uint(dT2["task"].(map[string]any)["id"].(float64))
+
+	u1Before := mustTaskUpdatedAt(t, app, t1)
+	u2Before := mustTaskUpdatedAt(t, app, t2)
+
+	recM, dM := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         t2,
+		"section_id": sid,
+		"before_id":  nil,
+		"after_id": map[string]any{
+			"kind": "task",
+			"id":   t1,
+		},
+	}, token)
+	if recM.Code != http.StatusOK {
+		t.Fatalf("move: %d %v", recM.Code, dM)
+	}
+
+	assertTimeUnchanged(t, "t1", u1Before, mustTaskUpdatedAt(t, app, t1))
+	assertTimeUnchanged(t, "t2", u2Before, mustTaskUpdatedAt(t, app, t2))
+}
+
+func TestProjectSection_MoveItem_Rebalance_DoesNotBumpNeighbors(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+
+	rec, data := app.Do(http.MethodPost, "/api/projects", map[string]any{
+		"name": "RebalUpd",
+		"kind": "team",
+	}, token)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create project: %d %v", rec.Code, data)
+	}
+	pid := uint(data["project"].(map[string]any)["id"].(float64))
+
+	recSec, dSec := app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/sections", pid), map[string]any{
+		"name": "Sec",
+	}, token)
+	if recSec.Code != http.StatusCreated {
+		t.Fatalf("section: %d %v", recSec.Code, dSec)
+	}
+	sid := uint(dSec["section"].(map[string]any)["id"].(float64))
+
+	var t1, t2, t3 uint
+	for i, title := range []string{"T1", "T2", "T3"} {
+		recT, dT := app.Do(http.MethodPost, "/api/tasks", map[string]any{
+			"title":      title,
+			"project_id": pid,
+			"section_id": sid,
+		}, token)
+		if recT.Code != http.StatusCreated {
+			t.Fatalf("task %d: %d %v", i, recT.Code, dT)
+		}
+		id := uint(dT["task"].(map[string]any)["id"].(float64))
+		switch i {
+		case 0:
+			t1 = id
+		case 1:
+			t2 = id
+		case 2:
+			t3 = id
+		}
+	}
+
+	if err := app.DB.Model(&taskstore.TaskRecord{}).Where("id = ?", t1).UpdateColumn("position", 100).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DB.Model(&taskstore.TaskRecord{}).Where("id = ?", t2).UpdateColumn("position", 101).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := app.DB.Model(&taskstore.TaskRecord{}).Where("id = ?", t3).UpdateColumn("position", 500).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	u1Before := mustTaskUpdatedAt(t, app, t1)
+	u2Before := mustTaskUpdatedAt(t, app, t2)
+	u3Before := mustTaskUpdatedAt(t, app, t3)
+
+	recM, dM := app.Do(http.MethodPost, moveItemURL(pid), map[string]any{
+		"kind":       "task",
+		"id":         t3,
+		"section_id": sid,
+		"before_id": map[string]any{
+			"kind": "task",
+			"id":   t1,
+		},
+		"after_id": map[string]any{
+			"kind": "task",
+			"id":   t2,
+		},
+	}, token)
+	if recM.Code != http.StatusOK {
+		t.Fatalf("move: %d %v", recM.Code, dM)
+	}
+
+	assertTimeUnchanged(t, "t1", u1Before, mustTaskUpdatedAt(t, app, t1))
+	assertTimeUnchanged(t, "t2", u2Before, mustTaskUpdatedAt(t, app, t2))
+	assertTimeUnchanged(t, "t3", u3Before, mustTaskUpdatedAt(t, app, t3))
+
+	step := int(ordering.Step)
+	if got := mustTaskPosition(t, app, t1); got != step {
+		t.Fatalf("t1 position want %d got %d", step, got)
+	}
+	if got := mustTaskPosition(t, app, t3); got != 2*step {
+		t.Fatalf("t3 position want %d got %d", 2*step, got)
+	}
+	if got := mustTaskPosition(t, app, t2); got != 3*step {
+		t.Fatalf("t2 position want %d got %d", 3*step, got)
 	}
 }
 

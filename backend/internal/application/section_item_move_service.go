@@ -191,6 +191,7 @@ func refPointsToSelf(ref *SectionItemRef, kind string, id uint) bool {
 }
 
 // Move перемещает элемент в целевую секцию и задаёт position между before и after (или в конец, если оба nil).
+// position и section_id пишутся через UpdateColumns, чтобы не трогать updated_at: DnD не семантическое изменение.
 func (s *SectionItemMoveService) Move(ctx context.Context, callerID uint, role user.Role, in SectionItemMoveInput) (*SectionItemMoveResult, error) {
 	if in.ProjectID == 0 || in.ItemID == 0 {
 		return nil, ErrInvalidInput
@@ -245,7 +246,6 @@ func (s *SectionItemMoveService) Move(ctx context.Context, callerID uint, role u
 		}
 	}
 
-	now := s.Clock()
 	var result *SectionItemMoveResult
 
 	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -304,21 +304,21 @@ func (s *SectionItemMoveService) Move(ctx context.Context, callerID uint, role u
 				it := ordered[i]
 				switch it.kind {
 				case "task":
-					up := map[string]any{"position": pos, "updated_at": now}
+					up := map[string]any{"position": pos}
 					if it.kind == in.Kind && it.id == in.ItemID {
 						up["section_id"] = in.SectionID
 					}
 					if err := tx.Model(&taskstore.TaskRecord{}).Where("id = ? AND project_id = ?", it.id, in.ProjectID).
-						Updates(up).Error; err != nil {
+						UpdateColumns(up).Error; err != nil {
 						return err
 					}
 				case "note":
-					up := map[string]any{"position": pos, "updated_at": now}
+					up := map[string]any{"position": pos}
 					if it.kind == in.Kind && it.id == in.ItemID {
 						up["section_id"] = in.SectionID
 					}
 					if err := tx.Model(&notestore.NoteRecord{}).Where("id = ? AND project_id = ? AND deleted_at IS NULL", it.id, in.ProjectID).
-						Updates(up).Error; err != nil {
+						UpdateColumns(up).Error; err != nil {
 						return err
 					}
 				default:
@@ -330,13 +330,13 @@ func (s *SectionItemMoveService) Move(ctx context.Context, callerID uint, role u
 			case "task":
 				if err := tx.Model(&taskstore.TaskRecord{}).
 					Where("id = ? AND project_id = ?", in.ItemID, in.ProjectID).
-					Updates(map[string]any{"section_id": in.SectionID, "position": int(newPos), "updated_at": now}).Error; err != nil {
+					UpdateColumns(map[string]any{"section_id": in.SectionID, "position": int(newPos)}).Error; err != nil {
 					return err
 				}
 			case "note":
 				if err := tx.Model(&notestore.NoteRecord{}).
 					Where("id = ? AND project_id = ? AND deleted_at IS NULL", in.ItemID, in.ProjectID).
-					Updates(map[string]any{"section_id": in.SectionID, "position": int(newPos), "updated_at": now}).Error; err != nil {
+					UpdateColumns(map[string]any{"section_id": in.SectionID, "position": int(newPos)}).Error; err != nil {
 					return err
 				}
 			default:
