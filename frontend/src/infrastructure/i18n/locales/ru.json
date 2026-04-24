@@ -36,6 +36,11 @@
     "noData": "Нет данных",
     "additional": "Дополнительно"
   },
+  "pwa": {
+    "updateReady": "Доступна новая версия приложения.",
+    "update": "Обновить",
+    "offlineReady": "Приложение готово к работе без сети."
+  },
   "errors": {
     "userNotFound": "Пользователь не найден",
     "taskNotFound": "Задача не найдена",
@@ -642,6 +647,9 @@
       "subtitle": "Примитивы интерфейса из папки components/ui.",
       "onThisPage": "На этой странице: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiDetailPanelShell, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Глобально в оболочке: UiToast, UiConfirmDialog, UiCommandPalette."
     },
+    "appLogo": {
+      "hint": "Контурный знак: обводка совпадает с цветом текста (currentColor). Задайте его классами вроде text-primary или text-muted."
+    },
     "sections": {
       "buttons": "Кнопки",
       "segmented": "Сегментированный переключатель (UiSegmentedControl)",
@@ -654,7 +662,8 @@
       "breadcrumb": "Хлебные крошки (пример)",
       "empty": "Пустое состояние и скелетоны",
       "detailPanelShell": "Оболочка боковой панели (UiDetailPanelShell)",
-      "modal": "Модальное окно и глобальные оверлеи"
+      "modal": "Модальное окно и глобальные оверлеи",
+      "appLogo": "Логотип приложения (UiAppLogo)"
     },
     "segmentedTwo": {
       "list": "Список",

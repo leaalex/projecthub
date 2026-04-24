@@ -36,6 +36,11 @@
     "noData": "No data",
     "additional": "Additional"
   },
+  "pwa": {
+    "updateReady": "A new version is available.",
+    "update": "Update",
+    "offlineReady": "App is ready to work offline."
+  },
   "errors": {
     "userNotFound": "User not found",
     "taskNotFound": "Task not found",
@@ -642,6 +647,9 @@
       "subtitle": "Project UI primitives from the components/ui folder.",
       "onThisPage": "On this page: UiButton, UiSegmentedControl, UiInput, UiSelect, UiBadge, UiAvatar, UiCard, UiTable, UiBreadcrumb, UiEmptyState, UiSkeleton, UiModal, UiDetailPanelShell, UiFormSection, UiScrollPanel, UiTextAction, UiCheckboxRow, UiFilterChip. Globally in the app shell: UiToast, UiConfirmDialog, UiCommandPalette."
     },
+    "appLogo": {
+      "hint": "Outline mark: stroke uses the text color (currentColor). Set it with classes such as text-primary or text-muted."
+    },
     "sections": {
       "buttons": "Buttons",
       "segmented": "Segmented control (UiSegmentedControl)",
@@ -654,7 +662,8 @@
       "breadcrumb": "Breadcrumb (sample)",
       "empty": "Empty state & skeletons",
       "detailPanelShell": "Detail panel shell (UiDetailPanelShell)",
-      "modal": "Modal & global overlays"
+      "modal": "Modal & global overlays",
+      "appLogo": "App logo (UiAppLogo)"
     },
     "segmentedTwo": {
       "list": "List",

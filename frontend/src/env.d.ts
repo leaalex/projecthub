@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 import type { MarkdownStorage } from 'tiptap-markdown'
 import 'vue-router'

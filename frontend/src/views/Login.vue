@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import LoginForm from '../components/auth/LoginForm.vue'
+import UiAppLogo from '../components/ui/UiAppLogo.vue'
 import { useAuthStore } from '@app/auth.store'
 
 const router = useRouter()
@@ -34,7 +35,10 @@ async function onSubmit() {
   <div class="flex min-h-screen items-center justify-center bg-background px-4">
     <div class="w-full max-w-md rounded-xl border border-border bg-surface p-8">
       <h1 class="text-2xl font-semibold text-foreground">{{ t('auth.signInTitle') }}</h1>
-      <p class="mt-1 text-sm text-muted">{{ t('common.brand') }}</p>
+      <p class="mt-1 flex items-center gap-2 text-sm text-muted">
+        <UiAppLogo class="h-6 w-6" />
+        <span>{{ t('common.brand') }}</span>
+      </p>
       <LoginForm
         v-model:email="email"
         v-model:password="password"

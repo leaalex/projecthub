@@ -3,11 +3,17 @@ import { ref } from 'vue'
 
 export type ToastType = 'success' | 'error' | 'info'
 
+export interface ToastAction {
+  label: string
+  run: () => void
+}
+
 export interface ToastItem {
   id: number
   message: string
   type: ToastType
   duration: number
+  action?: ToastAction
 }
 
 let idSeq = 0
@@ -19,6 +25,7 @@ export const useToastStore = defineStore('toast', () => {
     message: string
     type?: ToastType
     duration?: number
+    action?: ToastAction
   }) {
     const id = ++idSeq
     const duration = opts.duration ?? 4000
@@ -27,6 +34,7 @@ export const useToastStore = defineStore('toast', () => {
       message: opts.message,
       type: opts.type ?? 'info',
       duration,
+      action: opts.action,
     })
     if (duration > 0) {
       window.setTimeout(() => dismiss(id), duration)

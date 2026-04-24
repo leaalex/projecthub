@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import { useToastStore } from '@app/toast.store'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToastStore()
+const { t } = useI18n()
+
+function onAction(itemId: number, run: () => void) {
+  run()
+  toast.dismiss(itemId)
+}
 </script>
 
 <template>
@@ -13,27 +20,37 @@ const toast = useToastStore()
     >
       <TransitionGroup name="toast">
         <div
-          v-for="t in toast.items"
-          :key="t.id"
+          v-for="item in toast.items"
+          :key="item.id"
           class="pointer-events-auto flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3"
           :class="{
             'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40':
-              t.type === 'success',
+              item.type === 'success',
             'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40':
-              t.type === 'error',
+              item.type === 'error',
             'border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40':
-              t.type === 'info',
+              item.type === 'info',
           }"
         >
-          <p class="flex-1 text-sm text-foreground">{{ t.message }}</p>
-          <button
-            type="button"
-            class="shrink-0 rounded p-0.5 text-muted hover:bg-surface-muted hover:text-foreground"
-            aria-label="Dismiss"
-            @click="toast.dismiss(t.id)"
-          >
-            <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-          </button>
+          <p class="flex-1 text-sm text-foreground">{{ item.message }}</p>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              v-if="item.action"
+              type="button"
+              class="rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+              @click="onAction(item.id, item.action.run)"
+            >
+              {{ item.action.label }}
+            </button>
+            <button
+              type="button"
+              class="rounded p-0.5 text-muted hover:bg-surface-muted hover:text-foreground"
+              :aria-label="t('common.close')"
+              @click="toast.dismiss(item.id)"
+            >
+              <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </TransitionGroup>
     </div>

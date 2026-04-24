@@ -5,6 +5,7 @@ import { i18n } from '@infra/i18n'
 import router from './router'
 import { useAuthStore } from '@app/auth.store'
 import { useUiStore } from '@app/ui.store'
+import { initPwaUpdates } from '@app/composables/usePwaUpdate'
 import './style.css'
 
 async function bootstrap() {
@@ -25,6 +26,7 @@ async function bootstrap() {
 
   app.use(router)
   app.mount('#app')
+  initPwaUpdates()
 }
 
 void bootstrap()

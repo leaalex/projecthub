@@ -2,6 +2,7 @@
 import { HomeIcon, UserIcon, Cog6ToothIcon } from '@heroicons/vue/20/solid'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import UiAppLogo from '../components/ui/UiAppLogo.vue'
 import UiAvatar from '../components/ui/UiAvatar.vue'
 import UiBadge from '../components/ui/UiBadge.vue'
 import UiBreadcrumb from '../components/ui/UiBreadcrumb.vue'
@@ -171,6 +172,20 @@ function onDemoMenuSelect(v: string | number) {
     </div>
 
     <div class="space-y-8">
+      <UiCard :title="t('uiKit.sections.appLogo')">
+        <p class="mb-3 text-sm text-muted">
+          {{ t('uiKit.appLogo.hint') }}
+        </p>
+        <div class="flex flex-wrap items-end gap-6">
+          <div class="flex items-center gap-2 text-primary">
+            <UiAppLogo class="h-9 w-9" />
+            <span class="text-sm font-semibold">{{ t('common.brand') }}</span>
+          </div>
+          <UiAppLogo class="h-9 w-9 text-foreground" />
+          <UiAppLogo class="h-7 w-7 text-muted" />
+        </div>
+      </UiCard>
+
       <UiCard :title="t('uiKit.sections.buttons')">
         <div class="flex flex-wrap items-center gap-3">
           <UiButton variant="primary">Primary</UiButton>

@@ -20,6 +20,7 @@ import { useProjectNavVisibility } from '@app/composables/useProjectNavVisibilit
 import { useAuthStore } from '@app/auth.store'
 import { useUiStore } from '@app/ui.store'
 import Avatar from '../ui/UiAvatar.vue'
+import UiAppLogo from '../ui/UiAppLogo.vue'
 
 defineProps<{
   collapsed: boolean
@@ -107,12 +108,20 @@ function openCommandPaletteFromSidebar() {
       "
     >
       <RouterLink
-        v-if="!collapsed"
         to="/dashboard"
-        class="flex min-h-0 min-w-0 flex-1 items-center pl-1.5 font-semibold text-primary md:justify-start md:pl-2"
+        class="flex min-h-0 min-w-0 items-center gap-2 pl-1.5 font-semibold text-primary md:pl-2"
+        :class="
+          collapsed
+            ? 'flex-1 justify-center px-0'
+            : 'min-w-0 flex-1 md:justify-start'
+        "
         @click="onNavigate"
       >
-        <span class="truncate text-sm leading-snug">{{ t('common.brand') }}</span>
+        <UiAppLogo class="h-7 w-7" />
+        <span
+          v-show="!collapsed"
+          class="truncate text-sm leading-snug"
+        >{{ t('common.brand') }}</span>
       </RouterLink>
       <button
         type="button"
