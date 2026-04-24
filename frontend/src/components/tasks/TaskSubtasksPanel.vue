@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { Bars2Icon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import { computed, nextTick, ref, useTemplateRef } from 'vue'
+import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { DraggableEvent } from 'vue-draggable-plus'
+import { VueDraggable } from 'vue-draggable-plus'
 import type { DraftSubtask, Subtask, Task } from '@domain/task/types'
 import { useTaskStore } from '@app/task.store'
 import { useToast } from '@app/composables/useToast'
 import { mapApiError } from '@infra/api/errorMap'
+import { COMMON_DND_OPTIONS } from '@/shared/dnd/draggableDefaults'
 import UiInput from '../ui/UiInput.vue'
-import UiDropSlot from '../ui/UiDropSlot.vue'
 
 const { t } = useI18n()
 
@@ -106,20 +108,25 @@ const canReorder = computed(() => {
   return props.draftMode || effectiveAllowRename.value
 })
 
-const dragKey = ref<string | number | null>(null)
-/** Индекс «слота» 0..n: вставка перед элементом i; n — хвост после последнего. */
-const dragOverIndex = ref<number | null>(null)
+/** Копия порядка для Sortable (тот же набор, что `sorted` по данным). */
+const orderedItems = ref<(Subtask | DraftSubtask)[]>([])
+
+watch(
+  sorted,
+  (s) => {
+    orderedItems.value = [...s]
+  },
+  { immediate: true, deep: true },
+)
+
+const subtaskDndOptions = { ...COMMON_DND_OPTIONS, handle: '.subtask-drag-handle' }
 
 /** В сайдбаре (draftMode=false) — edit/trash скрыты до hover; в модалке — всегда. */
-const subtaskActionRevealClass = computed(() => {
-  if (props.draftMode) {
-    return 'transition-opacity'
-  }
-  if (dragKey.value != null) {
-    return 'transition-opacity opacity-0 pointer-events-none'
-  }
-  return 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'
-})
+const subtaskActionRevealClass = computed(() =>
+  props.draftMode
+    ? 'transition-opacity'
+    : 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
+)
 
 function canDrag(s: Subtask | DraftSubtask) {
   return (
@@ -131,114 +138,12 @@ function canDrag(s: Subtask | DraftSubtask) {
   )
 }
 
-function onDragStart(s: Subtask | DraftSubtask, e: DragEvent) {
-  if (!canDrag(s)) {
-    e.preventDefault()
+function onSubtaskDragEnd(e: DraggableEvent<Subtask | DraftSubtask>) {
+  if (e.oldIndex === e.newIndex) {
     return
   }
-  dragKey.value = itemKey(s)
-  e.dataTransfer?.setData('text/plain', String(dragKey.value))
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-  }
-}
-
-function onDragEnd() {
-  dragKey.value = null
-  dragOverIndex.value = null
-}
-
-/**
- * Слот `slotIndex` 0..n-1: вставка *перед* `keys[slotIndex]`;
- * `slotIndex === n`: в хвост.
- */
-function reorderKeysBySlot(
-  keys: (string | number)[],
-  fromIdx: number,
-  slotIndex: number,
-): (string | number)[] {
-  const n = keys.length
-  if (n < 2) return keys
-  if (fromIdx < 0 || fromIdx >= n) return keys
-  const fromK = keys[fromIdx]!
-  const newKeys = keys.filter((_, j) => j !== fromIdx)
-  if (slotIndex >= n) {
-    newKeys.push(fromK)
-    return newKeys
-  }
-  const refK = keys[slotIndex]!
-  if (refK === fromK) {
-    newKeys.splice(fromIdx, 0, fromK)
-    return newKeys
-  }
-  const j = newKeys.indexOf(refK)
-  if (j < 0) {
-    return keys
-  }
-  newKeys.splice(j, 0, fromK)
-  return newKeys
-}
-
-function onSlotOver(i: number, e: DragEvent) {
-  e.preventDefault()
-  if (dragKey.value == null) {
-    return
-  }
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move'
-  }
-  dragOverIndex.value = i
-}
-
-/** Верхняя половина строки — слот i, нижняя — i+1 (вставка перед следующим). */
-function rowSlotFor(i: number, e: DragEvent) {
-  const el = e.currentTarget as HTMLElement
-  const r = el.getBoundingClientRect()
-  return (e.clientY - r.top) < r.height / 2 ? i : i + 1
-}
-
-function onRowDragEnter(e: DragEvent) {
-  if (!canReorder.value || dragKey.value == null) {
-    return
-  }
-  e.preventDefault()
-}
-
-function onRowDragOver(i: number, e: DragEvent) {
-  if (!canReorder.value || dragKey.value == null) {
-    return
-  }
-  e.preventDefault()
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move'
-  }
-  dragOverIndex.value = rowSlotFor(i, e)
-}
-
-function onRowDrop(i: number, e: DragEvent) {
-  if (!canReorder.value || dragKey.value == null) {
-    return
-  }
-  e.preventDefault()
-  e.stopPropagation()
-  onSlotDrop(rowSlotFor(i, e), e)
-}
-
-function onSlotDrop(i: number, e: DragEvent) {
-  e.preventDefault()
-  e.stopPropagation()
-  if (dragKey.value == null) {
-    return
-  }
-  const keys = sorted.value.map((x) => itemKey(x))
-  const fromIdx = keys.indexOf(dragKey.value)
-  if (fromIdx < 0) {
-    onDragEnd()
-    return
-  }
-  const newKeys = reorderKeysBySlot(keys, fromIdx, i)
-  applyOrderFromKeys(newKeys)
-  onDragEnd()
+  const keys = orderedItems.value.map((x) => itemKey(x))
+  applyOrderFromKeys(keys)
 }
 
 function applyOrderFromKeys(newKeys: (string | number)[]) {
@@ -254,7 +159,19 @@ function applyOrderFromKeys(newKeys: (string | number)[]) {
       }
     }
     draft.value = reordered
+    orderedItems.value = reordered
     return
+  }
+  {
+    const byKey = new Map(
+      (props.task.subtasks ?? []).map((s) => [s.id, s] as [number, Subtask]),
+    )
+    const next = newKeys
+      .map((k) => byKey.get(Number(k)))
+      .filter((x): x is Subtask => x != null)
+    if (next.length === newKeys.length) {
+      orderedItems.value = next
+    }
   }
   const ids = newKeys.map((k) => Number(k)) as number[]
   void doReorderServer(ids)
@@ -545,33 +462,31 @@ defineExpose({ focusNewInput })
       />
     </div>
 
-    <div class="min-w-0 space-y-2 pl-2 sm:pl-3">
-    <ul
+    <div class="min-w-0 space-y-2">
+    <VueDraggable
       v-if="sorted.length > 0"
+      v-model="orderedItems"
+      tag="ul"
       class="space-y-0"
+      :disabled="!canReorder"
+      v-bind="subtaskDndOptions"
+      @end="onSubtaskDragEnd"
     >
-      <template v-for="(s, i) in sorted" :key="itemKey(s)">
-        <UiDropSlot
-          v-if="canReorder"
-          :active="dragKey != null && dragOverIndex === i"
-          size="sm"
-          @dragenter.prevent
-          @dragover.prevent="onSlotOver(i, $event)"
-          @drop.prevent="onSlotDrop(i, $event)"
-        />
-        <li
-          class="group flex min-w-0 items-center gap-2 rounded-sm"
-          :class="[
-            compact ? 'py-0.5' : 'py-1',
-            dragKey === itemKey(s) && 'opacity-50',
-          ]"
-          :tabindex="canDrag(s) ? 0 : -1"
-          :aria-grabbed="canReorder && dragKey === itemKey(s) ? 'true' : 'false'"
-          @dragenter="onRowDragEnter"
-          @dragover="onRowDragOver(i, $event)"
-          @drop="onRowDrop(i, $event)"
-          @keydown="onRowKeydown(s, $event)"
-        >
+      <li
+        v-for="s in orderedItems"
+        :key="itemKey(s)"
+        class="group flex min-w-0 items-center gap-2 rounded-sm px-1.5"
+        :class="[
+          compact ? 'py-0.5' : 'py-1',
+          canDrag(s)
+            ? 'subtask-drag-handle touch-none cursor-grab active:cursor-grabbing'
+            : '',
+        ]"
+        :tabindex="canDrag(s) ? 0 : -1"
+        :aria-label="canDrag(s) ? t('taskSubtasks.aria.reorder', { title: s.title }) : undefined"
+        :title="canDrag(s) ? t('taskSubtasks.dragHandleTitle') : undefined"
+        @keydown="onRowKeydown(s, $event)"
+      >
         <div
           v-if="draftMode && isDraft(s) && isSubtaskRowDirty(s)"
           class="w-0.5 shrink-0 self-stretch rounded-full"
@@ -597,25 +512,6 @@ defineExpose({ focusNewInput })
           </span>
         </template>
         <template v-else>
-          <div
-            v-if="canReorder"
-            class="flex shrink-0 touch-none select-none"
-            :class="[
-              'items-center',
-              canDrag(s)
-                ? 'cursor-grab active:cursor-grabbing text-muted hover:text-foreground'
-                : 'pointer-events-none opacity-30',
-            ]"
-            :draggable="canDrag(s)"
-            :title="t('taskSubtasks.dragHandleTitle')"
-            :aria-label="t('taskSubtasks.aria.reorder', { title: s.title })"
-            role="button"
-            @dragstart="onDragStart(s, $event)"
-            @dragend="onDragEnd"
-            @click.stop
-          >
-            <Bars2Icon class="h-4 w-4" aria-hidden="true" />
-          </div>
           <input
             type="checkbox"
             class="h-3.5 w-3.5 shrink-0 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring sm:h-4 sm:w-4"
@@ -723,16 +619,7 @@ defineExpose({ focusNewInput })
           </button>
         </template>
       </li>
-      </template>
-      <UiDropSlot
-        v-if="canReorder"
-        :active="dragKey != null && dragOverIndex === sorted.length"
-        size="sm"
-        @dragenter.prevent
-        @dragover.prevent="onSlotOver(sorted.length, $event)"
-        @drop.prevent="onSlotDrop(sorted.length, $event)"
-      />
-    </ul>
+    </VueDraggable>
 
     <p
       v-else-if="readonly"
@@ -745,11 +632,6 @@ defineExpose({ focusNewInput })
       v-if="!readonly && !compact"
       class="flex min-w-0 items-center gap-2 py-1"
     >
-      <div
-        v-if="canReorder"
-        class="h-4 w-4 shrink-0"
-        aria-hidden="true"
-      />
       <input
         type="checkbox"
         disabled
