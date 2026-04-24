@@ -311,10 +311,7 @@ async function onNoteMove(payload: {
     })
   } catch (e: unknown) {
     toast.error(extractNoteAxiosError(e, 'tasks.toasts.moveFailed'))
-    await Promise.all([
-      projectStore.fetchTasks(pid).catch(() => {}),
-      noteStore.fetchList(pid, { quiet: true }).catch(() => {}),
-    ])
+    await projectStore.fetchTasks(pid).catch(() => {})
   } finally {
     await load()
   }
@@ -402,7 +399,6 @@ function openNoteFromTask(payload: { noteId: number; projectId: number }) {
 async function prepareNoteModalContext(projectId: number) {
   await projectStore.fetchOne(projectId).catch(() => {})
   await projectStore.fetchSections(projectId)
-  await noteStore.fetchList(projectId, { quiet: true })
   await taskStore.fetchList({ project_id: projectId }).catch(() => {})
 }
 

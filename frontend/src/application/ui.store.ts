@@ -8,6 +8,7 @@ import {
 import { setI18nLocale } from '@infra/i18n'
 
 const SIDEBAR_COLLAPSED_KEY = 'tm-ui-sidebar-collapsed'
+const BOTTOM_NAV_COLLAPSED_KEY = 'tm-ui-bottom-nav-collapsed'
 const THEME_KEY = 'tm-ui-theme'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
@@ -23,6 +24,22 @@ function readSidebarCollapsed(): boolean {
 function writeSidebarCollapsed(collapsed: boolean) {
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+function readBottomNavCollapsed(): boolean {
+  try {
+    return localStorage.getItem(BOTTOM_NAV_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeBottomNavCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(BOTTOM_NAV_COLLAPSED_KEY, collapsed ? '1' : '0')
   } catch {
     /* ignore */
   }
@@ -76,10 +93,13 @@ export const useUiStore = defineStore('ui', () => {
   const sidebarCollapsed = ref(readSidebarCollapsed())
   /** Mobile: overlay drawer open (< md breakpoint) */
   const mobileMenuOpen = ref(false)
+  /** Mobile: true = floating bottom nav collapsed to a brand pill */
+  const bottomNavCollapsed = ref(readBottomNavCollapsed())
   const theme = ref<ThemeMode>(readTheme())
   const locale = ref<AppLocale>(resolveAppLocale())
 
   watch(sidebarCollapsed, (v) => writeSidebarCollapsed(v))
+  watch(bottomNavCollapsed, (v) => writeBottomNavCollapsed(v))
   watch(theme, (v) => {
     writeTheme(v)
     applyThemeClass(v)
@@ -100,6 +120,14 @@ export const useUiStore = defineStore('ui', () => {
 
   function toggleSidebarCollapsed() {
     sidebarCollapsed.value = !sidebarCollapsed.value
+  }
+
+  function toggleBottomNavCollapsed() {
+    bottomNavCollapsed.value = !bottomNavCollapsed.value
+  }
+
+  function setBottomNavCollapsed(v: boolean) {
+    bottomNavCollapsed.value = v
   }
 
   function toggleMobileMenu() {
@@ -142,12 +170,15 @@ export const useUiStore = defineStore('ui', () => {
   return {
     sidebarCollapsed,
     mobileMenuOpen,
+    bottomNavCollapsed,
     theme,
     locale,
     commandPaletteOpen,
     toggleSidebarCollapsed,
     toggleMobileMenu,
     closeMobileMenu,
+    toggleBottomNavCollapsed,
+    setBottomNavCollapsed,
     cycleTheme,
     setTheme,
     setLocale,

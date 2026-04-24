@@ -2,6 +2,7 @@
   "common": {
     "home": "Главная",
     "cancel": "Отмена",
+    "close": "Закрыть",
     "save": "Сохранить",
     "delete": "Удалить",
     "edit": "Редактировать",
@@ -112,7 +113,9 @@
     "expandSidebar": "Развернуть боковую панель",
     "collapseSidebar": "Свернуть боковую панель",
     "toggleSidebar": "Переключить ширину боковой панели",
-    "mainNavigation": "Основная навигация"
+    "mainNavigation": "Основная навигация",
+    "more": "Ещё",
+    "moreMenu": "Дополнительное меню"
   },
   "commandPalette": {
     "ariaLabel": "Палитра команд",

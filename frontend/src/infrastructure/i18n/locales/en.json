@@ -2,6 +2,7 @@
   "common": {
     "home": "Home",
     "cancel": "Cancel",
+    "close": "Close",
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
@@ -112,7 +113,9 @@
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
     "toggleSidebar": "Toggle sidebar width",
-    "mainNavigation": "Primary navigation"
+    "mainNavigation": "Primary navigation",
+    "more": "More",
+    "moreMenu": "More menu"
   },
   "commandPalette": {
     "ariaLabel": "Command palette",
