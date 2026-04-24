@@ -7,6 +7,7 @@ import { useTaskStore } from '@app/task.store'
 import { useToast } from '@app/composables/useToast'
 import { mapApiError } from '@infra/api/errorMap'
 import UiInput from '../ui/UiInput.vue'
+import UiDropSlot from '../ui/UiDropSlot.vue'
 
 const { t } = useI18n()
 
@@ -95,13 +96,6 @@ const effectiveAllowRename = computed(() => {
   return props.allowRename && !props.compact
 })
 
-/** В сайдбаре (draftMode=false) — edit/trash скрыты до hover; в модалке — всегда. */
-const subtaskActionRevealClass = computed(() =>
-  props.draftMode
-    ? 'transition-opacity'
-    : 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
-)
-
 const canReorder = computed(() => {
   if (props.readonly || props.compact || sorted.value.length < 2) {
     return false
@@ -113,8 +107,19 @@ const canReorder = computed(() => {
 })
 
 const dragKey = ref<string | number | null>(null)
-const dragOverKey = ref<string | number | null>(null)
-const dragOverPos = ref<'before' | 'after' | null>(null)
+/** Индекс «слота» 0..n: вставка перед элементом i; n — хвост после последнего. */
+const dragOverIndex = ref<number | null>(null)
+
+/** В сайдбаре (draftMode=false) — edit/trash скрыты до hover; в модалке — всегда. */
+const subtaskActionRevealClass = computed(() => {
+  if (props.draftMode) {
+    return 'transition-opacity'
+  }
+  if (dragKey.value != null) {
+    return 'transition-opacity opacity-0 pointer-events-none'
+  }
+  return 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'
+})
 
 function canDrag(s: Subtask | DraftSubtask) {
   return (
@@ -138,7 +143,43 @@ function onDragStart(s: Subtask | DraftSubtask, e: DragEvent) {
   }
 }
 
-function onDragOver(s: Subtask | DraftSubtask, e: DragEvent) {
+function onDragEnd() {
+  dragKey.value = null
+  dragOverIndex.value = null
+}
+
+/**
+ * Слот `slotIndex` 0..n-1: вставка *перед* `keys[slotIndex]`;
+ * `slotIndex === n`: в хвост.
+ */
+function reorderKeysBySlot(
+  keys: (string | number)[],
+  fromIdx: number,
+  slotIndex: number,
+): (string | number)[] {
+  const n = keys.length
+  if (n < 2) return keys
+  if (fromIdx < 0 || fromIdx >= n) return keys
+  const fromK = keys[fromIdx]!
+  const newKeys = keys.filter((_, j) => j !== fromIdx)
+  if (slotIndex >= n) {
+    newKeys.push(fromK)
+    return newKeys
+  }
+  const refK = keys[slotIndex]!
+  if (refK === fromK) {
+    newKeys.splice(fromIdx, 0, fromK)
+    return newKeys
+  }
+  const j = newKeys.indexOf(refK)
+  if (j < 0) {
+    return keys
+  }
+  newKeys.splice(j, 0, fromK)
+  return newKeys
+}
+
+function onSlotOver(i: number, e: DragEvent) {
   e.preventDefault()
   if (dragKey.value == null) {
     return
@@ -146,16 +187,58 @@ function onDragOver(s: Subtask | DraftSubtask, e: DragEvent) {
   if (e.dataTransfer) {
     e.dataTransfer.dropEffect = 'move'
   }
-  const el = e.currentTarget as HTMLElement
-  const r = el.getBoundingClientRect()
-  dragOverKey.value = itemKey(s)
-  dragOverPos.value = (e.clientY - r.top) < r.height / 2 ? 'before' : 'after'
+  dragOverIndex.value = i
 }
 
-function onDragEnd() {
-  dragKey.value = null
-  dragOverKey.value = null
-  dragOverPos.value = null
+/** Верхняя половина строки — слот i, нижняя — i+1 (вставка перед следующим). */
+function rowSlotFor(i: number, e: DragEvent) {
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  return (e.clientY - r.top) < r.height / 2 ? i : i + 1
+}
+
+function onRowDragEnter(e: DragEvent) {
+  if (!canReorder.value || dragKey.value == null) {
+    return
+  }
+  e.preventDefault()
+}
+
+function onRowDragOver(i: number, e: DragEvent) {
+  if (!canReorder.value || dragKey.value == null) {
+    return
+  }
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  dragOverIndex.value = rowSlotFor(i, e)
+}
+
+function onRowDrop(i: number, e: DragEvent) {
+  if (!canReorder.value || dragKey.value == null) {
+    return
+  }
+  e.preventDefault()
+  e.stopPropagation()
+  onSlotDrop(rowSlotFor(i, e), e)
+}
+
+function onSlotDrop(i: number, e: DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  if (dragKey.value == null) {
+    return
+  }
+  const keys = sorted.value.map((x) => itemKey(x))
+  const fromIdx = keys.indexOf(dragKey.value)
+  if (fromIdx < 0) {
+    onDragEnd()
+    return
+  }
+  const newKeys = reorderKeysBySlot(keys, fromIdx, i)
+  applyOrderFromKeys(newKeys)
+  onDragEnd()
 }
 
 function applyOrderFromKeys(newKeys: (string | number)[]) {
@@ -188,30 +271,6 @@ async function doReorderServer(ids: number[]) {
   } finally {
     busyReorder.value = false
   }
-}
-
-function onDrop(s: Subtask | DraftSubtask, e: DragEvent) {
-  e.preventDefault()
-  if (dragKey.value == null) {
-    return
-  }
-  const fromK = dragKey.value
-  const overK = itemKey(s)
-  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const before = (e.clientY - r.top) < r.height / 2
-  const pos: 'before' | 'after' = before ? 'before' : 'after'
-  if (fromK === overK) {
-    onDragEnd()
-    return
-  }
-  const keys = sorted.value.map((x) => itemKey(x))
-  const newKeys = keys.filter((k) => k !== fromK)
-  const insertAt
-    = pos === 'before' ? newKeys.indexOf(overK) : newKeys.indexOf(overK) + 1
-  const at = insertAt < 0 ? 0 : insertAt
-  newKeys.splice(at, 0, fromK)
-  applyOrderFromKeys(newKeys)
-  onDragEnd()
 }
 
 function moveByKeyboard(s: Subtask | DraftSubtask, dir: -1 | 1) {
@@ -489,29 +548,30 @@ defineExpose({ focusNewInput })
     <div class="min-w-0 space-y-2 pl-2 sm:pl-3">
     <ul
       v-if="sorted.length > 0"
-      class="space-y-0.5"
+      class="space-y-0"
     >
-      <li
-        v-for="s in sorted"
-        :key="itemKey(s)"
-        class="group flex min-w-0 items-center gap-2 rounded-sm"
-        :class="[
-          compact ? 'py-0.5' : 'py-1',
-          dragKey === itemKey(s) && 'opacity-50',
-          dragKey != null
-            && dragOverKey === itemKey(s)
-            && dragOverPos === 'before' && 'border-t-2 border-primary',
-          dragKey != null
-            && dragOverKey === itemKey(s)
-            && dragOverPos === 'after' && 'border-b-2 border-primary',
-        ]"
-        :tabindex="canDrag(s) ? 0 : -1"
-        :aria-grabbed="canReorder && dragKey === itemKey(s) ? 'true' : 'false'"
-        @dragenter.prevent
-        @dragover="onDragOver(s, $event)"
-        @drop="onDrop(s, $event)"
-        @keydown="onRowKeydown(s, $event)"
-      >
+      <template v-for="(s, i) in sorted" :key="itemKey(s)">
+        <UiDropSlot
+          v-if="canReorder"
+          :active="dragKey != null && dragOverIndex === i"
+          size="sm"
+          @dragenter.prevent
+          @dragover.prevent="onSlotOver(i, $event)"
+          @drop.prevent="onSlotDrop(i, $event)"
+        />
+        <li
+          class="group flex min-w-0 items-center gap-2 rounded-sm"
+          :class="[
+            compact ? 'py-0.5' : 'py-1',
+            dragKey === itemKey(s) && 'opacity-50',
+          ]"
+          :tabindex="canDrag(s) ? 0 : -1"
+          :aria-grabbed="canReorder && dragKey === itemKey(s) ? 'true' : 'false'"
+          @dragenter="onRowDragEnter"
+          @dragover="onRowDragOver(i, $event)"
+          @drop="onRowDrop(i, $event)"
+          @keydown="onRowKeydown(s, $event)"
+        >
         <div
           v-if="draftMode && isDraft(s) && isSubtaskRowDirty(s)"
           class="w-0.5 shrink-0 self-stretch rounded-full"
@@ -663,6 +723,15 @@ defineExpose({ focusNewInput })
           </button>
         </template>
       </li>
+      </template>
+      <UiDropSlot
+        v-if="canReorder"
+        :active="dragKey != null && dragOverIndex === sorted.length"
+        size="sm"
+        @dragenter.prevent
+        @dragover.prevent="onSlotOver(sorted.length, $event)"
+        @drop.prevent="onSlotDrop(sorted.length, $event)"
+      />
     </ul>
 
     <p

@@ -119,3 +119,25 @@ body {
   opacity: 0;
   transform: translateX(1rem);
 }
+
+@keyframes dropSlotPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    filter: brightness(0.92) saturate(0.92);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.15) saturate(1.08);
+  }
+}
+
+.ui-drop-slot-capsule {
+  animation: dropSlotPulse 900ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-drop-slot-capsule {
+    animation: none;
+  }
+}

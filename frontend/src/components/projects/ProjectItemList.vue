@@ -11,6 +11,7 @@ import type { Task } from '@domain/task/types'
 import Button from '../ui/UiButton.vue'
 import { useToast } from '@app/composables/useToast'
 import ProjectItemCard from './ProjectItemCard.vue'
+import UiDropSlot from '../ui/UiDropSlot.vue'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -353,13 +354,17 @@ function onRowDragLeave(e: DragEvent) {
       :key="g.key"
       class="relative space-y-2"
     >
-      <div
-        v-if="isSectionDragging && dragOver === `sec-before:${g.key}`"
-        class="pointer-events-none absolute inset-x-0 -top-4 z-10 h-0.5 bg-primary"
+      <UiDropSlot
+        v-if="isSectionDragging"
+        inset
+        class="-top-4"
+        :active="dragOver === `sec-before:${g.key}`"
       />
-      <div
-        v-if="isSectionDragging && dragOver === `sec-after:${g.key}`"
-        class="pointer-events-none absolute inset-x-0 -bottom-4 z-10 h-0.5 bg-primary"
+      <UiDropSlot
+        v-if="isSectionDragging"
+        inset
+        class="-bottom-4"
+        :active="dragOver === `sec-after:${g.key}`"
       />
       <template
         v-if="manageSectionsActive && sectionIdForGroup(g) != null"
@@ -448,9 +453,11 @@ function onRowDragLeave(e: DragEvent) {
             @dragleave="onRowDragLeave"
             @drop="onRowDrop($event, g, idx)"
           >
-            <div
-              v-if="enableItemDrag && !isSectionDragging && dragOver === rowDragOverKey(item)"
-              class="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary"
+            <UiDropSlot
+              v-if="enableItemDrag && !isSectionDragging"
+              inset
+              class="-top-1"
+              :active="dragOver === rowDragOverKey(item)"
             />
             <ProjectItemCard
               :item="item"
