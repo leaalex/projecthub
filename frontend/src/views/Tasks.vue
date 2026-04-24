@@ -13,6 +13,7 @@ import Modal from '../components/ui/UiModal.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
+import TaskSubtasksPanel from '../components/tasks/TaskSubtasksPanel.vue'
 import TaskList from '../components/tasks/TaskList.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
 import NoteDetailModal from '../components/notes/NoteDetailModal.vue'
@@ -40,7 +41,7 @@ import {
 import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
-import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import type { DraftSubtask, Task, TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
 import { mapApiError } from '@infra/api/errorMap'
@@ -115,6 +116,8 @@ const { assignableUsers: createAssignableUsers } = useProjectScopedAssignableUse
   () => projectId.value,
 )
 
+const subtaskDraft = ref<DraftSubtask[]>([])
+
 const taskCreateModalDirty = computed(
   () =>
     showModal.value
@@ -123,7 +126,8 @@ const taskCreateModalDirty = computed(
       || status.value !== 'todo'
       || priority.value !== 'medium'
       || taskSectionId.value !== null
-      || taskAssigneeId.value > 0),
+      || taskAssigneeId.value > 0
+      || subtaskDraft.value.length > 0),
 )
 
 const allowServerFilterWatch = ref(false)
@@ -451,6 +455,7 @@ watch(showModal, async (open) => {
     status.value = 'todo'
     priority.value = 'medium'
     taskAssigneeId.value = 0
+    subtaskDraft.value = []
     return
   }
   const filtered = Number(filterProject.value)
@@ -505,6 +510,10 @@ async function createTask() {
     toast.error(t('tasks.toasts.selectProject'))
     return
   }
+  if (subtaskDraft.value.some(it => !it.title.trim())) {
+    toast.error(t('taskSubtasks.toasts.enterTitle'))
+    return
+  }
   saving.value = true
   try {
     const created = await taskStore.create({
@@ -520,6 +529,21 @@ async function createTask() {
         await taskStore.assign(created.id, taskAssigneeId.value)
       } catch (e: unknown) {
         toast.error(mapApiError(e, 'tasks.toasts.createFailed'))
+        showModal.value = false
+        await load()
+        return
+      }
+    }
+    if (subtaskDraft.value.length > 0) {
+      try {
+        await taskStore.applyDraftSubtasks(
+          created.id,
+          subtaskDraft.value,
+          [],
+          new Map(),
+        )
+      } catch (e: unknown) {
+        toast.error(mapApiError(e, 'taskSubtasks.toasts.addFailed'))
         showModal.value = false
         await load()
         return
@@ -782,7 +806,15 @@ async function onSectionMove(payload: {
         :submit-label="t('tasks.submitCreate')"
         @project-picked="prefetchTaskCreateSections"
         @submit="createTask"
-      />
+      >
+        <template #before-extra>
+          <TaskSubtasksPanel
+            :task="({ id: 0, subtasks: [] } as unknown as Task)"
+            draft-mode
+            v-model:draft="subtaskDraft"
+          />
+        </template>
+      </TaskForm>
       <template #footer>
         <div class="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="secondary" :disabled="saving" @click="showModal = false">

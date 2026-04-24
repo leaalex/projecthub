@@ -1020,13 +1020,14 @@
     "emptyReadonly": "No subtasks.",
     "srNew": "New subtask",
     "placeholder": "New subtask… (Enter)",
-    "clickToEdit": "Click to edit title",
     "editTitle": "Edit title",
+    "dragHandleTitle": "Drag to reorder",
     "aria": {
       "done": "Done: {title}",
       "editSubtask": "Edit subtask: {title}",
       "editSubtaskTitle": "Edit subtask title",
-      "removeSubtask": "Remove subtask"
+      "removeSubtask": "Remove subtask",
+      "reorder": "Reorder subtask: {title}. Use Alt+Arrow up or down to move."
     },
     "toasts": {
       "added": "Subtask added",
@@ -1034,6 +1035,7 @@
       "updateFailed": "Could not update subtask",
       "removed": "Subtask removed",
       "removeFailed": "Could not remove subtask",
+      "reorderFailed": "Could not reorder subtasks",
       "enterTitle": "Enter a subtask title"
     },
     "cellRequired": "Required"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { Bars2Icon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DraftSubtask, Subtask, Task } from '@domain/task/types'
@@ -35,8 +35,20 @@ const props = withDefaults(
      * Снимок с сервера по id подзадачи — для визуала «изменённых» строк (опционально).
      */
     subtaskOriginal?: Map<number, { title: string; done: boolean }>
+    /**
+     * Разрешить DnD и reorder (по умолчанию true; убавляется с `readonly`/`compact`).
+     */
+    allowReorder?: boolean
   }>(),
-  { readonly: false, hideHeading: false, compact: false, allowToggle: true, draftMode: false },
+  {
+    readonly: false,
+    hideHeading: false,
+    compact: false,
+    allowToggle: true,
+    allowRename: true,
+    draftMode: false,
+    allowReorder: true,
+  },
 )
 
 const emit = defineEmits<{
@@ -52,6 +64,7 @@ const toast = useToast()
 const newTitle = ref('')
 const newInputRef = useTemplateRef<{ focus: () => void }>('newInputRef')
 const busyAdd = ref(false)
+const busyReorder = ref(false)
 const busyId = ref<number | null>(null)
 const editingId = ref<number | null>(null)
 const editingClientKey = ref<string | null>(null)
@@ -79,8 +92,7 @@ const showAsReadonlyMarkers = computed(
 
 const effectiveAllowRename = computed(() => {
   if (props.readonly || showAsReadonlyMarkers.value) return false
-  if (props.allowRename != null) return props.allowRename
-  return !props.compact
+  return props.allowRename && !props.compact
 })
 
 /** В сайдбаре (draftMode=false) — edit/trash скрыты до hover; в модалке — всегда. */
@@ -89,6 +101,148 @@ const subtaskActionRevealClass = computed(() =>
     ? 'transition-opacity'
     : 'transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
 )
+
+const canReorder = computed(() => {
+  if (props.readonly || props.compact || sorted.value.length < 2) {
+    return false
+  }
+  if (!props.allowReorder) {
+    return false
+  }
+  return props.draftMode || effectiveAllowRename.value
+})
+
+const dragKey = ref<string | number | null>(null)
+const dragOverKey = ref<string | number | null>(null)
+const dragOverPos = ref<'before' | 'after' | null>(null)
+
+function canDrag(s: Subtask | DraftSubtask) {
+  return (
+    canReorder.value
+    && !isEditingItem(s)
+    && busyId.value == null
+    && !busyAdd.value
+    && !busyReorder.value
+  )
+}
+
+function onDragStart(s: Subtask | DraftSubtask, e: DragEvent) {
+  if (!canDrag(s)) {
+    e.preventDefault()
+    return
+  }
+  dragKey.value = itemKey(s)
+  e.dataTransfer?.setData('text/plain', String(dragKey.value))
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function onDragOver(s: Subtask | DraftSubtask, e: DragEvent) {
+  e.preventDefault()
+  if (dragKey.value == null) {
+    return
+  }
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  dragOverKey.value = itemKey(s)
+  dragOverPos.value = (e.clientY - r.top) < r.height / 2 ? 'before' : 'after'
+}
+
+function onDragEnd() {
+  dragKey.value = null
+  dragOverKey.value = null
+  dragOverPos.value = null
+}
+
+function applyOrderFromKeys(newKeys: (string | number)[]) {
+  if (props.draftMode) {
+    const byKey = new Map(draft.value.map((d) => [d.clientKey, d]))
+    const reordered: DraftSubtask[] = []
+    let i = 0
+    for (const k of newKeys) {
+      const d = byKey.get(k as string)
+      if (d) {
+        reordered.push({ ...d, position: i + 1 })
+        i += 1
+      }
+    }
+    draft.value = reordered
+    return
+  }
+  const ids = newKeys.map((k) => Number(k)) as number[]
+  void doReorderServer(ids)
+}
+
+async function doReorderServer(ids: number[]) {
+  busyReorder.value = true
+  try {
+    await taskStore.reorderSubtasks(props.task.id, ids)
+    emit('updated')
+  } catch (e: unknown) {
+    toastSubtaskError(e, 'taskSubtasks.toasts.reorderFailed')
+    emit('updated')
+  } finally {
+    busyReorder.value = false
+  }
+}
+
+function onDrop(s: Subtask | DraftSubtask, e: DragEvent) {
+  e.preventDefault()
+  if (dragKey.value == null) {
+    return
+  }
+  const fromK = dragKey.value
+  const overK = itemKey(s)
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const before = (e.clientY - r.top) < r.height / 2
+  const pos: 'before' | 'after' = before ? 'before' : 'after'
+  if (fromK === overK) {
+    onDragEnd()
+    return
+  }
+  const keys = sorted.value.map((x) => itemKey(x))
+  const newKeys = keys.filter((k) => k !== fromK)
+  const insertAt
+    = pos === 'before' ? newKeys.indexOf(overK) : newKeys.indexOf(overK) + 1
+  const at = insertAt < 0 ? 0 : insertAt
+  newKeys.splice(at, 0, fromK)
+  applyOrderFromKeys(newKeys)
+  onDragEnd()
+}
+
+function moveByKeyboard(s: Subtask | DraftSubtask, dir: -1 | 1) {
+  if (!canDrag(s) || busyReorder.value) {
+    return
+  }
+  const keys = sorted.value.map((x) => itemKey(x))
+  const k = itemKey(s)
+  const i = keys.indexOf(k)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= keys.length) {
+    return
+  }
+  const newKeys = [...keys]
+  const [m] = newKeys.splice(i, 1)
+  newKeys.splice(j, 0, m)
+  applyOrderFromKeys(newKeys)
+}
+
+function onRowKeydown(s: Subtask | DraftSubtask, e: KeyboardEvent) {
+  if (!e.altKey) {
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    moveByKeyboard(s, -1)
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    moveByKeyboard(s, 1)
+  }
+}
 
 function sortSubtasks(list: Subtask[]): Subtask[] {
   return [...list].sort(
@@ -137,7 +291,7 @@ function newClientKey() {
 
 async function addSubtask() {
   const title = newTitle.value.trim()
-  if (!title || busyAdd.value) return
+  if (!title || busyAdd.value || busyReorder.value) return
 
   if (props.draftMode) {
     const list = draft.value
@@ -175,6 +329,7 @@ async function addSubtask() {
 }
 
 async function toggle(s: Subtask | DraftSubtask) {
+  if (busyReorder.value) return
   if (isDraft(s)) {
     const i = draft.value.findIndex((x) => x.clientKey === s.clientKey)
     if (i < 0) return
@@ -198,6 +353,7 @@ async function toggle(s: Subtask | DraftSubtask) {
 }
 
 async function remove(s: Subtask | DraftSubtask) {
+  if (busyReorder.value) return
   if (isDraft(s)) {
     if (s.id != null) {
       const id = s.id
@@ -229,7 +385,7 @@ function onNewKeydown(e: KeyboardEvent) {
 }
 
 function startEdit(s: Subtask | DraftSubtask) {
-  if (busyId.value != null) return
+  if (busyId.value != null || busyReorder.value) return
   if (isDraft(s)) {
     editingClientKey.value = s.clientKey
   } else {
@@ -338,8 +494,23 @@ defineExpose({ focusNewInput })
       <li
         v-for="s in sorted"
         :key="itemKey(s)"
-        class="group flex min-w-0 items-center gap-2"
-        :class="compact ? 'py-0.5' : 'py-1'"
+        class="group flex min-w-0 items-center gap-2 rounded-sm"
+        :class="[
+          compact ? 'py-0.5' : 'py-1',
+          dragKey === itemKey(s) && 'opacity-50',
+          dragKey != null
+            && dragOverKey === itemKey(s)
+            && dragOverPos === 'before' && 'border-t-2 border-primary',
+          dragKey != null
+            && dragOverKey === itemKey(s)
+            && dragOverPos === 'after' && 'border-b-2 border-primary',
+        ]"
+        :tabindex="canDrag(s) ? 0 : -1"
+        :aria-grabbed="canReorder && dragKey === itemKey(s) ? 'true' : 'false'"
+        @dragenter.prevent
+        @dragover="onDragOver(s, $event)"
+        @drop="onDrop(s, $event)"
+        @keydown="onRowKeydown(s, $event)"
       >
         <div
           v-if="draftMode && isDraft(s) && isSubtaskRowDirty(s)"
@@ -366,11 +537,34 @@ defineExpose({ focusNewInput })
           </span>
         </template>
         <template v-else>
+          <div
+            v-if="canReorder"
+            class="flex shrink-0 touch-none select-none"
+            :class="[
+              'items-center',
+              canDrag(s)
+                ? 'cursor-grab active:cursor-grabbing text-muted hover:text-foreground'
+                : 'pointer-events-none opacity-30',
+            ]"
+            :draggable="canDrag(s)"
+            :title="t('taskSubtasks.dragHandleTitle')"
+            :aria-label="t('taskSubtasks.aria.reorder', { title: s.title })"
+            role="button"
+            @dragstart="onDragStart(s, $event)"
+            @dragend="onDragEnd"
+            @click.stop
+          >
+            <Bars2Icon class="h-4 w-4" aria-hidden="true" />
+          </div>
           <input
             type="checkbox"
             class="h-3.5 w-3.5 shrink-0 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring sm:h-4 sm:w-4"
             :checked="s.done"
-            :disabled="(busyId != null && !isDraft(s) && busyId === s.id) || isEditingItem(s)"
+            :disabled="
+              busyReorder
+                || (busyId != null && !isDraft(s) && busyId === s.id)
+                || isEditingItem(s)
+            "
             :aria-label="t('taskSubtasks.aria.done', { title: s.title })"
             @change="toggle(s)"
           />
@@ -381,26 +575,24 @@ defineExpose({ focusNewInput })
               v-model="editDraft"
               class="w-full min-w-0"
               :class="compact ? 'text-xs' : ''"
-              :disabled="busyId != null && !isDraft(s) && busyId === s.id"
+              :disabled="
+                busyReorder || (busyId != null && !isDraft(s) && busyId === s.id)
+              "
               :aria-label="t('taskSubtasks.aria.editSubtask', { title: s.title })"
               autofocus
               @keydown="onEditKeydown(s, $event)"
               @blur="commitEdit(s)"
             />
             <template v-else>
-              <button
+              <span
                 v-if="effectiveAllowRename && !compact"
-                type="button"
-                class="min-w-0 flex-1 rounded px-0.5 py-0 text-left text-sm leading-snug transition-colors hover:bg-surface-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                class="min-w-0 flex-1 py-0 text-left text-sm leading-snug"
                 :class="[
                   s.done ? 'text-muted line-through' : 'text-foreground',
                 ]"
-                :title="t('taskSubtasks.clickToEdit')"
-                :disabled="busyId != null && !isDraft(s) && busyId === s.id"
-                @click="startEdit(s)"
               >
                 {{ s.title }}
-              </button>
+              </span>
               <template v-else-if="effectiveAllowRename && compact">
                 <span
                   class="min-w-0 flex-1 leading-snug"
@@ -416,7 +608,10 @@ defineExpose({ focusNewInput })
                   class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   :aria-label="t('taskSubtasks.aria.editSubtaskTitle')"
                   :title="t('taskSubtasks.editTitle')"
-                  :disabled="busyId != null && !isDraft(s) && busyId === s.id"
+                  :disabled="
+                    busyReorder
+                      || (busyId != null && !isDraft(s) && busyId === s.id)
+                  "
                   @mousedown.prevent
                   @click.stop="startEdit(s)"
                 >
@@ -442,7 +637,9 @@ defineExpose({ focusNewInput })
             :class="subtaskActionRevealClass"
             :aria-label="t('taskSubtasks.aria.editSubtaskTitle')"
             :title="t('taskSubtasks.editTitle')"
-            :disabled="busyId != null && !isDraft(s) && busyId === s.id"
+            :disabled="
+              busyReorder || (busyId != null && !isDraft(s) && busyId === s.id)
+            "
             @mousedown.prevent
             @click.stop="startEdit(s)"
           >
@@ -454,7 +651,11 @@ defineExpose({ focusNewInput })
             class="shrink-0 rounded p-1 text-muted transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             :class="subtaskActionRevealClass"
             :aria-label="t('taskSubtasks.aria.removeSubtask')"
-            :disabled="(busyId != null && !isDraft(s) && busyId === s.id) || isEditingItem(s)"
+            :disabled="
+              busyReorder
+                || (busyId != null && !isDraft(s) && busyId === s.id)
+                || isEditingItem(s)
+            "
             @mousedown.prevent
             @click="remove(s)"
           >
@@ -475,6 +676,11 @@ defineExpose({ focusNewInput })
       v-if="!readonly && !compact"
       class="flex min-w-0 items-center gap-2 py-1"
     >
+      <div
+        v-if="canReorder"
+        class="h-4 w-4 shrink-0"
+        aria-hidden="true"
+      />
       <input
         type="checkbox"
         disabled
@@ -492,7 +698,7 @@ defineExpose({ focusNewInput })
           :id="`subtask-new-${task.id}`"
           v-model="newTitle"
           :placeholder="t('taskSubtasks.placeholder')"
-          :disabled="!draftMode && busyAdd"
+          :disabled="!draftMode && (busyAdd || busyReorder)"
           class="w-full min-w-0"
           @keydown="onNewKeydown"
         />

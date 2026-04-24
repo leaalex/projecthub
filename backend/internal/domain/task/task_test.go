@@ -42,6 +42,49 @@ func TestTaskSubtasks(t *testing.T) {
 	}
 }
 
+func TestTask_ReorderSubtasks_invalid(t *testing.T) {
+	now := time.Now()
+	tr, err := NewTask(project.ID(1), nil, "T", "", StatusTodo, PriorityMedium, 1, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st1, _ := tr.AddSubtask("A", now)
+	st2, _ := tr.AddSubtask("B", now)
+	st1.AssignID(SubtaskID(1))
+	st2.AssignID(SubtaskID(2))
+
+	if err := tr.ReorderSubtasks(nil, now); err != ErrInvalidSubtaskReorder {
+		t.Fatalf("empty order: got %v want ErrInvalidSubtaskReorder", err)
+	}
+	if err := tr.ReorderSubtasks([]SubtaskID{SubtaskID(1)}, now); err != ErrInvalidSubtaskReorder {
+		t.Fatalf("incomplete: got %v", err)
+	}
+	if err := tr.ReorderSubtasks([]SubtaskID{SubtaskID(10), SubtaskID(2)}, now); err != ErrInvalidSubtaskReorder {
+		t.Fatalf("unknown id: got %v", err)
+	}
+	if err := tr.ReorderSubtasks([]SubtaskID{SubtaskID(2), SubtaskID(2)}, now); err != ErrInvalidSubtaskReorder {
+		t.Fatalf("dup: got %v", err)
+	}
+}
+
+func TestTask_ReorderSubtasks_happy(t *testing.T) {
+	now := time.Now()
+	tr, err := NewTask(project.ID(1), nil, "T", "", StatusTodo, PriorityMedium, 1, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st1, _ := tr.AddSubtask("A", now)
+	st2, _ := tr.AddSubtask("B", now)
+	st1.AssignID(SubtaskID(1))
+	st2.AssignID(SubtaskID(2))
+	if err := tr.ReorderSubtasks([]SubtaskID{SubtaskID(2), SubtaskID(1)}, now); err != nil {
+		t.Fatal(err)
+	}
+	if tr.SubtaskByID(SubtaskID(1)).Position() != 2 || tr.SubtaskByID(SubtaskID(2)).Position() != 1 {
+		t.Fatalf("positions: %d %d", tr.SubtaskByID(SubtaskID(2)).Position(), tr.SubtaskByID(SubtaskID(1)).Position())
+	}
+}
+
 func TestTaskComplete(t *testing.T) {
 	now := time.Now()
 	tr, _ := NewTask(project.ID(1), nil, "T", "", StatusTodo, PriorityMedium, 1, nil, now)

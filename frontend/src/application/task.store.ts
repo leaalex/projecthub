@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Subtask, Task, TaskPriority, TaskStatus } from '@domain/task/types'
+import type {
+  DraftSubtask,
+  Subtask,
+  Task,
+  TaskPriority,
+  TaskStatus,
+} from '@domain/task/types'
 import { tasksApi } from '@infra/api/tasks'
 import { useProjectStore } from './project.store'
 
@@ -138,6 +144,104 @@ export const useTaskStore = defineStore('task', () => {
     patchTaskSubtasks(taskId, list)
   }
 
+  async function reorderSubtasks(taskId: number, subtaskIds: number[]) {
+    if (subtaskIds.length < 2) {
+      return
+    }
+    await tasksApi.subtasks.reorder(taskId, subtaskIds)
+    const t = tasks.value.find((x) => x.id === taskId)
+    if (!t) {
+      return
+    }
+    const byId = new Map((t.subtasks ?? []).map((s) => [s.id, s]))
+    const next: Subtask[] = []
+    let p = 1
+    for (const id of subtaskIds) {
+      const s = byId.get(id)
+      if (s) {
+        next.push({ ...s, position: p })
+        p += 1
+      }
+    }
+    patchTaskSubtasks(taskId, next)
+  }
+
+  function sortDraftsByPosition(list: DraftSubtask[]): DraftSubtask[] {
+    return [...list].sort(
+      (a, b) =>
+        a.position - b.position
+        || (a.id != null && b.id != null ? a.id - b.id : 0)
+        || a.clientKey.localeCompare(b.clientKey),
+    )
+  }
+
+  /**
+   * Применяет черновик подзадач: удаления, новые (create + опциональный done)
+   * и дифы по `original` для существующих id.
+   * В конце — при необходимости batch `reorder`, чтобы порядок в draft совпал с бэкендом.
+   */
+  async function applyDraftSubtasks(
+    taskId: number,
+    draft: DraftSubtask[],
+    removedIds: number[],
+    original: Map<number, { title: string; done: boolean }>,
+  ) {
+    for (const subId of removedIds) {
+      await deleteSubtask(taskId, subId)
+    }
+    const createdIds = new Map<string, number>()
+    const ordered = sortDraftsByPosition(draft)
+    for (const it of ordered) {
+      const trimmed = it.title.trim()
+      if (it.id == null) {
+        const created = await createSubtask(taskId, trimmed)
+        createdIds.set(it.clientKey, created.id)
+        if (it.done) {
+          await updateSubtask(taskId, created.id, { done: true })
+        }
+        continue
+      }
+      const o = original.get(it.id)
+      if (!o) {
+        continue
+      }
+      const patch: Partial<{ title: string; done: boolean }> = {}
+      if (o.title !== trimmed) {
+        patch.title = trimmed
+      }
+      if (o.done !== it.done) {
+        patch.done = it.done
+      }
+      if (Object.keys(patch).length > 0) {
+        await updateSubtask(taskId, it.id, patch)
+      }
+    }
+
+    if (ordered.length < 2) {
+      return
+    }
+    const intendedIds: number[] = []
+    for (const it of ordered) {
+      const id = it.id ?? createdIds.get(it.clientKey)
+      if (id == null) {
+        continue
+      }
+      intendedIds.push(id)
+    }
+    if (intendedIds.length < 2) {
+      return
+    }
+    const t = tasks.value.find((x) => x.id === taskId)
+    const currentIds = sortSubtasks(t?.subtasks ?? []).map((s) => s.id)
+    if (
+      currentIds.length === intendedIds.length
+      && currentIds.every((x, i) => x === intendedIds[i])
+    ) {
+      return
+    }
+    await reorderSubtasks(taskId, intendedIds)
+  }
+
   return {
     tasks,
     loading,
@@ -153,5 +257,7 @@ export const useTaskStore = defineStore('task', () => {
     toggleSubtask,
     updateSubtask,
     deleteSubtask,
+    applyDraftSubtasks,
+    reorderSubtasks,
   }
 })

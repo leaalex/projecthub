@@ -265,6 +265,31 @@ func (t *Task) SetSubtaskPosition(id SubtaskID, pos int, now time.Time) error {
 	return nil
 }
 
+// ReorderSubtasks задаёт порядок подзадач (полный список id без дубликатов).
+func (t *Task) ReorderSubtasks(order []SubtaskID, now time.Time) error {
+	if len(order) == 0 {
+		return ErrInvalidSubtaskReorder
+	}
+	if len(order) != len(t.subtasks) {
+		return ErrInvalidSubtaskReorder
+	}
+	seen := make(map[SubtaskID]struct{}, len(order))
+	for _, id := range order {
+		if _, dup := seen[id]; dup {
+			return ErrInvalidSubtaskReorder
+		}
+		seen[id] = struct{}{}
+		if t.findSubtask(id) == nil {
+			return ErrInvalidSubtaskReorder
+		}
+	}
+	for i, id := range order {
+		t.findSubtask(id).SetPosition(i+1, now)
+	}
+	t.Touch(now)
+	return nil
+}
+
 // RemoveSubtask удаляет подзадачу из агрегата.
 func (t *Task) RemoveSubtask(id SubtaskID, now time.Time) error {
 	for i, s := range t.subtasks {

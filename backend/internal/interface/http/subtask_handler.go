@@ -24,6 +24,10 @@ type subtaskUpdateBody struct {
 	Position *int    `json:"position"`
 }
 
+type subtaskReorderBody struct {
+	SubtaskIDs []uint `json:"subtask_ids" binding:"required,min=1"`
+}
+
 func (h *SubtaskHandler) List(c *gin.Context) {
 	uid, ok := ctxUserID(c)
 	if !ok {
@@ -50,6 +54,34 @@ func (h *SubtaskHandler) List(c *gin.Context) {
 		out = append(out, subtaskToJSON(s))
 	}
 	c.JSON(http.StatusOK, gin.H{"subtasks": out})
+}
+
+func (h *SubtaskHandler) Reorder(c *gin.Context) {
+	uid, ok := ctxUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, ok := ctxRole(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad id"})
+		return
+	}
+	var body subtaskReorderBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.Tasks.ReorderSubtasks(c.Request.Context(), uint(taskID), uid, role, body.SubtaskIDs); err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *SubtaskHandler) Create(c *gin.Context) {

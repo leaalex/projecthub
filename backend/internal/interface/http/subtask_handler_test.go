@@ -91,6 +91,83 @@ func TestSubtask_CRUD(t *testing.T) {
 	})
 }
 
+func TestSubtask_Reorder(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	owner, pass := app.SeedUserWithPassword(domainuser.RoleCreator, "creator123")
+	token, _ := app.Login(owner.Email().String(), pass)
+	p := app.SeedProject(owner.ID().Uint(), "team")
+	task := app.SeedTask(p.ID().Uint())
+
+	var id1, id2, id3 uint
+	for i, title := range []string{"A", "B", "C"} {
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID().Uint()), map[string]any{
+			"title": title,
+		}, token)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("subtask %d: %d %v", i, rec.Code, data)
+		}
+		sid := uint(data["subtask"].(map[string]any)["id"].(float64))
+		switch i {
+		case 0:
+			id1 = sid
+		case 1:
+			id2 = sid
+		case 2:
+			id3 = sid
+		}
+	}
+
+	t.Run("reorder 3,1,2", func(t *testing.T) {
+		rec, _ := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks/reorder", task.ID().Uint()), map[string]any{
+			"subtask_ids": []uint{id3, id1, id2},
+		}, token)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected 204, got %d", rec.Code)
+		}
+		rec2, data := app.Do(http.MethodGet, fmt.Sprintf("/api/tasks/%d/subtasks", task.ID().Uint()), nil, token)
+		if rec2.Code != http.StatusOK {
+			t.Fatalf("list: %d %v", rec2.Code, data)
+		}
+		subs := data["subtasks"].([]any)
+		if len(subs) != 3 {
+			t.Fatalf("len: %d", len(subs))
+		}
+		// list order = position; first item should be C (id3)
+		first := subs[0].(map[string]any)
+		if uint(first["id"].(float64)) != id3 {
+			t.Fatalf("first id: got %v want %d", first["id"], id3)
+		}
+		if int(first["position"].(float64)) != 1 {
+			t.Fatalf("first position: %v", first["position"])
+		}
+	})
+
+	t.Run("invalid reorder (incomplete list)", func(t *testing.T) {
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks/reorder", task.ID().Uint()), map[string]any{
+			"subtask_ids": []uint{id1, id2},
+		}, token)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %v", rec.Code, data)
+		}
+	})
+
+	member, memberPass := app.SeedUserWithPassword(domainuser.RoleUser, "member123")
+	app.Do(http.MethodPost, fmt.Sprintf("/api/projects/%d/members", p.ID().Uint()), map[string]any{
+		"user_id": member.ID().Uint(),
+		"role":    "executor",
+	}, token)
+	memberToken, _ := app.Login(member.Email().String(), memberPass)
+
+	t.Run("executor forbidden", func(t *testing.T) {
+		rec, data := app.Do(http.MethodPost, fmt.Sprintf("/api/tasks/%d/subtasks/reorder", task.ID().Uint()), map[string]any{
+			"subtask_ids": []uint{id1, id2, id3},
+		}, memberToken)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403, got %d: %v", rec.Code, data)
+		}
+	})
+}
+
 // TestSubtask_CascadeOnTaskHardDelete проверяет, что подзадачи физически удаляются
 // при жёстком удалении родительской задачи.
 func TestSubtask_CascadeOnTaskDelete(t *testing.T) {

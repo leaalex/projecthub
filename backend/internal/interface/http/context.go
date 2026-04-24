@@ -130,7 +130,8 @@ func mapServiceError(err error) (code string, status int) {
 		return "invalid_assignee", http.StatusBadRequest
 	case errors.Is(err, application.ErrIncompleteTaskTransfer):
 		return "incomplete_task_transfer", http.StatusBadRequest
-	case errors.Is(err, project.ErrInvalidReorder):
+	case errors.Is(err, project.ErrInvalidReorder),
+		errors.Is(err, task.ErrInvalidSubtaskReorder):
 		return "invalid_reorder", http.StatusBadRequest
 	case errors.Is(err, project.ErrOwnershipUnchanged):
 		return "ownership_unchanged", http.StatusBadRequest

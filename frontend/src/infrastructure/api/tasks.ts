@@ -79,6 +79,15 @@ export const tasksApi = {
       api.post<{ subtask: Subtask }>(`/tasks/${taskId}/subtasks`, { title }),
 
     /**
+     * Задать порядок подзадач (полный список id).
+     * @http POST /tasks/:taskId/subtasks/reorder
+     */
+    reorder: (taskId: number, subtaskIds: number[]) =>
+      api.post<void>(`/tasks/${taskId}/subtasks/reorder`, {
+        subtask_ids: subtaskIds,
+      }),
+
+    /**
      * Обновить подзадачу.
      * @http PUT /tasks/:taskId/subtasks/:subtaskId
      */

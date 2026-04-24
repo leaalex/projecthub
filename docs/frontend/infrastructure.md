@@ -119,6 +119,7 @@ response 401
 | `tasksApi.assign(id, assignee_id)` | POST | `/tasks/:id/assign` |
 | `tasksApi.complete(id)` | POST | `/tasks/:id/complete` |
 | `tasksApi.subtasks.create(taskId, title)` | POST | `/tasks/:taskId/subtasks` |
+| `tasksApi.subtasks.reorder(taskId, subtaskIds)` | POST | `/tasks/:taskId/subtasks/reorder` |
 | `tasksApi.subtasks.toggle(taskId, subtaskId)` | POST | `/tasks/:taskId/subtasks/:subtaskId/toggle` |
 | `tasksApi.subtasks.update(taskId, subtaskId, patch)` | PUT | `/tasks/:taskId/subtasks/:subtaskId` |
 | `tasksApi.subtasks.remove(taskId, subtaskId)` | DELETE | `/tasks/:taskId/subtasks/:subtaskId` |

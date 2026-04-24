@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -254,5 +255,107 @@ func TestTaskService_VisibleProjectIDs_union(t *testing.T) {
 	}
 	if len(ids) != 2 {
 		t.Fatalf("got %v", ids)
+	}
+}
+
+func TestTaskService_ReorderSubtasks(t *testing.T) {
+	memP := newMemProjects()
+	memT := newMemTasks()
+	memU := newMemUsers()
+	svc := application.NewTaskService(memT, memP, memU)
+
+	p, err := project.NewProject(user.ID(1), user.RoleCreator, "P", "", project.KindTeam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Touch(time.Now())
+	if err := memP.Save(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	st1 := task.ReconstituteSubtask(task.SubtaskID(1), "A", false, 1, now, now)
+	st2 := task.ReconstituteSubtask(task.SubtaskID(2), "B", false, 2, now, now)
+	st3 := task.ReconstituteSubtask(task.SubtaskID(3), "C", false, 3, now, now)
+	tr := task.Reconstitute(
+		task.ID(1),
+		p.ID(),
+		nil,
+		nil,
+		"T",
+		"",
+		task.StatusTodo,
+		task.PriorityMedium,
+		1,
+		nil,
+		[]*task.Subtask{st1, st2, st3},
+		now,
+		now,
+	)
+	if err := memT.Save(context.Background(), tr); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.ReorderSubtasks(context.Background(), 1, 1, user.RoleUser, []uint{3, 1, 2}); err != nil {
+		t.Fatal(err)
+	}
+
+	t2, err := svc.Get(context.Background(), 1, 1, user.RoleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if t2.SubtaskByID(task.SubtaskID(3)).Position() != 1 ||
+		t2.SubtaskByID(task.SubtaskID(1)).Position() != 2 ||
+		t2.SubtaskByID(task.SubtaskID(2)).Position() != 3 {
+		t.Fatalf("positions: %d %d %d",
+			t2.SubtaskByID(task.SubtaskID(3)).Position(),
+			t2.SubtaskByID(task.SubtaskID(1)).Position(),
+			t2.SubtaskByID(task.SubtaskID(2)).Position())
+	}
+}
+
+func TestTaskService_ReorderSubtasks_forbidden(t *testing.T) {
+	memP := newMemProjects()
+	memT := newMemTasks()
+	memU := newMemUsers()
+	svc := application.NewTaskService(memT, memP, memU)
+
+	p, err := project.NewProject(user.ID(1), user.RoleCreator, "P", "", project.KindTeam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Touch(time.Now())
+	if err := memP.Save(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	st1 := task.ReconstituteSubtask(task.SubtaskID(1), "A", false, 1, now, now)
+	st2 := task.ReconstituteSubtask(task.SubtaskID(2), "B", false, 2, now, now)
+	tr := task.Reconstitute(
+		task.ID(1),
+		p.ID(),
+		nil,
+		nil,
+		"T",
+		"",
+		task.StatusTodo,
+		task.PriorityMedium,
+		1,
+		nil,
+		[]*task.Subtask{st1, st2},
+		now,
+		now,
+	)
+	if err := memT.Save(context.Background(), tr); err != nil {
+		t.Fatal(err)
+	}
+
+	err = svc.ReorderSubtasks(context.Background(), 1, 2, user.RoleUser, []uint{1, 2})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, application.ErrForbidden) {
+		t.Fatalf("got %v", err)
 	}
 }

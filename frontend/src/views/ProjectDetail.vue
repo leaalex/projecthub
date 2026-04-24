@@ -13,6 +13,7 @@ import Skeleton from '../components/ui/UiSkeleton.vue'
 import TaskDetailModal from '../components/tasks/TaskDetailModal.vue'
 import TaskFiltersPanel from '../components/tasks/TaskFiltersPanel.vue'
 import TaskForm from '../components/tasks/TaskForm.vue'
+import TaskSubtasksPanel from '../components/tasks/TaskSubtasksPanel.vue'
 import NoteForm from '../components/notes/NoteForm.vue'
 import ProjectForm from '../components/projects/ProjectForm.vue'
 import ProjectItemList from '../components/projects/ProjectItemList.vue'
@@ -39,7 +40,7 @@ import { useTaskEditPermission } from '@app/composables/useCanEditTask'
 import { useToast } from '@app/composables/useToast'
 import { isPrivilegedRole } from '@domain/user/role'
 import type { SectionDisplayMode } from '@domain/project/types'
-import type { TaskPriority, TaskStatus } from '@domain/task/types'
+import type { DraftSubtask, Task, TaskPriority, TaskStatus } from '@domain/task/types'
 import type { NotePermissionContext } from '@domain/note/permissions'
 import { canManageNote } from '@domain/note/permissions'
 import { mapApiError } from '@infra/api/errorMap'
@@ -165,6 +166,7 @@ const modalStatus = ref<TaskStatus>('todo')
 const modalPriority = ref<TaskPriority>('medium')
 const modalAssigneeId = ref(0)
 const modalSaving = ref(false)
+const modalSubtaskDraft = ref<DraftSubtask[]>([])
 
 const taskCreateModalDirty = computed(
   () =>
@@ -174,7 +176,8 @@ const taskCreateModalDirty = computed(
       || modalStatus.value !== 'todo'
       || modalPriority.value !== 'medium'
       || modalTaskSectionId.value !== null
-      || modalAssigneeId.value > 0),
+      || modalAssigneeId.value > 0
+      || modalSubtaskDraft.value.length > 0),
 )
 
 const editProjectModalOpen = ref(false)
@@ -333,6 +336,7 @@ watch(showModal, (open) => {
     modalStatus.value = 'todo'
     modalPriority.value = 'medium'
     modalAssigneeId.value = 0
+    modalSubtaskDraft.value = []
     return
   }
   if (Number.isFinite(id.value) && id.value > 0) {
@@ -580,6 +584,10 @@ async function createTaskFromModal() {
     toast.error(t('projectDetail.invalidProject'))
     return
   }
+  if (modalSubtaskDraft.value.some(it => !it.title.trim())) {
+    toast.error(t('taskSubtasks.toasts.enterTitle'))
+    return
+  }
   modalSaving.value = true
   try {
     const created = await taskStore.create({
@@ -595,6 +603,21 @@ async function createTaskFromModal() {
         await taskStore.assign(created.id, modalAssigneeId.value)
       } catch (e: unknown) {
         toast.error(mapApiError(e, 'projectDetail.createTaskFailed'))
+        showModal.value = false
+        await refreshProjectTasks()
+        return
+      }
+    }
+    if (modalSubtaskDraft.value.length > 0) {
+      try {
+        await taskStore.applyDraftSubtasks(
+          created.id,
+          modalSubtaskDraft.value,
+          [],
+          new Map(),
+        )
+      } catch (e: unknown) {
+        toast.error(mapApiError(e, 'taskSubtasks.toasts.addFailed'))
         showModal.value = false
         await refreshProjectTasks()
         return
@@ -893,7 +916,15 @@ async function onReopen(taskId: number) {
         :loading="modalSaving"
         :submit-label="t('projectDetail.submitCreate')"
         @submit="createTaskFromModal"
-      />
+      >
+        <template #before-extra>
+          <TaskSubtasksPanel
+            :task="({ id: 0, subtasks: [] } as unknown as Task)"
+            draft-mode
+            v-model:draft="modalSubtaskDraft"
+          />
+        </template>
+      </TaskForm>
       <template #footer>
         <div class="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="secondary" :disabled="modalSaving" @click="showModal = false">

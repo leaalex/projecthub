@@ -297,27 +297,12 @@ export function useTaskDetail(options: UseTaskDetailOptions) {
 
       task.value = updated
 
-      for (const subId of subtaskRemovedIds.value) {
-        await taskStore.deleteSubtask(cur.id, subId)
-      }
-      for (const it of subtaskDraft.value) {
-        const trimmed = it.title.trim()
-        if (it.id == null) {
-          const created = await taskStore.createSubtask(cur.id, trimmed)
-          if (it.done) {
-            await taskStore.updateSubtask(cur.id, created.id, { done: true })
-          }
-          continue
-        }
-        const o = subtaskOriginal.value.get(it.id)
-        if (!o) continue
-        const patch: Partial<{ title: string; done: boolean }> = {}
-        if (o.title !== trimmed) patch.title = trimmed
-        if (o.done !== it.done) patch.done = it.done
-        if (Object.keys(patch).length > 0) {
-          await taskStore.updateSubtask(cur.id, it.id, patch)
-        }
-      }
+      await taskStore.applyDraftSubtasks(
+        cur.id,
+        subtaskDraft.value,
+        subtaskRemovedIds.value,
+        subtaskOriginal.value,
+      )
 
       task.value = await taskStore.fetchOne(cur.id)
       resetSubtaskDraft(task.value)

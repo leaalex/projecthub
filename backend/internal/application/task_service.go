@@ -513,3 +513,29 @@ func (s *TaskService) DeleteSubtask(ctx context.Context, taskID, subtaskID, call
 	}
 	return nil
 }
+
+// ReorderSubtasks задаёт порядок подзадач по полному списку id.
+func (s *TaskService) ReorderSubtasks(ctx context.Context, taskID, callerID uint, role user.Role, subtaskIDs []uint) error {
+	t, err := s.Get(ctx, taskID, callerID, role)
+	if err != nil {
+		return err
+	}
+	ok, err := s.CanManageProjectTasks(ctx, t.ProjectID().Uint(), callerID, role)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrForbidden
+	}
+	order := make([]task.SubtaskID, 0, len(subtaskIDs))
+	for _, id := range subtaskIDs {
+		order = append(order, task.SubtaskID(id))
+	}
+	if err := t.ReorderSubtasks(order, s.Clock()); err != nil {
+		return err
+	}
+	if err := s.Tasks.Save(ctx, t); err != nil {
+		return fmt.Errorf("save task %d after reorder subtasks: %w", t.ID().Uint(), err)
+	}
+	return nil
+}

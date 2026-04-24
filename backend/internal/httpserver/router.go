@@ -142,6 +142,7 @@ func BuildRouter(deps Deps) *gin.Engine {
 	tasks.POST("", taskHandler.Create)
 	tasks.GET("/:id/subtasks", subtaskHandler.List)
 	tasks.POST("/:id/subtasks", subtaskHandler.Create)
+	tasks.POST("/:id/subtasks/reorder", subtaskHandler.Reorder)
 	tasks.PUT("/:id/subtasks/:sid", subtaskHandler.Update)
 	tasks.DELETE("/:id/subtasks/:sid", subtaskHandler.Delete)
 	tasks.POST("/:id/subtasks/:sid/toggle", subtaskHandler.Toggle)
